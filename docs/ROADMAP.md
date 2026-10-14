@@ -11,9 +11,9 @@ Each phase ends with something you can see running.
 ## Phase 0: Data pipeline (in progress)
 
 - [x] Readers for ERF archives, GFF4, talk tables, data tables, conversations
-- [ ] Run `daotools scan` on the real install and record the archive layout here
-- [ ] Confirm the Human Noble resource prefix (expected `bhn`) with `daotools find`
-- [ ] `daotools pull` the origin; check a few `.cnv.txt` scripts against the game
+- [x] Run `daotools scan` on the real install and record the archive layout (`docs/GAME_DATA.md`)
+- [x] Confirm the Human Noble resource prefix (`bhn`, 817 resources)
+- [ ] `daotools pull` the origin; check a few `.dlg.txt` scripts against the game
       and fix the conversation field mapping where it is wrong
 - [ ] Plot files (`.plo`): flag names, so conditions read as "QUEST_DONE"
       rather than numbers

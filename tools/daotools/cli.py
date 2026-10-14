@@ -27,10 +27,6 @@ from .fields import NAMES
 from .gff4 import GFF4, GFF4Error, to_jsonable
 from .tlk import TalkTable, TalkTables
 
-GFF_EXTENSIONS = {"cnv", "gda", "tlk", "plo", "are", "utc", "uti", "utp", "ute", "utm", "uts", "utt", "utw",
-                  "arl", "dlb", "stg", "gff", "cut", "cub", "gpr"}
-
-
 def _write(text: str, out: str | None) -> None:
     if out:
         Path(out).parent.mkdir(parents=True, exist_ok=True)
@@ -125,8 +121,17 @@ def cmd_find(args) -> int:
 
 def _find_talk_tables(game_dir: str, lang: str) -> list[Path]:
     found = [p for p in _walk(game_dir) if p.suffix.lower() == ".tlk" and lang.lower() in p.name.lower()]
-    # module tables override core ones, so search them first
-    return sorted(found, key=lambda p: ("core" in str(p).lower(), str(p)))
+
+    # The base game's single player module first, then the core game, then DLC.
+    def rank(p: Path) -> tuple:
+        rel = str(p.relative_to(game_dir)).lower().replace("\\", "/")
+        if rel.startswith("modules/single player/"):
+            return (0, rel)
+        if rel.startswith("packages/core/"):
+            return (1, rel)
+        return (2, rel)
+
+    return sorted(found, key=rank)
 
 
 def cmd_pull(args) -> int:
@@ -139,12 +144,13 @@ def cmd_pull(args) -> int:
         for p in paths:
             try:
                 tables.append(TalkTable.open(p))
-                print(f"talk table {p}: {len(tables[-1])} strings", file=sys.stderr)
             except Exception as e:  # keep going without that table
                 print(f"skip talk table {p}: {e}", file=sys.stderr)
         tlk = TalkTables(tables)
+        print(f"loaded {len(tables)} talk tables, {sum(len(t) for t in tables)} strings", file=sys.stderr)
 
-    counts, failures = Counter(), []
+    counts, formats, failures = Counter(), Counter(), []
+    summary = {}
     for archive, name, _size, load in _matches(args.game_dir, args.pattern):
         where = archive.stem if archive else "loose"
         try:
@@ -156,36 +162,63 @@ def cmd_pull(args) -> int:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
         counts[_ext(name)] += 1
-        if _ext(name) in GFF_EXTENSIONS and data[:4] == b"GFF ":
+        fmt = _format(data)
+        summary[f"{where}/{name}"] = fmt
+        formats[f"{_ext(name)}: {fmt}"] += 1
+        if fmt.startswith("GFF V4"):
             try:
                 _convert(data, name, json_dir / where, tlk)
             except Exception as e:
                 failures.append(f"{where}/{name}: {type(e).__name__}: {e}")
+                summary[f"{where}/{name}"] = f"{fmt} (FAILED: {type(e).__name__}: {e})"
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "summary.json").write_text(_json({"formats": dict(formats.most_common()), "files": summary}),
+                                      encoding="utf-8")
     print("extracted: " + (", ".join(f"{k}={v}" for k, v in counts.most_common()) or "nothing"), file=sys.stderr)
+    print("formats:", file=sys.stderr)
+    for k, v in sorted(formats.items()):
+        print(f"  {k} x{v}", file=sys.stderr)
     for f in failures:
         print(f"FAILED {f}", file=sys.stderr)
+    print(f"{len(failures)} conversion failures; details in {out / 'summary.json'}", file=sys.stderr)
     return 1 if failures and not counts else 0
+
+
+def _format(data: bytes) -> str:
+    """A short label for what a resource is, from its header."""
+    if data[:4] == b"GFF ":
+        if data[4:6] == b"V4" and len(data) >= 20:
+            kind = data[12:16].decode("ascii", "replace").strip()
+            return f"GFF {data[4:8].decode('ascii', 'replace')} {kind} {data[16:20].decode('ascii', 'replace')}"
+        return f"GFF {data[4:8].decode('ascii', 'replace')} {data[8:12].decode('ascii', 'replace').strip()}"
+    if not data:
+        return "empty"
+    head = data[:4]
+    if all(32 <= b < 127 for b in head):
+        return f"other ({head.decode('ascii')})"
+    return "other (binary)"
 
 
 def _convert(data: bytes, name: str, out_dir: Path, tlk: TalkTables | None) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     gff = GFF4(data, name)
-    stem = Path(name).stem
-    if gff.file_type == "CNV ":
-        conv = cnv.export(gff, tlk, stem)
-        (out_dir / f"{stem}.cnv.json").write_text(_json(conv), encoding="utf-8")
-        (out_dir / f"{stem}.cnv.txt").write_text(cnv.transcript(conv), encoding="utf-8")
+    # The full field-by-field dump is always written: it is what the
+    # specialised exporters below are checked against.
+    (out_dir / f"{name}.json").write_text(_json(_gff_doc(gff, tlk)), encoding="utf-8")
+    if cnv.is_conversation(gff):
+        conv = cnv.export(gff, tlk, Path(name).stem)
+        (out_dir / f"{name}.conv.json").write_text(_json(conv), encoding="utf-8")
+        (out_dir / f"{name}.txt").write_text(cnv.transcript(conv), encoding="utf-8")
     elif gff.file_type == "G2DA":
         table = gda.GDA(gff)
-        (out_dir / f"{stem}.gda.json").write_text(
+        (out_dir / f"{name}.table.json").write_text(
             _json({"columns": table.columns, "rows": table.rows}), encoding="utf-8")
-    else:
-        (out_dir / f"{name}.json").write_text(_json(_gff_doc(gff)), encoding="utf-8")
 
 
-def _gff_doc(gff: GFF4) -> dict:
+def _gff_doc(gff: GFF4, tlk: TalkTables | None = None) -> dict:
+    resolve = tlk.get if tlk else None
     return {"format": f"{gff.version} {gff.platform.strip()} {gff.file_type.strip()} {gff.type_version}",
-            "root": to_jsonable(gff.root, NAMES)}
+            "root": to_jsonable(gff.root, NAMES, resolve=resolve)}
 
 
 # --- single-file commands ---------------------------------------------------
@@ -214,7 +247,8 @@ def cmd_erf_extract(args) -> int:
 
 
 def cmd_gff_dump(args) -> int:
-    _write(_json(_gff_doc(GFF4.open(args.file))), args.out)
+    tlk = TalkTables.open(args.tlk) if args.tlk else None
+    _write(_json(_gff_doc(GFF4.open(args.file), tlk)), args.out)
     return 0
 
 
@@ -275,6 +309,7 @@ def build_parser() -> argparse.ArgumentParser:
     gff = sub.add_parser("gff", help="any GFF4 file").add_subparsers(dest="gff_command", required=True)
     s = gff.add_parser("dump")
     s.add_argument("file")
+    s.add_argument("--tlk", action="append", help="talk table(s) for resolving text; repeatable")
     s.add_argument("--out")
     s.set_defaults(func=cmd_gff_dump)
 
@@ -291,7 +326,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--out")
     s.set_defaults(func=cmd_gda_dump)
 
-    c = sub.add_parser("cnv", help="conversations").add_subparsers(dest="cnv_command", required=True)
+    c = sub.add_parser("cnv", help="conversations (.dlg/.cnv)").add_subparsers(dest="cnv_command", required=True)
     s = c.add_parser("export")
     s.add_argument("file")
     s.add_argument("--tlk", action="append", help="talk table(s) for resolving text; repeatable")

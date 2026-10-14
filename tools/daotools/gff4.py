@@ -295,8 +295,11 @@ class GFF4:
         return self.data[start:start + count * FIELD_SIZES[ftype]]
 
 
-def to_jsonable(value, names: dict[int, str] | None = None, _stack: set | None = None):
-    """Convert a parsed GFF4 tree into plain JSON-friendly Python objects."""
+def to_jsonable(value, names: dict[int, str] | None = None, _stack: set | None = None, resolve=None):
+    """Convert a parsed GFF4 tree into plain JSON-friendly Python objects.
+
+    resolve, if given, maps a string ref to its talk-table text.
+    """
     names = names or {}
     _stack = _stack if _stack is not None else set()
     if isinstance(value, Struct):
@@ -305,11 +308,12 @@ def to_jsonable(value, names: dict[int, str] | None = None, _stack: set | None =
         _stack.add(id(value))
         out = {"_struct": value.label}
         for label, v in value.fields.items():
-            out[names.get(label, str(label))] = to_jsonable(v, names, _stack)
+            out[names.get(label, str(label))] = to_jsonable(v, names, _stack, resolve)
         _stack.discard(id(value))
         return out
     if isinstance(value, TlkString):
-        return {"strref": value.strref, "text": value.text}
+        text = value.text or (resolve(value.strref) if resolve and value.strref != NULL else "")
+        return {"strref": value.strref, "text": text}
     if isinstance(value, list):
-        return [to_jsonable(v, names, _stack) for v in value]
+        return [to_jsonable(v, names, _stack, resolve) for v in value]
     return value

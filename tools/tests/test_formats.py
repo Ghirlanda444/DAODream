@@ -181,8 +181,8 @@ class CLITests(unittest.TestCase):
             game = Path(d) / "game"
             (game / "packages" / "core" / "data").mkdir(parents=True)
             (game / "packages" / "core" / "data" / "conversations.erf").write_bytes(build_erf({
-                "bhn_bryce.cnv": build_cnv(ConversationTests.lines, [0]),
-                "orz_other.cnv": build_cnv(ConversationTests.lines, [0]),
+                "bhn100cr_father.dlg": build_cnv(ConversationTests.lines, [0]),
+                "orz_other.dlg": build_cnv(ConversationTests.lines, [0]),
             }))
             (game / "packages" / "core" / "data" / "core_en-us.tlk").write_bytes(
                 build_tlk_v02({100: "Ah, Rendon.", 101: "Father?"}))
@@ -190,14 +190,21 @@ class CLITests(unittest.TestCase):
 
             self.assertEqual(main(["scan", str(game), "--out", str(out / "scan.json")]), 0)
             report = json.loads((out / "scan.json").read_text(encoding="utf-8"))
-            self.assertEqual(report["archives"][0]["by_extension"], {"cnv": 2})
+            self.assertEqual(report["archives"][0]["by_extension"], {"dlg": 2})
             self.assertEqual(len(report["talk_tables"]), 1)
 
             self.assertEqual(main(["pull", str(game), "bhn*", "--out", str(out / "hn")]), 0)
-            self.assertTrue((out / "hn" / "raw" / "conversations" / "bhn_bryce.cnv").exists())
-            self.assertFalse((out / "hn" / "raw" / "conversations" / "orz_other.cnv").exists())
-            script = (out / "hn" / "json" / "conversations" / "bhn_bryce.cnv.txt").read_text(encoding="utf-8")
+            self.assertTrue((out / "hn" / "raw" / "conversations" / "bhn100cr_father.dlg").exists())
+            self.assertFalse((out / "hn" / "raw" / "conversations" / "orz_other.dlg").exists())
+            conv_dir = out / "hn" / "json" / "conversations"
+            script = (conv_dir / "bhn100cr_father.dlg.txt").read_text(encoding="utf-8")
             self.assertIn("bryce: Ah, Rendon.", script)
+            dump = json.loads((conv_dir / "bhn100cr_father.dlg.json").read_text(encoding="utf-8"))
+            self.assertEqual(dump["format"], "V4.0 PC DLG V0.2")
+            first_text = dump["root"]["conv_line_list"][0]["conv_line_text"]
+            self.assertEqual(first_text, {"strref": 100, "text": "Ah, Rendon."})
+            summary = json.loads((out / "hn" / "summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(summary["formats"], {"dlg: GFF V4.0 DLG V0.2": 1})
 
 
 if __name__ == "__main__":

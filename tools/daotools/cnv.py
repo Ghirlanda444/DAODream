@@ -1,4 +1,4 @@
-"""Conversations (.cnv): DAO's dialogue trees, as GFF4 type "CNV ".
+"""Conversations: DAO's dialogue trees (.dlg in the retail game, GFF4).
 
 The field IDs come from community reverse engineering, but how starting
 entries and child links are laid out has not been checked against retail
@@ -70,8 +70,15 @@ def _text(value, tlk: TalkTables | None) -> tuple[int | None, str]:
     return None, ""
 
 
+CONVERSATION_TYPES = ("DLG ", "CNV ", "CONV")
+
+
+def is_conversation(gff: GFF4) -> bool:
+    return gff.file_type in CONVERSATION_TYPES or F.CONV_LINE_LIST in gff.root
+
+
 def export(gff: GFF4, tlk: TalkTables | None = None, name: str | None = None) -> dict:
-    if gff.file_type != "CNV ":
+    if not is_conversation(gff):
         raise CNVError(f"not a conversation (GFF type {gff.file_type!r})")
     root = gff.root
     starts, bad_starts = _links(root.get(F.CONV_STARTING_LIST, []))

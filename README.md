@@ -12,12 +12,12 @@ the game around it. Nothing from the game is ever committed here; see
 
 | Piece | State |
 |---|---|
-| `tools/daotools`: ERF archive reader (V2.0, V2.2 incl. compression, V3.0) | done, unit-tested on synthetic files |
-| GFF4 reader (the container behind `.cnv`, `.tlk`, `.gda`, `.plo`, ...) | done, unit-tested on synthetic files |
-| Talk tables (plain V0.2 and Huffman V0.5) | done, unit-tested on synthetic files |
+| `tools/daotools`: ERF archive reader (V2.0, V2.2 incl. compression, V3.0) | done; reads the real install (10,142 archives, DLC encrypted) |
+| GFF4 reader (the container behind `.dlg`, `.tlk`, `.gda`, `.plo`, ...) | done; reads the real install |
+| Talk tables (plain V0.2 and Huffman V0.5) | done; reads the real install (198k strings) |
 | Data tables (`.gda`) with column-name resolution | done, unit-tested on synthetic files |
-| Conversations (`.cnv`) to JSON and a readable script | done, **field layout still to confirm on real files** |
-| Validation against the real install | **next step, needs your PC** |
+| Conversations (`.dlg`) to JSON and a readable script | done, **field layout still to confirm on real files** |
+| Validation against the real install | archives and talk tables confirmed; conversations next. Layout in [docs/GAME_DATA.md](docs/GAME_DATA.md) |
 | UE5 project, models, animation, combat | not started; see [docs/ROADMAP.md](docs/ROADMAP.md) |
 
 ## Quick start (on your PC)
@@ -31,10 +31,11 @@ pip install -e tools
 #    The report holds only file names and counts, no game content.
 daotools scan "C:/Program Files (x86)/Steam/steamapps/common/Dragon Age Ultimate Edition" --out extracted/scan.json
 
-# 2. Look for the Human Noble resources (prefix to be confirmed by the scan).
+# 2. Look for the Human Noble resources (prefix bhn, confirmed).
 daotools find "<DAO folder>" "bhn*"
 
-# 3. Pull them out and convert: raw files plus JSON, and a .txt script per conversation.
+# 3. Pull them out and convert: raw files, a JSON dump of every GFF file,
+#    and a .txt script per conversation. summary.json lists every file's format.
 daotools pull "<DAO folder>" "bhn*" --out extracted/human_noble
 ```
 

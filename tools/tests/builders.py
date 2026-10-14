@@ -240,7 +240,8 @@ def build_tlk_v05(strings: dict[int, str]) -> bytes:
 
 # --- conversations --------------------------------------------------------------
 
-def build_cnv(lines: list[dict], starts: list[int], children_as_structs: bool = True) -> bytes:
+def build_cnv(lines: list[dict], starts: list[int], children_as_structs: bool = True,
+              file_type: str = "DLG ") -> bytes:
     """lines: dicts with text (strref or (strref, text)), speaker, children, action_flag."""
     link = Tmpl("LINK", [(F.CONV_STARTING_INDEX, T_UINT32)])
     plot = Tmpl("PLOT", [(F.CONV_PLOT_FLAG, T_SINT32), (F.CONV_SCRIPT, "string")])
@@ -251,7 +252,7 @@ def build_cnv(lines: list[dict], starts: list[int], children_as_structs: bool = 
     root = Tmpl("CONV", [(F.CONV_STARTING_LIST, ("structlist", link) if children_as_structs else ("list", T_UINT32)),
                          (F.CONV_LINE_LIST, ("structlist", line)), (F.CONV_VO_BANK, "string")])
     # nested templates must be laid out before the ones that embed them
-    w = GFF4Writer("CNV ", "V0.2", [root, line, plot, link])
+    w = GFF4Writer(file_type, "V0.2", [root, line, plot, link])
 
     def links(idx):
         return [{F.CONV_STARTING_INDEX: i} for i in idx] if children_as_structs else list(idx)
