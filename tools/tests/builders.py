@@ -269,3 +269,80 @@ def build_cnv(lines: list[dict], starts: list[int], children_as_structs: bool = 
             F.CONV_LINE_CHILDREN_LIST: links(l.get("children", [])),
         } for l in lines],
     })
+
+
+# --- GFF3 ---------------------------------------------------------------------
+
+def build_gff3(file_type: str, root: dict) -> bytes:
+    """root: {label: (type, value)}; a STRUCT value is a dict, a LIST value a
+    list of dicts, a LOCSTRING value (strref, {lang_id: text})."""
+    structs, fields, labels = [], [], []
+    fdata, findices, lindices = bytearray(), bytearray(), bytearray()
+    inline = {0: "<B", 1: "<b", 2: "<H", 3: "<h", 4: "<I", 5: "<i", 8: "<f"}
+
+    def label(name):
+        if name not in labels:
+            labels.append(name)
+        return labels.index(name)
+
+    def add_struct(d, stype=0):
+        idx = len(structs)
+        structs.append(None)
+        fids = [add_field(k, t, v) for k, (t, v) in d.items()]
+        if len(fids) == 1:
+            structs[idx] = (stype, fids[0], 1)
+        else:
+            structs[idx] = (stype, len(findices), len(fids))
+            findices.extend(struct.pack(f"<{len(fids)}I", *fids))
+        return idx
+
+    def add_field(name, t, v):
+        if t in inline:
+            raw = struct.unpack("<I", struct.pack(inline[t], v).ljust(4, b"\0"))[0]
+        elif t == 14:
+            raw = add_struct(v)
+        elif t == 15:
+            idxs = [add_struct(x, 7) for x in v]
+            raw = len(lindices)
+            lindices.extend(struct.pack(f"<{len(idxs) + 1}I", len(idxs), *idxs))
+        else:
+            raw = len(fdata)
+            if t == 10:
+                enc = v.encode("cp1252")
+                fdata.extend(struct.pack("<I", len(enc)) + enc)
+            elif t == 11:
+                enc = v.encode("cp1252")
+                fdata.extend(bytes([len(enc)]) + enc)
+            elif t == 12:
+                strref, texts = v
+                body = b"".join(struct.pack("<iI", k, len(x.encode("cp1252"))) + x.encode("cp1252")
+                                for k, x in texts.items())
+                fdata.extend(struct.pack("<3I", 8 + len(body), strref, len(texts)) + body)
+            elif t == 17:
+                fdata.extend(struct.pack("<3f", *v))
+            elif t == 18:
+                fdata.extend(struct.pack("<II", 4, v))
+            elif t == 6:
+                fdata.extend(struct.pack("<Q", v))
+            else:
+                raise ValueError(t)
+        fields.append((t, label(name), raw))
+        return len(fields) - 1
+
+    add_struct(root, 0xFFFFFFFF)
+    sections = [
+        b"".join(struct.pack("<3I", *x) for x in structs),
+        b"".join(struct.pack("<3I", *x) for x in fields),
+        b"".join(n.encode("ascii").ljust(16, b"\0") for n in labels),
+        bytes(fdata), bytes(findices), bytes(lindices),
+    ]
+    counts = [len(structs), len(fields), len(labels), len(fdata), len(findices), len(lindices)]
+    header_size = 56
+    offsets, off = [], header_size
+    for sec in sections:
+        offsets.append(off)
+        off += len(sec)
+    header = file_type.ljust(4).encode("ascii") + b"V3.2"
+    for o, c in zip(offsets, counts):
+        header += struct.pack("<II", o, c)
+    return header + b"".join(sections)

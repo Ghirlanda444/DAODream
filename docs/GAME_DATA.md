@@ -17,10 +17,33 @@ install. File names and counts only; no game content.
 - Loose files: voice and sound banks (`fsb` 2,449 / `fev` 2,417), talk tables,
   cinematics (`bik` 57), area layouts (`arl` 216).
 
-## Conversations are `.dlg`, not `.cnv`
+## Formats in the Human Noble set
 
-Retail conversations use the `.dlg` extension. `daotools` treats any GFF4 of
-type `DLG `/`CNV ` (or with a conversation line list) as a conversation.
+| Extension | Format | What it is |
+|---|---|---|
+| `dlg` | GFF4 `CONV V0.1` | conversation tree |
+| `stg` | GFF4 `STG V1.0` | conversation stage (where actors and cameras stand) |
+| `cut` | GFF4 `CUT V1.0` | cutscene |
+| `dlb`, `cub` | GFF4 `ANBT V1.0` | animation banks for conversations / cutscenes |
+| `utc`, `utp`, `utt`, `uti`, `are` | GFF3 V3.2 | creature, placeable, trigger, item, area templates |
+| `ncs` | compiled script | not readable yet (source comes with the toolset) |
+| `fsb` / `fev` | FMOD `FSB4` / `FEV1` | voice and sound banks |
+| `lst` | unknown (`LST `) | |
+
+## Conversations (`.dlg`), confirmed on `bhn100cr_father`
+
+- Root: starting list (plain line indices; one per entry point), line list,
+  end flag, VO bank.
+- Lines are structs labelled `NTRY` (NPC line) or `RPLY` (player reply).
+  Children are plain indices into the line list; a child that was already
+  visited is a jump back, as the game uses for shared branches.
+- Speaker is `OWNER` (the character the conversation belongs to), `PLAYER`,
+  or another creature's tag (e.g. `bhn100cr_mother`).
+- Player lines with empty text are silent "continue" clicks.
+- Condition and action are `PLOT` structs: plot GUID, flag, test, script,
+  script parameter. An empty GUID and empty script means the slot is unused.
+- Each line also carries its stage name and a `CUT ` struct with the line's
+  cinematic: duration, the `.dlb` animation bank, cameras and animation tracks.
 
 ## Human Noble origin (`bhn*`, 817 resources)
 

@@ -24,6 +24,7 @@ from pathlib import Path
 from . import cnv, gda
 from .erf import ERF, ERFError, is_erf
 from .fields import NAMES
+from .gff3 import GFF3, GFF3Error, is_gff3
 from .gff4 import GFF4, GFF4Error, to_jsonable
 from .tlk import TalkTable, TalkTables
 
@@ -165,7 +166,7 @@ def cmd_pull(args) -> int:
         fmt = _format(data)
         summary[f"{where}/{name}"] = fmt
         formats[f"{_ext(name)}: {fmt}"] += 1
-        if fmt.startswith("GFF V4"):
+        if fmt.startswith(("GFF V4", "GFF3")):
             try:
                 _convert(data, name, json_dir / where, tlk)
             except Exception as e:
@@ -186,6 +187,8 @@ def cmd_pull(args) -> int:
 
 def _format(data: bytes) -> str:
     """A short label for what a resource is, from its header."""
+    if is_gff3(data):
+        return f"GFF3 {data[:4].decode('ascii', 'replace').strip()} {data[4:8].decode('ascii')}"
     if data[:4] == b"GFF ":
         if data[4:6] == b"V4" and len(data) >= 20:
             kind = data[12:16].decode("ascii", "replace").strip()
@@ -201,6 +204,9 @@ def _format(data: bytes) -> str:
 
 def _convert(data: bytes, name: str, out_dir: Path, tlk: TalkTables | None) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
+    if is_gff3(data):
+        (out_dir / f"{name}.json").write_text(_json(_gff_doc(GFF3(data, name), tlk)), encoding="utf-8")
+        return
     gff = GFF4(data, name)
     # The full field-by-field dump is always written: it is what the
     # specialised exporters below are checked against.
@@ -215,10 +221,18 @@ def _convert(data: bytes, name: str, out_dir: Path, tlk: TalkTables | None) -> N
             _json({"columns": table.columns, "rows": table.rows}), encoding="utf-8")
 
 
-def _gff_doc(gff: GFF4, tlk: TalkTables | None = None) -> dict:
+def _gff_doc(gff, tlk: TalkTables | None = None) -> dict:
     resolve = tlk.get if tlk else None
-    return {"format": f"{gff.version} {gff.platform.strip()} {gff.file_type.strip()} {gff.type_version}",
-            "root": to_jsonable(gff.root, NAMES, resolve=resolve)}
+    if isinstance(gff, GFF3):
+        fmt = f"GFF3 {gff.file_type.strip()} {gff.version}"
+    else:
+        fmt = f"{gff.version} {gff.platform.strip()} {gff.file_type.strip()} {gff.type_version}"
+    return {"format": fmt, "root": to_jsonable(gff.root, NAMES, resolve=resolve)}
+
+
+def _open_gff(path: str):
+    data = Path(path).read_bytes()
+    return GFF3(data, path) if is_gff3(data) else GFF4(data, path)
 
 
 # --- single-file commands ---------------------------------------------------
@@ -248,7 +262,7 @@ def cmd_erf_extract(args) -> int:
 
 def cmd_gff_dump(args) -> int:
     tlk = TalkTables.open(args.tlk) if args.tlk else None
-    _write(_json(_gff_doc(GFF4.open(args.file), tlk)), args.out)
+    _write(_json(_gff_doc(_open_gff(args.file), tlk)), args.out)
     return 0
 
 
@@ -306,7 +320,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--pattern")
     s.set_defaults(func=cmd_erf_extract)
 
-    gff = sub.add_parser("gff", help="any GFF4 file").add_subparsers(dest="gff_command", required=True)
+    gff = sub.add_parser("gff", help="any GFF file (V3 or V4)").add_subparsers(dest="gff_command", required=True)
     s = gff.add_parser("dump")
     s.add_argument("file")
     s.add_argument("--tlk", action="append", help="talk table(s) for resolving text; repeatable")
@@ -343,7 +357,7 @@ def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return args.func(args)
-    except (ERFError, GFF4Error, OSError, ValueError) as e:
+    except (ERFError, GFF3Error, GFF4Error, OSError, ValueError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
 

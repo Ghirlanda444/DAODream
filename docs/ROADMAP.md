@@ -13,8 +13,10 @@ Each phase ends with something you can see running.
 - [x] Readers for ERF archives, GFF4, talk tables, data tables, conversations
 - [x] Run `daotools scan` on the real install and record the archive layout (`docs/GAME_DATA.md`)
 - [x] Confirm the Human Noble resource prefix (`bhn`, 817 resources)
-- [ ] `daotools pull` the origin; check a few `.dlg.txt` scripts against the game
-      and fix the conversation field mapping where it is wrong
+- [x] `daotools pull` the origin; conversation layout confirmed on
+      `bhn100cr_father` (see `docs/GAME_DATA.md`)
+- [ ] Creature, placeable and area templates (GFF3): reader done, check on
+      real files
 - [ ] Plot files (`.plo`): flag names, so conditions read as "QUEST_DONE"
       rather than numbers
 - [ ] Voice-over: locate the Human Noble VO banks and map conversation lines

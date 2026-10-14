@@ -19,8 +19,9 @@ the Human Noble origin. Roadmap: `docs/ROADMAP.md`.
 - Tests: `cd tools && PYTHONPATH=.:tests python -m unittest discover -s tests`.
   They build synthetic files with `tests/builders.py`; add a builder case rather
   than a real game file when covering a new format detail.
-- GFF4 field IDs live in `tools/daotools/fields.py`. Retail conversations are `.dlg`.
-  The conversation layout (`cnv.py`) is still unconfirmed against retail files:
-  when real output looks wrong, compare with the full dump `daotools pull`
-  writes next to it (`<name>.dlg.json`) and fix the mapping from that.
+- GFF4 field IDs live in `tools/daotools/fields.py`. Retail conversations are `.dlg`;
+  their layout is confirmed (`docs/GAME_DATA.md`). When converted output looks
+  wrong, compare with the full dump `daotools pull` writes next to it
+  (`<name>.json`) and fix the mapping from that.
+- GFF3 (`gff3.py`) covers `.utc/.utp/.utt/.uti/.are`; field labels are text.
 - Install layout and Human Noble resource list: `docs/GAME_DATA.md`.

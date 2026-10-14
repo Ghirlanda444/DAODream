@@ -12,7 +12,8 @@ from daotools.gff4 import (GFF4, T_FLOAT32, T_SINT16, T_UINT8, T_UINT32, T_UINT6
                            to_jsonable)
 from daotools.tlk import TalkTable, TalkTables
 
-from builders import GFF4Writer, Tmpl, build_cnv, build_erf, build_tlk_v02, build_tlk_v05
+from builders import GFF4Writer, Tmpl, build_cnv, build_erf, build_gff3, build_tlk_v02, build_tlk_v05
+from daotools.gff3 import GFF3, is_gff3
 
 
 class ERFTests(unittest.TestCase):
@@ -102,6 +103,42 @@ class GFF4Tests(unittest.TestCase):
         self.assertEqual(g.root.get(1), TlkString(77, ""))
 
 
+class GFF3Tests(unittest.TestCase):
+    def test_creature_like_template(self):
+        data = build_gff3("UTC ", {
+            "Tag": (10, "bhn100cr_father"),
+            "TemplateResRef": (11, "bhn100cr_father"),
+            "FirstName": (12, (12345, {0: "Bryce", 4: "Brice"})),
+            "Description": (18, 777),
+            "Appearance": (2, 7),
+            "Gender": (0, 1),
+            "Level": (5, -3),
+            "Speed": (8, 1.5),
+            "Seed": (6, 2 ** 40),
+            "Position": (17, [1.0, 2.0, 3.0]),
+            "Stats": (14, {"Strength": (4, 16)}),
+            "Equipment": (15, [{"Slot": (4, 1), "Item": (11, "gen_im_sword")}, {"Slot": (4, 2)}]),
+        })
+        self.assertTrue(is_gff3(data))
+        g = GFF3(data)
+        self.assertEqual((g.file_type, g.version), ("UTC ", "V3.2"))
+        r = g.root
+        self.assertEqual(r.get("Tag"), "bhn100cr_father")
+        self.assertEqual(r.get("TemplateResRef"), "bhn100cr_father")
+        self.assertEqual(r.get("FirstName"), TlkString(12345, "Bryce"))
+        self.assertEqual(r.get("Description"), TlkString(777))
+        self.assertEqual((r.get("Appearance"), r.get("Gender"), r.get("Level")), (7, 1, -3))
+        self.assertEqual(r.get("Speed"), 1.5)
+        self.assertEqual(r.get("Seed"), 2 ** 40)
+        self.assertEqual(r.get("Position"), [1.0, 2.0, 3.0])
+        self.assertEqual(r.get("Stats").get("Strength"), 16)
+        self.assertEqual([e.get("Slot") for e in r.get("Equipment")], [1, 2])
+        self.assertEqual(r.get("Equipment")[0].get("Item"), "gen_im_sword")
+        doc = to_jsonable(r, resolve={777: "A teyrn."}.get)
+        self.assertEqual(doc["Description"], {"strref": 777, "text": "A teyrn."})
+        json.dumps(doc)
+
+
 class TalkTableTests(unittest.TestCase):
     strings = {1: "Welcome to Highever.", 2: "", 70000: "Ser Gilmore — «Ça va»? 🐕", 5: "Howe"}
 
@@ -155,11 +192,14 @@ class ConversationTests(unittest.TestCase):
         texts = [l["text"] for l in conv["lines"]]
         self.assertEqual(texts, ["Ah, Rendon.", "Father?", "Inline reply", "Indeed.", ""])
         self.assertEqual(conv["lines"][0]["children"], [1, 2])
-        self.assertEqual(conv["lines"][2]["action"]["conv_plot_flag"], 3)
-        self.assertEqual(conv["lines"][2]["action"]["conv_script"], "bhn_plot")
+        self.assertEqual(conv["lines"][2]["action"], {"script": "bhn_plot", "parameter": None})
+        self.assertNotIn("action", conv["lines"][0])  # empty slot: no GUID, no script
+        self.assertEqual([l["kind"] for l in conv["lines"]], ["npc", "player", "player", "npc", "npc"])
         script = cnv.transcript(conv)
-        self.assertIn("   0 bryce: Ah, Rendon.", script)
-        self.assertIn("     3 howe: Indeed.", script)
+        self.assertIn("[0] bryce: Ah, Rendon.", script)
+        self.assertIn("\n    [3] howe: Indeed.\n", script)
+        self.assertIn("[2] player: Inline reply  [do]", script)
+        self.assertIn("## Entry point 1 of 1", script)
         self.assertIn("-> (back to line 0)", script)
         self.assertIn("not reached from any start: [4]", script)
         json.dumps(conv)
@@ -200,6 +240,7 @@ class CLITests(unittest.TestCase):
             (game / "packages" / "core" / "data" / "conversations.erf").write_bytes(build_erf({
                 "bhn100cr_father.dlg": build_cnv(ConversationTests.lines, [0]),
                 "orz_other.dlg": build_cnv(ConversationTests.lines, [0]),
+                "bhn100cr_father.utc": build_gff3("UTC ", {"Tag": (10, "bhn100cr_father")}),
             }))
             (game / "packages" / "core" / "data" / "core_en-us.tlk").write_bytes(
                 build_tlk_v02({100: "Ah, Rendon.", 101: "Father?"}))
@@ -207,7 +248,7 @@ class CLITests(unittest.TestCase):
 
             self.assertEqual(main(["scan", str(game), "--out", str(out / "scan.json")]), 0)
             report = json.loads((out / "scan.json").read_text(encoding="utf-8"))
-            self.assertEqual(report["archives"][0]["by_extension"], {"dlg": 2})
+            self.assertEqual(report["archives"][0]["by_extension"], {"dlg": 2, "utc": 1})
             self.assertEqual(len(report["talk_tables"]), 1)
 
             self.assertEqual(main(["pull", str(game), "bhn*", "--out", str(out / "hn")]), 0)
@@ -221,7 +262,9 @@ class CLITests(unittest.TestCase):
             first_text = dump["root"]["conv_line_list"][0]["conv_line_text"]
             self.assertEqual(first_text, {"strref": 100, "text": "Ah, Rendon."})
             summary = json.loads((out / "hn" / "summary.json").read_text(encoding="utf-8"))
-            self.assertEqual(summary["formats"], {"dlg: GFF V4.0 DLG V0.2": 1})
+            self.assertEqual(summary["formats"], {"dlg: GFF V4.0 DLG V0.2": 1, "utc: GFF3 UTC V3.2": 1})
+            utc = json.loads((conv_dir / "bhn100cr_father.utc.json").read_text(encoding="utf-8"))
+            self.assertEqual(utc["root"]["Tag"], "bhn100cr_father")
 
 
 if __name__ == "__main__":

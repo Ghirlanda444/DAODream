@@ -24,7 +24,10 @@ _LINE_FLAGS = {
     F.CONV_LINE_REVERT_ANIM: "revert_anim",
     F.CONV_LINE_ACTIVE: "active",
 }
+# CONV_LINE_CUT holds per-line cinematic data (cameras, animation tracks);
+# it is large, so it stays in the full dump only.
 _LINE_FIELDS = {
+    F.CONV_STAGE_NAME,
     F.CONV_LINE_TEXT, F.CONV_LINE_SPEAKER, F.CONV_LINE_LISTENER, F.CONV_LINE_COND,
     F.CONV_LINE_ACTION, F.CONV_LINE_CHILDREN_LIST, F.CONV_LINE_ANIMATION,
     F.CONV_LINE_ICON, F.CONV_LINE_CUT_RESREF, F.CONV_LINE_CUT, F.CONV_LINE_CUT_MAP,
@@ -41,6 +44,28 @@ def _plain(value):
     """Any GFF value as plain JSON data: retail files nest structs in places
     where a plain value would be expected."""
     return to_jsonable(value, F.NAMES)
+
+
+def _plot_ref(value) -> dict | None:
+    """A condition or action: a plot flag to test/set and/or a script.
+
+    Every line carries both slots; an empty GUID and no script means unused.
+    """
+    if not isinstance(value, Struct):
+        return _plain(value) if value not in (None, "", [], {}) else None
+    guid = value.get(F.CONV_PLOT_GUID, "")
+    script = value.get(F.CONV_SCRIPT, "")
+    if not guid and not script:
+        return None
+    out = {}
+    if guid:
+        out.update(plot=guid, flag=value.get(F.CONV_PLOT_FLAG))
+        test = value.get(F.CONV_PLOT_TEST)
+        if test is not None and test != 255:
+            out["test"] = test
+    if script:
+        out.update(script=script, parameter=value.get(F.CONV_SCRIPT_PARAMETER))
+    return out
 
 
 def _index_of(entry) -> int | None:
@@ -96,18 +121,25 @@ def export(gff: GFF4, tlk: TalkTables | None = None, name: str | None = None) ->
             continue
         strref, text = _text(line.get(F.CONV_LINE_TEXT), tlk)
         children, bad_children = _links(line.get(F.CONV_LINE_CHILDREN_LIST, []))
+        speaker = _plain(line.get(F.CONV_LINE_SPEAKER, ""))
+        is_player = line.label == "RPLY" or (isinstance(speaker, str) and speaker.upper() == "PLAYER")
         entry = {
             "index": i,
+            "kind": "player" if is_player else "npc",
             "strref": strref,
             "text": text,
-            "speaker": _plain(line.get(F.CONV_LINE_SPEAKER, "")),
+            "speaker": speaker,
             "listener": _plain(line.get(F.CONV_LINE_LISTENER, "")),
             "children": children,
         }
-        if F.CONV_LINE_COND in line:
-            entry["condition"] = to_jsonable(line.get(F.CONV_LINE_COND), F.NAMES)
-        if F.CONV_LINE_ACTION in line:
-            entry["action"] = to_jsonable(line.get(F.CONV_LINE_ACTION), F.NAMES)
+        if line.get(F.CONV_STAGE_NAME):
+            entry["stage"] = _plain(line.get(F.CONV_STAGE_NAME))
+        condition = _plot_ref(line.get(F.CONV_LINE_COND))
+        if condition:
+            entry["condition"] = condition
+        action = _plot_ref(line.get(F.CONV_LINE_ACTION))
+        if action:
+            entry["action"] = action
         if F.CONV_LINE_ANIMATION in line:
             entry["animation"] = to_jsonable(line.get(F.CONV_LINE_ANIMATION), F.NAMES)
         raw_text = line.get(F.CONV_LINE_TEXT)
@@ -143,7 +175,11 @@ def export(gff: GFF4, tlk: TalkTables | None = None, name: str | None = None) ->
 def transcript(conv: dict) -> str:
     """Render an exported conversation as an indented, readable script."""
     lines = conv["lines"]
-    out = [f"# {conv.get('conversation') or 'conversation'}", ""]
+    name = conv.get("conversation") or "conversation"
+    out = [f"# {name}", "",
+           "# OWNER is the character this conversation belongs to. (continue) is a",
+           "# silent player click. [if] = shown only when a plot condition holds,",
+           "# [do] = sets a plot flag or runs a script. -> jumps to an earlier line.", ""]
     seen: set[int] = set()
 
     def walk(idx: int, depth: int) -> None:
@@ -159,18 +195,21 @@ def transcript(conv: dict) -> str:
         who = line.get("speaker") or "(owner)"
         if not isinstance(who, str):
             who = json.dumps(who, ensure_ascii=False, separators=(",", ":"))
-        text = line.get("text") or (f"<strref {line['strref']}>" if line.get("strref") is not None else "<no text>")
+        text = line.get("text")
+        if not text:
+            text = "(continue)" if line.get("kind") == "player" else "(no text)"
         tags = []
         if line.get("condition"):
             tags.append("if")
         if line.get("action"):
             tags.append("do")
         suffix = f"  [{', '.join(tags)}]" if tags else ""
-        out.append(f"{pad}{idx:>4} {who}: {text}{suffix}")
+        out.append(f"{pad}[{idx}] {who}: {text}{suffix}")
         for child in line.get("children", []):
             walk(child, depth + 1)
 
-    for start in conv.get("starts", []):
+    for n, start in enumerate(conv.get("starts", []), 1):
+        out.append(f"## Entry point {n} of {len(conv.get('starts', []))}")
         walk(start, 0)
         out.append("")
     orphans = [l["index"] for l in lines if l["index"] not in seen and not l.get("missing")]
