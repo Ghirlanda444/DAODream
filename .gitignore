@@ -1,0 +1,27 @@
+# Game data never goes into this repo: it stays on your machine.
+extracted/
+*.erf
+*.rim
+*.tlk
+*.cnv
+*.gda
+*.plo
+*.ncs
+*.nss
+*.fsb
+*.fev
+*.dds
+*.tga
+*.msh
+*.mmh
+*.mao
+*.phy
+*.ani
+*.gad
+
+# Python
+__pycache__/
+*.egg-info/
+.venv/
+build/
+dist/

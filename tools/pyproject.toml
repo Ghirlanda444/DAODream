@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "daotools"
+version = "0.1.0"
+description = "Read and convert Dragon Age: Origins data from your own install"
+requires-python = ">=3.10"
+
+[project.scripts]
+daotools = "daotools.cli:main"
+
+[tool.setuptools]
+packages = ["daotools"]
