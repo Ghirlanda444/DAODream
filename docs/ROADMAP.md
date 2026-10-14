@@ -15,8 +15,8 @@ Each phase ends with something you can see running.
 - [x] Confirm the Human Noble resource prefix (`bhn`, 817 resources)
 - [x] `daotools pull` the origin; conversation layout confirmed on
       `bhn100cr_father` (see `docs/GAME_DATA.md`)
-- [ ] Creature, placeable and area templates (GFF3): reader done, check on
-      real files
+- [x] Creature, placeable and area templates (GFF3): all 394 Human Noble
+      files parse on the real install
 - [ ] Plot files (`.plo`): flag names, so conditions read as "QUEST_DONE"
       rather than numbers
 - [ ] Voice-over: locate the Human Noble VO banks and map conversation lines

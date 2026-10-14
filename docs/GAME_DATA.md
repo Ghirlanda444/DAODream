@@ -25,10 +25,9 @@ install. File names and counts only; no game content.
 | `stg` | GFF4 `STG V1.0` | conversation stage (where actors and cameras stand) |
 | `cut` | GFF4 `CUT V1.0` | cutscene |
 | `dlb`, `cub` | GFF4 `ANBT V1.0` | animation banks for conversations / cutscenes |
-| `utc`, `utp`, `utt`, `uti`, `are` | GFF3 V3.2 | creature, placeable, trigger, item, area templates |
+| `utc`, `utp`, `utt`, `uti`, `are`, `lst` | GFF3 V3.2 | creature, placeable, trigger, item, area templates; `lst` is a per-area list |
 | `ncs` | compiled script | not readable yet (source comes with the toolset) |
 | `fsb` / `fev` | FMOD `FSB4` / `FEV1` | voice and sound banks |
-| `lst` | unknown (`LST `) | |
 
 ## Conversations (`.dlg`), confirmed on `bhn100cr_father`
 

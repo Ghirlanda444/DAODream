@@ -17,7 +17,7 @@ the game around it. Nothing from the game is ever committed here; see
 | Talk tables (plain V0.2 and Huffman V0.5) | done; reads the real install (198k strings) |
 | Data tables (`.gda`) with column-name resolution | done, unit-tested on synthetic files |
 | Conversations (`.dlg`) to JSON and a readable script | done; confirmed on Bryce's conversation |
-| GFF3 reader (creatures, placeables, triggers, areas) | done, unit-tested on synthetic files |
+| GFF3 reader (creatures, placeables, triggers, areas) | done; all 394 Human Noble GFF3 files parse |
 | Validation against the real install | archives, talk tables and conversations confirmed. Layout in [docs/GAME_DATA.md](docs/GAME_DATA.md) |
 | UE5 project, models, animation, combat | not started; see [docs/ROADMAP.md](docs/ROADMAP.md) |
 
