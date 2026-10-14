@@ -1,0 +1,14 @@
+# Unreal Engine: generated and cached files, rebuilt by the editor.
+*/Binaries/
+*/Intermediate/
+*/Saved/
+*/DerivedDataCache/
+*/.vs/
+*/Build/
+*/Platforms/
+*.sln
+*.suo
+*.VC.db
+*.opendb
+# Unreal's MCP connection file is per machine (port, local URL).
+*/.mcp.json

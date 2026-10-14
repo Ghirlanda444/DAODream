@@ -19,7 +19,7 @@ the game around it. Nothing from the game is ever committed here; see
 | Conversations (`.dlg`) to JSON and a readable script | done; confirmed on Bryce's conversation |
 | GFF3 reader (creatures, placeables, triggers, areas) | done; all 394 Human Noble GFF3 files parse |
 | Validation against the real install | archives, talk tables and conversations confirmed. Layout in [docs/GAME_DATA.md](docs/GAME_DATA.md) |
-| UE5 project, models, animation, combat | not started; see [docs/ROADMAP.md](docs/ROADMAP.md) |
+| UE5 project, models, animation, combat | starting: setup guide and first prompt in [docs/UNREAL_SETUP.md](docs/UNREAL_SETUP.md) |
 
 ## Quick start (on your PC)
 

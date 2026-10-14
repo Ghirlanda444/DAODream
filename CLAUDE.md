@@ -25,3 +25,10 @@ the Human Noble origin. Roadmap: `docs/ROADMAP.md`.
   (`<name>.json`) and fix the mapping from that.
 - GFF3 (`gff3.py`) covers `.utc/.utp/.utt/.uti/.are`; field labels are text.
 - Install layout and Human Noble resource list: `docs/GAME_DATA.md`.
+
+## Unreal
+
+- The UE 5.8 project lives in `Unreal/Cousland`; setup and session rules are in
+  `docs/UNREAL_SETUP.md`. Assets go through Git LFS (`.gitattributes`).
+- Work one system per prompt, report every actor and asset created, and stop
+  rather than silently work around a missing tool.
