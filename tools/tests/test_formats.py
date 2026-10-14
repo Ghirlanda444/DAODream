@@ -170,6 +170,23 @@ class ConversationTests(unittest.TestCase):
     def test_children_as_indices(self):
         self._check(cnv.export(GFF4(build_cnv(self.lines, [0], children_as_structs=False)), self.tlk))
 
+    def test_struct_where_text_expected(self):
+        # Retail files nest structs where a plain string was expected.
+        who = Tmpl("WHO ", [(1, "string"), (2, T_UINT32)])
+        line = Tmpl("LINE", [(F.CONV_LINE_TEXT, "tlk"), (F.CONV_LINE_SPEAKER, ("struct", who)),
+                             (F.CONV_LINE_SKIP, ("struct", who))])
+        root = Tmpl("CONV", [(F.CONV_LINE_LIST, ("structlist", line)), (F.CONV_VO_BANK, ("struct", who))])
+        data = GFF4Writer("DLG ", "V0.2", [root, line, who]).build({
+            F.CONV_VO_BANK: {1: "bank", 2: 5},
+            F.CONV_LINE_LIST: [{F.CONV_LINE_TEXT: 100, F.CONV_LINE_SPEAKER: {1: "bryce", 2: 1},
+                                F.CONV_LINE_SKIP: {1: "", 2: 0}}],
+        })
+        conv = cnv.export(GFF4(data), self.tlk)
+        json.dumps(conv)
+        self.assertEqual(conv["lines"][0]["speaker"], {"_struct": "WHO ", "1": "bryce", "2": 1})
+        self.assertEqual(conv["vo_bank"], {"_struct": "WHO ", "1": "bank", "2": 5})
+        self.assertIn('"1":"bryce"', cnv.transcript({**conv, "starts": [0]}))
+
     def test_wrong_type(self):
         with self.assertRaises(cnv.CNVError):
             cnv.export(GFF4(build_tlk_v02({1: "x"})))

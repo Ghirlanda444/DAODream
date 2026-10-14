@@ -9,6 +9,7 @@ so a real file can be inspected and the mapping tightened.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from . import fields as F
@@ -34,6 +35,12 @@ _INDEX_FIELDS = (F.CONV_STARTING_INDEX,)
 
 class CNVError(Exception):
     pass
+
+
+def _plain(value):
+    """Any GFF value as plain JSON data: retail files nest structs in places
+    where a plain value would be expected."""
+    return to_jsonable(value, F.NAMES)
 
 
 def _index_of(entry) -> int | None:
@@ -93,8 +100,8 @@ def export(gff: GFF4, tlk: TalkTables | None = None, name: str | None = None) ->
             "index": i,
             "strref": strref,
             "text": text,
-            "speaker": line.get(F.CONV_LINE_SPEAKER, ""),
-            "listener": line.get(F.CONV_LINE_LISTENER, ""),
+            "speaker": _plain(line.get(F.CONV_LINE_SPEAKER, "")),
+            "listener": _plain(line.get(F.CONV_LINE_LISTENER, "")),
             "children": children,
         }
         if F.CONV_LINE_COND in line:
@@ -103,7 +110,10 @@ def export(gff: GFF4, tlk: TalkTables | None = None, name: str | None = None) ->
             entry["action"] = to_jsonable(line.get(F.CONV_LINE_ACTION), F.NAMES)
         if F.CONV_LINE_ANIMATION in line:
             entry["animation"] = to_jsonable(line.get(F.CONV_LINE_ANIMATION), F.NAMES)
-        flags = {n: line.get(fid) for fid, n in _LINE_FLAGS.items() if fid in line}
+        raw_text = line.get(F.CONV_LINE_TEXT)
+        if raw_text is not None and not isinstance(raw_text, (TlkString, str)):
+            entry["text_raw"] = _plain(raw_text)
+        flags = {n: _plain(line.get(fid)) for fid, n in _LINE_FLAGS.items() if fid in line}
         if flags:
             entry["flags"] = flags
         if bad_children:
@@ -117,7 +127,7 @@ def export(gff: GFF4, tlk: TalkTables | None = None, name: str | None = None) ->
     out = {
         "conversation": name or (Path(gff.path).stem if gff.path else None),
         "format": f"{gff.version} {gff.file_type.strip()} {gff.type_version}",
-        "vo_bank": root.get(F.CONV_VO_BANK),
+        "vo_bank": _plain(root.get(F.CONV_VO_BANK)),
         "starts": starts,
         "lines": lines,
     }
@@ -147,6 +157,8 @@ def transcript(conv: dict) -> str:
         seen.add(idx)
         line = lines[idx]
         who = line.get("speaker") or "(owner)"
+        if not isinstance(who, str):
+            who = json.dumps(who, ensure_ascii=False, separators=(",", ":"))
         text = line.get("text") or (f"<strref {line['strref']}>" if line.get("strref") is not None else "<no text>")
         tags = []
         if line.get("condition"):
