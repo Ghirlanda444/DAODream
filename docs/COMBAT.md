@@ -82,10 +82,29 @@ kill all 18 rats in about half a minute while the rats bite the player (64/200
 left); the castle reacts as above, and Gilmore leaves the party at the end of
 his conversation. Alone, the player needs about 40 swings.
 
+## Reading the fight
+
+- Your health: `/Game/Cousland/Combat/WBP_CombatHUD`, top left (a bar and
+  "Health n/200"), created by `BP_PlotManager.InitCombat`. The same widget
+  shows short messages in the middle of the screen for 3 s: "Fight over" when
+  the last visible hostile dies, and "Knocked down" at 0 health.
+- Hostiles: a red bar over their head (`WBP_HealthBar` in a screen-space
+  widget component on `BP_DlgNPC`) instead of the name, which got in the way
+  when several rats crowd together.
+- Hits: the target is pushed back 25 cm and a damage number rises from it
+  (`/Game/Cousland/Combat/BP_FloatText`, gone after 0.9 s).
+- Attacks: your character swings (`MM_Attack_01` played on the template's
+  `DefaultSlot`), and rats and party members play the same attack once per
+  bite or strike, then return to idle.
+- Room names from the area's map notes float over each room
+  (`/Game/Cousland/Areas/BP_RoomLabel`, spawned by `BP_AreaLoader`): Main
+  Hall, Pantry, Kitchen and so on.
+
 ## Not there yet
 
 Stats, attributes and abilities from the data tables; real-time with pause and
 tactics; hostiles only ever attack the player, never party members; party
-members cannot be hurt or switched to; attack animations and hit reactions (the
-player has none, creatures only switch between idle and jog); collision while
-moving (creatures and followers pass through walls); a game over.
+members cannot be hurt or switched to; proper animations (everyone is a
+mannequin, the rats are small ones, and the attack is a generic punch);
+collision while moving (creatures and followers pass through walls); a game
+over.
