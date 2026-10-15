@@ -19,7 +19,7 @@ import json
 import re
 from pathlib import Path
 
-from . import plo
+from . import fsb, plo
 
 FORMAT = "DAODream.Conversation 1"
 
@@ -71,11 +71,15 @@ def speaker_names(tags, owner: str, search_dir: str | Path | None) -> dict[str, 
 
 
 def conversation(conv: dict, *, owner: str | None = None, names_dir: str | Path | None = None,
-                 true_flags: list[str] | None = None, plots: dict[str, dict] | None = None) -> dict:
+                 true_flags: list[str] | None = None, plots: dict[str, dict] | None = None,
+                 vo_samples: set[str] | None = None) -> dict:
     """Turn a `cnv.export` result into the runtime format.
 
     With `plots` (from `plo.load_dir`), FlagNames maps every flag key the
     conversation uses to its plot flag name, for reading and debugging.
+    With `vo_samples` (the sample names in the VO bank), each line's Vo is the
+    file stem of its voice-over ("" when it has none), as written by
+    `daotools fsb extract`.
     """
     owner = owner or conv.get("conversation") or ""
     warnings: list[str] = []
@@ -92,11 +96,19 @@ def conversation(conv: dict, *, owner: str | None = None, names_dir: str | Path 
         act_key, act_not, act_script = _plot_slot(line.get("action"), warnings, f"line {i} action")
         if act_not:
             warnings.append(f"line {i} action: plot test on an action")
+        text = display_text(line.get("text"))
+        vo = ""
+        if vo_samples is not None:
+            sample = fsb.vo_sample(line.get("strref"))
+            if sample in vo_samples:
+                vo = sample.rsplit(".", 1)[0]
+            elif text and line.get("kind") == "npc":
+                warnings.append(f"line {i}: no voice-over sample {sample or '(no strref)'}")
         lines.append({
             "Index": i,
             "IsPlayer": line.get("kind") == "player",
             "Speaker": speaker,
-            "Text": display_text(line.get("text")),
+            "Text": text,
             "Children": list(line.get("children", [])),
             "Stage": line.get("stage") if isinstance(line.get("stage"), str) else "",
             "CondKey": cond_key,
@@ -104,6 +116,7 @@ def conversation(conv: dict, *, owner: str | None = None, names_dir: str | Path 
             "CondScript": cond_script,
             "ActionKey": act_key,
             "ActionScript": act_script,
+            "Vo": vo,
         })
     tags = {l["Speaker"] for l in lines if l["Speaker"] and l["Speaker"] not in ("OWNER", "PLAYER")}
     flag_names: dict[str, str] = {}

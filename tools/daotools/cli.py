@@ -10,7 +10,10 @@ Examples:
   daotools gda dump <file.gda> [--names columns.txt] --out table.json
   daotools cnv export <file.cnv> --tlk core_en-us.tlk --out conv.json
   daotools plo list <folder of .plo files> --out plots.json
-  daotools unreal conv <name.dlg.conv.json> --names <pull json dir> --plots <plo dir> --out runtime.json
+  daotools fsb list <bank.fsb>
+  daotools fsb extract <bank.fsb> --out <folder>
+  daotools unreal conv <name.dlg.conv.json> --names <pull json dir> --plots <plo dir> --vo <bank.fsb>
+                       --out runtime.json
 """
 
 from __future__ import annotations
@@ -23,7 +26,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import cnv, gda, plo, unreal
+from . import cnv, fsb, gda, plo, unreal
 from .erf import ERF, ERFError, is_erf
 from .fields import NAMES
 from .gff3 import GFF3, GFF3Error, is_gff3
@@ -297,9 +300,34 @@ def cmd_plo_list(args) -> int:
     return 0
 
 
+def cmd_fsb_list(args) -> int:
+    bank = fsb.FSB.open(args.file)
+    print(f"{args.file}: {len(bank.samples)} samples", file=sys.stderr)
+    for s in bank.samples:
+        print(f"{s.name}\t{s.codec}\t{s.frequency} Hz\t{s.channels} ch\t{s.seconds:.2f} s")
+    return 0
+
+
+def cmd_fsb_extract(args) -> int:
+    bank = fsb.FSB.open(args.file)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    written, skipped = 0, Counter()
+    for s in bank.samples:
+        if s.codec != "mpeg":
+            skipped[s.codec] += 1
+            continue
+        (out / f"{s.stem}.mp3").write_bytes(s.data[:fsb.mpeg_end(s.data)] or s.data)
+        written += 1
+    print(f"wrote {written} .mp3 files to {out}"
+          + "".join(f"; skipped {n} {codec}" for codec, n in skipped.items()), file=sys.stderr)
+    return 0
+
+
 def cmd_unreal_conv(args) -> int:
     conv = json.loads(Path(args.file).read_text(encoding="utf-8"))
     plots = plo.load_dir(args.plots) if args.plots else None
+    vo_samples = fsb.FSB.open(args.vo).names() if args.vo else None
     true_flags = []
     for flag in args.true_flag or []:
         if ":" not in flag:
@@ -308,7 +336,7 @@ def cmd_unreal_conv(args) -> int:
             flag = plo.flag_key(plots, flag)
         true_flags.append(flag)
     out = unreal.conversation(conv, owner=args.owner, names_dir=args.names, true_flags=true_flags,
-                              plots=plots)
+                              plots=plots, vo_samples=vo_samples)
     for w in out["Warnings"]:
         print(f"warning: {w}", file=sys.stderr)
     _write(_json(out), args.out)
@@ -387,8 +415,19 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--true-flag", action="append", metavar="GUID:FLAG|NAME",
                    help="plot flag that starts out set, e.g. GEN_GENDER_MALE (names need --plots); repeatable")
     s.add_argument("--plots", help="folder of extracted .plo files, to name the flags (FlagNames)")
+    s.add_argument("--vo", help="the conversation's VO bank (.fsb), to fill each line's Vo")
     s.add_argument("--out")
     s.set_defaults(func=cmd_unreal_conv)
+
+    f = sub.add_parser("fsb", help="FMOD sound banks (voice-over)").add_subparsers(
+        dest="fsb_command", required=True)
+    s = f.add_parser("list", help="samples in a bank: name, codec, rate, channels, length")
+    s.add_argument("file")
+    s.set_defaults(func=cmd_fsb_list)
+    s = f.add_parser("extract", help="write every MPEG sample as <name>.mp3")
+    s.add_argument("file")
+    s.add_argument("--out", required=True)
+    s.set_defaults(func=cmd_fsb_extract)
 
     pl = sub.add_parser("plo", help="plot files").add_subparsers(dest="plo_command", required=True)
     s = pl.add_parser("list", help="every plot under a folder: GUID, name, script and flag names")
@@ -405,7 +444,7 @@ def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return args.func(args)
-    except (ERFError, GFF3Error, GFF4Error, OSError, ValueError) as e:
+    except (ERFError, GFF3Error, GFF4Error, fsb.FSBError, OSError, ValueError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
 

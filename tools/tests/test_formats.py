@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from daotools import cnv, fields as F, plo, unreal
+from daotools import cnv, fields as F, fsb, plo, unreal
 from daotools.cli import main
 from daotools.erf import ERF, ERFError, is_erf
 from daotools.gda import GDA, column_hash
@@ -12,8 +12,8 @@ from daotools.gff4 import (GFF4, T_FLOAT32, T_SINT16, T_UINT8, T_UINT32, T_UINT6
                            to_jsonable)
 from daotools.tlk import TalkTable, TalkTables
 
-from builders import (GFF4Writer, Tmpl, build_cnv, build_erf, build_gff3, build_plo, build_tlk_v02,
-                      build_tlk_v05)
+from builders import (GFF4Writer, Tmpl, build_cnv, build_erf, build_fsb, build_gff3, build_plo,
+                      build_tlk_v02, build_tlk_v05)
 from daotools.gff3 import GFF3, is_gff3
 
 
@@ -283,6 +283,42 @@ class UnrealConversationTests(unittest.TestCase):
         self.assertEqual(out["FlagNames"], {"AAAA:4": "TALKED_TO_FATHER", "BBBB:2": "QUEST_DONE",
                                             "BBBB:260": "GEN_GENDER_MALE"})
         self.assertIn("plot flag CCCC:1: not found in the plot files", out["Warnings"])
+
+
+class VoiceOverTests(unittest.TestCase):
+    # Two MPEG-2 layer III frames at 56 kbps, 24 kHz: 168 bytes each.
+    mp3 = (b"\xff\xf3\x74\xc0" + b"\x11" * 164) * 2
+    bank = build_fsb([("26080_m.wav", mp3 + b"\x00" * 13, 0x100220), ("26081_m.wav", mp3 + b"\x01", 0x100220),
+                      ("ambient_sgl.wav", b"\x00" * 32, 0x500020)])
+
+    def test_read(self):
+        bank = fsb.FSB(self.bank)
+        self.assertEqual([s.name for s in bank.samples], ["26080_m.wav", "26081_m.wav", "ambient_sgl.wav"])
+        first, second, adpcm = bank.samples
+        self.assertEqual((first.codec, first.frequency, first.channels, first.stem), ("mpeg", 24000, 1, "26080_m"))
+        self.assertEqual(second.data, self.mp3 + b"\x01")  # data follows the headers, back to back
+        self.assertEqual(fsb.mpeg_end(first.data), 336)
+        self.assertEqual(fsb.mpeg_end(b"\x00" * 8), 0)
+        self.assertEqual(adpcm.codec, "imaadpcm")
+        self.assertEqual(fsb.vo_sample(26080), "26080_m.wav")
+        self.assertEqual(fsb.vo_sample(None), "")
+        with self.assertRaises(fsb.FSBError):
+            fsb.FSB(b"RIFF" + b"\0" * 60)
+
+    def test_runtime_vo_and_extract(self):
+        conv = {"conversation": "c", "starts": [0], "lines": [
+            {"index": 0, "kind": "npc", "strref": 26080, "text": "Hello.", "speaker": "OWNER", "children": [1]},
+            {"index": 1, "kind": "player", "strref": 26090, "text": "Hi.", "speaker": "PLAYER", "children": [2]},
+            {"index": 2, "kind": "npc", "strref": 26099, "text": "Unvoiced.", "speaker": "OWNER", "children": []}]}
+        out = unreal.conversation(conv, vo_samples=fsb.FSB(self.bank).names())
+        self.assertEqual([l["Vo"] for l in out["Lines"]], ["26080_m", "", ""])
+        self.assertEqual(out["Warnings"], ["line 2: no voice-over sample 26099_m.wav"])
+        self.assertEqual([l["Vo"] for l in unreal.conversation(conv)["Lines"]], ["", "", ""])
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "c.fsb").write_bytes(self.bank)
+            self.assertEqual(main(["fsb", "extract", str(Path(d) / "c.fsb"), "--out", str(Path(d) / "vo")]), 0)
+            self.assertEqual(sorted(p.name for p in (Path(d) / "vo").iterdir()), ["26080_m.mp3", "26081_m.mp3"])
+            self.assertEqual((Path(d) / "vo" / "26080_m.mp3").read_bytes(), self.mp3)  # padding cut
 
 
 class PlotTests(unittest.TestCase):

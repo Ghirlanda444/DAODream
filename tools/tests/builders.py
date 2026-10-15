@@ -285,6 +285,20 @@ def build_plo(name: str, guid: str, flags: dict[int, str], script: str = "") -> 
     })
 
 
+# --- FMOD sound banks -------------------------------------------------------------
+
+def build_fsb(samples: list[tuple[str, bytes, int]], frequency: int = 24000) -> bytes:
+    """An FSB4 bank; samples: (name, data, mode). Every sample is mono."""
+    headers, blob = b"", b""
+    for name, data, mode in samples:
+        headers += (struct.pack("<H", 80) + name.encode("ascii").ljust(30, b"\0")
+                    + struct.pack("<IIIIIiHhHHffiHh", len(data) * 4, len(data), 0, 0, mode, frequency,
+                                  255, 0, 128, 1, 1.0, 10000.0, 0, 0, 0))
+        blob += data
+    return (b"FSB4" + struct.pack("<iiiII", len(samples), len(headers), len(blob), 0x40000, 0x20)
+            + b"\0" * 24 + headers + blob)
+
+
 # --- GFF3 ---------------------------------------------------------------------
 
 def build_gff3(file_type: str, root: dict) -> bytes:
