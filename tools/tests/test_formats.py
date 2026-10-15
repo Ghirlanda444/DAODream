@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from daotools import area, cnv, fields as F, fsb, mfdecode, plo, plotlogic, toolset, unreal
+from daotools import area, cnv, fields as F, fsb, kit, mfdecode, plo, plotlogic, toolset, unreal
 from daotools.cli import main
 from daotools.erf import ERF, ERFError, is_erf
 from daotools.gda import GDA, column_hash
@@ -431,6 +431,40 @@ class AreaTests(unittest.TestCase):
                          ([1100.0, -2100.0, 0.0, -90.0], ["Main Hall"], [1100.0, -2100.0, 0.0]))
         self.assertEqual(out["Summary"]["Floors"], 2)
         self.assertEqual(out["Warnings"], [])
+
+
+class KitTests(unittest.TestCase):
+    # A made-up kit piece: one 4 m x 0.4 m x 5 m box standing on the model origin.
+    WALL_PHY = {"_struct": "mdlh", "6999": [{"_struct": "node", "6999": [{"_struct": "cobj", "6999": [
+        {"_struct": "shap", "6058": 2, "6060": [0.0, 0.0, 0.0, 1.0], "6061": [0.0, 0.0, 2.5, 1.0],
+         "6998": {"_struct": "boxs", "6071": [2.0, 0.2, 2.5]}}]}]}]}
+    BLOCK_MMH = {"_struct": "mdlh", "6999": [{"_struct": "node", "6999": [
+        {"_struct": "bbox", "6054": [-1.0, -0.5, 0.0, 1.0], "6055": [1.0, 0.5, 3.0, 1.0]}]}]}
+
+    def test_solids(self):
+        q90 = [0.0, 0.0, math.sqrt(0.5), math.sqrt(0.5)]  # 90 degrees about Z
+        room = {"4": [10.0, 20.0, 1.0], "5": q90, "3050": [
+            {"3063": "My_Wall01_0", "4": [1.0, 0.0, 0.0], "5": [0.0, 0.0, 0.0, 1.0], "3059": 1.0},
+            {"3063": "blk_01_0", "4": [0.0, 0.0, 0.0], "5": [0.0, 0.0, 0.0, 1.0]},
+            {"3063": "my_floor01_0", "4": [0.0, 0.0, 0.0], "5": [0.0, 0.0, 0.0, 1.0]}]}
+        out = kit.solids([room], {"my_wall01_0": (self.WALL_PHY, None), "blk_01_0": (None, self.BLOCK_MMH)})
+        self.assertEqual(out["Summary"]["Walls"], 1)
+        self.assertEqual((out["Summary"]["Blockers"], out["Summary"]["Skipped"]), (1, 1))
+        wall = out["Solids"][:13]
+        # The room turns the wall's +1 m X offset into +1 m Y: (10, 21, 1 + 2.5) m, Y flipped for Unreal.
+        self.assertEqual(wall[0:6], [1000.0, -2100.0, 350.0, 200.0, 20.0, 250.0])
+        self.assertEqual([round(v, 3) + 0.0 for v in wall[6:12]], [0.0, -1.0, 0.0, 0.0, 0.0, 1.0])
+        self.assertEqual(wall[12], kit.WALL)
+        self.assertEqual(out["Solids"][13:19], [1000.0, -2000.0, 250.0, 100.0, 50.0, 150.0])
+
+    def test_cut_doorway(self):
+        wall = [0.0, 0.0, 250.0, 200.0, 20.0, 250.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0]
+        out, cuts = area.cut_doorways(wall, [([50.0, 0.0, 0.0], 80.0)])
+        self.assertEqual(cuts, 1)
+        pieces = [out[i:i + 13] for i in range(0, len(out), 13)]
+        # A 160 cm door at x = 50 (plus 10 cm either side) leaves -200..-40 and 140..200.
+        self.assertEqual([(p[0], p[3]) for p in pieces], [(-120.0, 80.0), (170.0, 30.0)])
+        self.assertEqual(area.cut_doorways(wall, [([900.0, 0.0, 0.0], 80.0)]), (wall, 0))
 
 
 class ToolsetTests(unittest.TestCase):

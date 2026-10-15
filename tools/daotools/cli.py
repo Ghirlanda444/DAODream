@@ -29,7 +29,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import area, cnv, fsb, gda, mfdecode, origin, plo, plotlogic, toolset, unreal
+from . import area, cnv, fsb, gda, kit, mfdecode, origin, plo, plotlogic, toolset, unreal
 from .erf import ERF, ERFError, is_erf
 from .fields import NAMES
 from .gff3 import GFF3, GFF3Error, is_gff3
@@ -371,9 +371,20 @@ def cmd_toolset_scripts(args) -> int:
 def cmd_unreal_area(args) -> int:
     are_root = json.loads(Path(args.file).read_text(encoding="utf-8"))["root"]
     layout_root = to_jsonable(GFF4.open(args.layout).root, NAMES)
-    out = area.area(are_root, layout_root, area.creature_templates(args.pull), start=args.start or "")
+    solids = None
+    if args.rooms:
+        rooms = [json.loads(f.read_text(encoding="utf-8"))["root"] for f in sorted(Path(args.rooms).rglob("*.rml.json"))]
+        names = kit.placed_models(rooms)
+        if args.game:
+            got = kit.pull(args.game, names, args.kit)
+            print(f"kit: {got['Files']} files, {len(got['Missing'])} models without any", file=sys.stderr)
+        solids = kit.solids(rooms, kit.load_kit(args.kit, names))
+        print(f"kit: {solids['Summary']}", file=sys.stderr)
+    out = area.area(are_root, layout_root, area.creature_templates(args.pull), start=args.start or "",
+                    solids=solids)
     s = out["Summary"]
-    print(f"{out['Area']}: {s['Floors']} floor boxes, {s['Walls']} wall boxes, {s['TalkingCreatures']} talking "
+    print(f"{out['Area']}: {s['Floors']} floor boxes, {s['Walls']} grid walls, {s['Solids']} kit solids "
+          f"({s['DoorwaysCut']} doorways cut), {s['TalkingCreatures']} talking "
           f"creatures and {s['TeamOnly']} more in {s['Teams']} teams ({s['Inactive']} hidden at first, "
           f"{s['OtherCreatures']} others left out), "
           f"{s['Waypoints']} waypoints, {s['Doors']} doors, {len(out['Labels'])} room labels", file=sys.stderr)
@@ -500,6 +511,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--layout", required=True, help="the area's layout .arl (packages/core/env/<Layout>.arl)")
     s.add_argument("--pull", required=True, help="pull json folder, for the creature templates")
     s.add_argument("--start", help="waypoint tag where the player starts")
+    s.add_argument("--rooms", help="folder of the layout's room files (.rml.json, from pull) for walls, props and "
+                                   "blockers from the level kit instead of the navigation grid")
+    s.add_argument("--kit", default="extracted/kit/json", help="folder for the kit pieces' physics and hierarchy JSON")
+    s.add_argument("--game", help="game folder: pull the kit pieces the rooms use into --kit first")
     s.add_argument("--out")
     s.set_defaults(func=cmd_unreal_area)
     s = u.add_parser("plots", help="what each plot's script does when a flag is set, as actions Unreal runs")

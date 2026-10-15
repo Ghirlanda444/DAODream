@@ -215,7 +215,7 @@ field names the level it is built on, whose files are in
   `bhn100wp_start`, next to Bryce.
 - `.arl` (GFF4 `ARL V4.0`): 59 `ROOM` structs with bounding boxes (render
   chunks; they overlap and some cover the whole castle, so they are no use as
-  a floor plan) and a navigation grid (`NAVI`): 299 x 276 cells of 0.5 m from
+  a floor plan; their room files place the walls, see below) and a navigation grid (`NAVI`): 299 x 276 cells of 0.5 m from
   (-131.1, -74.7). Per cell, field 3093 is the floor height in 1/16 m and field
   3114 is -1 for blocked cells and >= 0 for walkable ones. Checked against all
   35 placed characters: each stands on a walkable cell at exactly that height
@@ -232,12 +232,48 @@ every waypoint (where plot scripts move people), in Unreal coordinates
 yaw' = -(yaw + 90)):
 
 ```powershell
+py -m daotools pull "<game>" "hrt201d*" --out extracted/layouts/hrt201d_pull
 py -m daotools unreal area extracted/human_noble/json/al_bhn01al_castle_cousland/bhn100ar_castle_cousland.are.json `
   --layout "<game>/packages/core/env/hrt201d.arl" --pull extracted `
+  --rooms extracted/layouts/hrt201d_pull/json --game "<game>" `
   --start bhn100wp_start --out extracted/ue/areas/bhn100ar_castle_cousland.json
 ```
 
-Castle Cousland: 1,003 floor boxes, 606 wall boxes, 36 talking characters
+### Walls from the level kit
+
+The navigation grid misses most interior walls: they are thinner than its
+0.5 m cells. The real walls come from the rooms. Each layout room has a room
+file (`<layout>_<id>.rml`, GFF4 `RML V4.0`, in `packages/core/env/<layout>*.rim`)
+with its position and orientation (fields 4, 5) and the models it places
+(3050: `MDL` structs with position 4, orientation 5, scale 3059 and model
+3063, relative to the room). The castle is built from a kit: walls
+(`FCA_Wall01_0`, `FCA_CorrWall02_0`, `FCA_LrgWall03_0`), pillars, arches,
+floors, ceilings, props (`prp_*`) and invisible blockers (`blk_*`), 391
+models in all. Each model's physics (`.phy` in
+`packages/core/data/modelhierarchies.erf`, patched in `packages/core/patch`)
+holds its collision shapes: struct `shap` with type 6058 (2 box, also 1, 3
+and 5 for round and mesh shapes), orientation 6060, position 6061 and, for a
+box, `boxs` 6071 half extents. Blockers have no physics; the `bbox` (6054 min,
+6055 max) in their `.mmh` is the blocking volume. Each placement also stores
+its world bounding sphere (3321 centre, 3322 radius), which the transform
+`room position + room rotation x (model position + model rotation x point)`
+matches exactly.
+
+`daotools/kit.py` turns this into oriented boxes (`Solids`, 13 numbers each:
+centre and half extents in cm, the box's X and Z axes, kind 0 wall, 1 prop,
+2 blocker). Floors, ceilings and effects are left out (floors stay from the
+grid); walls and pillars without box collision, and props with round or no
+collision, fall back to their bounding box (small props, under 0.5 m, are
+dropped); decorative arch fades and beams have no collision and stay open.
+Wall boxes that a door stands in are cut around the door
+(`area.cut_doorways`). With `--rooms` the grid's walls are dropped and these
+replace them; `--game` first pulls the kit pieces' `.phy` and `.mmh` into
+`extracted/kit/json`. Checked: no character, door or the start stands inside
+a wall (one guard sits on a bench, one waypoint is in a plant), and the
+castle seen from above shows its rooms and corridors.
+
+Castle Cousland: 1,003 floor boxes, 1,164 wall, 1,289 prop and 201 blocker
+boxes from the kit (3 doorways cut), 36 talking characters
 (the mabari is pulled separately, see `docs/COMBAT.md`; the cat is missing), 18 giant rats
 in two teams (hidden at first), 33 waypoints, 27 doors.
 Plot scripts act on these through `BP_PlotManager` (`docs/SCRIPTS.md`). In Unreal,

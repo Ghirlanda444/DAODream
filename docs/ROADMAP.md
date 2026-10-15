@@ -37,8 +37,10 @@ Each phase ends with something you can see running.
 - [ ] Area layouts from the game's area/level data, used as the blueprint for
       rebuilt UE5 rooms (new art, original floor plan). Started: the castle's
       walkable floor plan and everyone who talks are spawned at runtime in
-      `/Game/Cousland/Maps/L_CastleCousland` (`daotools unreal area`); the
-      rooms themselves are still greybox boxes
+      `/Game/Cousland/Maps/L_CastleCousland` (`daotools unreal area`). Walls,
+      pillars, furniture and blockers now come from the level kit's collision
+      boxes, so the castle has its real rooms and corridors; all still greybox
+      boxes
 - [ ] Characters: rebuilt models (MetaHuman or custom), the original ones as
       proportion and costume reference
 - [ ] Exploration: Fergus, Oriana and Oren, Nan in the kitchen, Ser Gilmore,

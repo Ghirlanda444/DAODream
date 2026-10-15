@@ -106,5 +106,5 @@ Stats, attributes and abilities from the data tables; real-time with pause and
 tactics; hostiles only ever attack the player, never party members; party
 members cannot be hurt or switched to; proper animations (everyone is a
 mannequin, the rats are small ones, and the attack is a generic punch);
-collision while moving (creatures and followers pass through walls); a game
-over.
+collision while moving (the castle has walls now, but creatures and followers
+still move straight through them, with no path finding); a game over.

@@ -6,8 +6,10 @@ From the two this builds a greybox the Unreal project spawns at runtime:
 floor and wall boxes from the grid, and the creatures that have a
 conversation or belong to a team (plot scripts show, hide and move teams), at
 their places, plus every waypoint (where plot scripts move people) and every
-door. Nothing here is a game model: the boxes come from the
-walkable/blocked cells, and doors are sized by kind (see door_size).
+door. Nothing here is a game model: floors come from the
+walkable cells, walls either from the blocked cells or, with the layout's rooms,
+from the level kit's collision boxes (kit.py), and doors are sized by kind
+(see door_size).
 
 Navigation grid (field IDs observed on hrt201d, Castle Cousland):
 3086/3087 width/height in cells, 3088 cell size (m), 3090 origin (m),
@@ -152,8 +154,48 @@ def creature_templates(json_dir: str | Path) -> dict[str, dict]:
     return found
 
 
-def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start: str = "") -> dict:
-    """The runtime area file."""
+def cut_doorways(solids: list[float], doors: list[tuple[list[float], float]]) -> tuple[list[float], int]:
+    """Split wall boxes (kind 0, 13 numbers each, see kit.solids) that a door stands
+    in, so the doorway stays open: the wall is cut along its longer horizontal side
+    around the door (door position in Unreal cm, half width in cm). Some doors sit
+    inside an outer-wall piece whose collision covers the opening."""
+    out: list[float] = []
+    cuts = 0
+    for i in range(0, len(solids), 13):
+        b = solids[i:i + 13]
+        c, half, xa, za = b[0:3], b[3:6], b[6:9], b[9:12]
+        ya = (za[1] * xa[2] - za[2] * xa[1], za[2] * xa[0] - za[0] * xa[2], za[0] * xa[1] - za[1] * xa[0])
+        axes = (xa, ya, za)
+        pieces = [b]
+        for pos, door_half in doors if b[12] == 0 else []:
+            p = (pos[0], pos[1], pos[2] + 100)  # 1 m above the door's base
+            d = [p[k] - c[k] for k in range(3)]
+            local = [sum(d[k] * ax[k] for k in range(3)) for ax in axes]
+            if not all(abs(local[j]) <= half[j] for j in range(3)):
+                continue
+            # the box's longer horizontal axis (smallest vertical component, larger half extent)
+            j = max((0, 1, 2), key=lambda a: (abs(axes[a][2]) < 0.5, half[a]))
+            lo, hi = -half[j], half[j]
+            gap_lo, gap_hi = local[j] - door_half - 10, local[j] + door_half + 10
+            pieces = []
+            for a, z in ((lo, gap_lo), (gap_hi, hi)):
+                if z - a > 1:
+                    mid = (a + z) / 2
+                    nh = list(half)
+                    nh[j] = (z - a) / 2
+                    nc = [round(c[k] + axes[j][k] * mid, 1) for k in range(3)]
+                    pieces.append([*nc, *(round(h, 1) for h in nh), *xa, *za, b[12]])
+            cuts += 1
+            break
+        for piece in pieces:
+            out += piece
+    return out, cuts
+
+
+def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start: str = "",
+         solids: dict | None = None) -> dict:
+    """The runtime area file. `solids` (kit.solids, from the layout's rooms) replaces
+    the navigation grid's walls with the level kit's walls, props and blockers."""
     warnings: list[str] = []
     npc_tags, npc_names, npc_convs, npc_female, npc_pose, npc_active = [], [], [], [], [], []
     npc_team, npc_scale, npc_hostile, npc_rank = [], [], [], []
@@ -214,6 +256,11 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         warnings.append(f"start waypoint {start} not found")
 
     boxes = floor_plan(navigation(layout_root))
+    solid_boxes, cut = [], 0
+    if solids is not None:
+        boxes = [v for i in range(0, len(boxes), 7) if boxes[i + 6] == 0 for v in boxes[i:i + 7]]  # floors only
+        doors = [(door_pose[i * 4:i * 4 + 3], door_size_wh[i * 2] / 2) for i in range(len(door_tags))]
+        solid_boxes, cut = cut_doorways(solids["Solids"], doors)
     return {
         "Format": FORMAT,
         "Area": are_root.get("Tag") or "",
@@ -237,12 +284,14 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "DoorState": door_state,
         "DoorSize": door_size_wh,
         "DoorActive": door_active,
+        "Solids": solid_boxes,
         "Labels": labels,
         "LabelPos": label_pos,
         "Summary": {"Floors": sum(1 for k in boxes[6::7] if k == 0), "Walls": sum(1 for k in boxes[6::7] if k == 1),
                     "TalkingCreatures": sum(1 for c in npc_convs if c), "TeamOnly": sum(1 for c in npc_convs if not c),
                     "Teams": len({t for t in npc_team if t != NO_TEAM}),
                     "Inactive": npc_active.count(0), "OtherCreatures": others,
-                    "Waypoints": len(wp_tags), "Doors": len(door_tags)},
+                    "Waypoints": len(wp_tags), "Doors": len(door_tags),
+                    "Solids": len(solid_boxes) // 13, "DoorwaysCut": cut},
         "Warnings": warnings,
     }
