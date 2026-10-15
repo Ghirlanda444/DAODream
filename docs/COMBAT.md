@@ -82,6 +82,20 @@ kill all 18 rats in about half a minute while the rats bite the player (64/200
 left); the castle reacts as above, and Gilmore leaves the party at the end of
 his conversation. Alone, the player needs about 40 swings.
 
+## Path finding
+
+`L_CastleCousland` has a `NavMeshBoundsVolume` (`CastleNavBounds`) over the
+whole castle, and its `RecastNavMesh-Default` builds at runtime
+(`RuntimeGeneration` Dynamic), because the walls, floors and furniture only
+exist once `BP_AreaLoader` has spawned them. Every mover in `BP_DlgNPC`
+(companions following and fighting, hostiles chasing, scripted walks) goes
+through `FollowPath`: it asks the navigation system for a path
+(`FindPathToLocationSynchronously`) at most every 0.6 s or when the goal moves
+more than 1.5 m, and walks the path's points. Without a path (no nav mesh, as in
+L_GreatHall) it walks straight. Checked: Gilmore, following the player from the
+corridor into the kitchen 20 m away, takes a 7-point path round the walls.
+Movers still don't push against each other or the player.
+
 ## Reading the fight
 
 - Your health: `/Game/Cousland/Combat/WBP_CombatHUD`, top left (a bar and
@@ -106,5 +120,4 @@ Stats, attributes and abilities from the data tables; real-time with pause and
 tactics; hostiles only ever attack the player, never party members; party
 members cannot be hurt or switched to; proper animations (everyone is a
 mannequin, the rats are small ones, and the attack is a generic punch);
-collision while moving (the castle has walls now, but creatures and followers
-still move straight through them, with no path finding); a game over.
+a game over.

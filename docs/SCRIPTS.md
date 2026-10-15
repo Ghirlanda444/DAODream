@@ -183,10 +183,9 @@ closes it unless a character is close enough to talk (then E talks). Plot
 actions find doors by tag; several ordinary doors share one tag
 (`bhn100ip_dr_lg_pt`), but every door a plot script names has its own.
 
-Walking is a straight line at 1.6 m/s (jogging 3.8 m/s) with the mannequin's
-walk or jog loop, done in `BP_DlgNPC`'s Tick (`WalkTo`, `StepWalk`). The
-characters are plain actors, not pawns, so there is no navigation mesh or path
-finding yet; the moves in these plots are short and within one room.
+Walking is at 1.6 m/s (jogging 3.8 m/s) with the mannequin's walk or jog
+loop, done in `BP_DlgNPC`'s Tick (`WalkTo`, `StepWalk`), along a path from the
+castle's navigation mesh (see `docs/COMBAT.md`, Path finding).
 
 At runtime `/Game/Cousland/Plots/BP_PlotManager` holds the flags for the whole
 level (before, each dialogue runner had its own set, so a flag set in one
