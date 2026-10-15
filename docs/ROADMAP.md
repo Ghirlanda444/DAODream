@@ -68,7 +68,8 @@ Each phase ends with something you can see running.
       Gilmore and the mabari join the party when the scripts say so, follow
       you and fight beside you
 - [ ] Real-time with pause, tactics slots, DAO's stats and abilities from the
-      data tables
+      data tables. Started: health, attack, defense and damage come from the
+      tables, as the scripts compute them, and every attack rolls to hit
 
 ## Phase 4: The siege
 

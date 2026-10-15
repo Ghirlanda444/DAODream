@@ -29,7 +29,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import area, cnv, fsb, gda, kit, mfdecode, origin, plo, plotlogic, toolset, unreal
+from . import area, cnv, fsb, gda, kit, mfdecode, origin, plo, plotlogic, stats, toolset, unreal
 from .erf import ERF, ERFError, is_erf
 from .gda import GDA
 from .fields import NAMES
@@ -394,8 +394,23 @@ def cmd_unreal_area(args) -> int:
             kit.pull(args.game, models, args.kit)
         door_models = kit.door_models(doors, gda_records, kit.load_kit(args.kit, models))
         print(f"doors: {len(door_models)} door templates sized from their models", file=sys.stderr)
+    creature_stats, player = None, None
+    if args.game:
+        tables = stats.load_tables(args.game)
+        items = {p.name[:-len(".uti.json")].lower(): json.loads(p.read_text(encoding="utf-8"))["root"]
+                 for p in sorted(Path(args.items).rglob("*.uti.json"))} if Path(args.items).exists() else {}
+
+        def creature_stats(utc):
+            return stats.stats(tables, package=int(utc.get("Package") or 0), rank=int(utc.get("Rank") or 0),
+                               area_level=args.area_level,
+                               base_item=stats.weapon_base_item(utc.get("Equip_ItemList"), items, tables["itemstats"]))
+
+        # The Human Noble starts as a level 1 human warrior with a longsword (base item 2).
+        player = stats.stats(tables, package=0, rank=stats.RANK_PLAYER, area_level=args.area_level,
+                             race=3, base_item=2, player_class=1)
+        print(f"player: {player['Health']} health, damage {player['Damage']}", file=sys.stderr)
     out = area.area(are_root, layout_root, area.creature_templates(args.pull), start=args.start or "",
-                    solids=solids, door_models=door_models)
+                    solids=solids, door_models=door_models, creature_stats=creature_stats, player=player)
     s = out["Summary"]
     print(f"{out['Area']}: {s['Floors']} floor boxes, {s['Walls']} grid walls, {s['Solids']} kit solids "
           f"({s['DoorwaysCut']} doorways cut, {s['DoorFrames']} door frames, "
@@ -530,6 +545,9 @@ def build_parser() -> argparse.ArgumentParser:
                                    "blockers from the level kit instead of the navigation grid")
     s.add_argument("--kit", default="extracted/kit/json", help="folder for the kit pieces' physics and hierarchy JSON")
     s.add_argument("--game", help="game folder: pull the kit pieces the rooms use into --kit first")
+    s.add_argument("--items", default="extracted/items/json", help="item templates (.uti.json, from pull "
+                                                                    "'gen_im_wep*'), for the creatures' weapons")
+    s.add_argument("--area-level", type=int, default=1, help="the level the area scales creatures to (default 1)")
     s.add_argument("--placeable-types", help="placeable_types.gda (else read from --game), to size doors from "
                                              "their models")
     s.add_argument("--out")

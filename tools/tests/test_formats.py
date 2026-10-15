@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from daotools import area, cnv, fields as F, fsb, kit, mfdecode, plo, plotlogic, toolset, unreal
+from daotools import area, cnv, fields as F, fsb, kit, mfdecode, plo, plotlogic, stats, toolset, unreal
 from daotools.cli import main
 from daotools.erf import ERF, ERFError, is_erf
 from daotools.gda import GDA, column_hash
@@ -499,6 +499,42 @@ class DoorFitTests(unittest.TestCase):
         lintel = self.box(1050, -2050, 250, 20, 20, 20, kit.WALL)
         kept, dropped = area.drop_hanging(table + lamp + lintel, nav)
         self.assertEqual((dropped, kept), (1, table + lintel))
+
+
+class StatsTests(unittest.TestCase):
+    # Made-up tables in the shape of the game's.
+    TABLES = {
+        "packages_base": {5: {"ID": 5, "StartingClass": 1, "Strategy": 1, "MinLevel": 0}},
+        "autoscale": {1: {"ID": 1, "fscale": 0.5, "fHealthScale": 0.5, "nBonusPoints": 0, "nLevelScale": 1,
+                          "fDamageScale": 0.5},
+                      100: {"ID": 100, "fscale": 1.0, "fHealthScale": 1.0, "nBonusPoints": 0, "nLevelScale": 0,
+                            "fDamageScale": 1.0}},
+        "as_data": {1: {"ID": 1, "s1": 1.0, "s2": 2.0, "s3": 0.0, "s4": 0.0, "s5": 0.0, "s6": 1.0}},
+        "cla_data": {1: {"ID": 1, "label": "Fighter", "BaseHealth": 80.0, "HealthPerLevel": 10.0, "BaseAttack": 50.0,
+                         "BaseDefense": 40.0, "DamagePerLevel": 0.5, "StrAdjust": 2.0}},
+        "race_base": {3: {"ID": 3, "StrAdjust": 1.0}},
+        "itemstats": {2: {"ID": 2, "Damage": 6.0, "DamageRange": 1.5}},
+        "difficulty": {1: {"ID": 1, "DmgScalingThresh": 7.0}},
+    }
+
+    def test_creature(self):
+        # Rank 1 at area level 2 is level 3; STR = 10 + 2 levels x 0.5 x 3 points x (1/1)/3 = 11, +2 class.
+        st = stats.stats(self.TABLES, package=5, rank=1, area_level=2)
+        self.assertEqual((st["Level"], st["Attributes"]["Str"], st["Attributes"]["Dex"]), (3, 13.0, 11.0))
+        self.assertEqual(st["Health"], 50.0)  # (80 + 10 x 2 levels) x 0.5
+        # Unarmed 3-4.5, + strength (13 - 10) x 25-50% x 1.25, + 0.5 per level (3 levels).
+        self.assertEqual(st["Damage"], (5.44, 7.88))
+        self.assertEqual(stats.damage_after_scaling(7.88, st["DamageScale"], st["DamageThreshold"]), 3.94)
+        self.assertEqual(stats.damage_after_scaling(5.44, st["DamageScale"], st["DamageThreshold"]), 5.44)
+
+    def test_player_and_weapon(self):
+        st = stats.stats(self.TABLES, package=0, rank=100, race=3, base_item=2, player_class=1)
+        self.assertEqual((st["Level"], st["Attributes"]["Str"], st["Health"]), (1, 13.0, 80.0))
+        self.assertEqual(st["Damage"], (7.25, 11.0))  # 6-9 + 3 x 25-50% + 0.5
+        self.assertEqual(stats.hit_chance(50.0, 40.0), 64.0)
+        self.assertEqual(stats.weapon_base_item([{"TemplateResRef": "cap"}, {"TemplateResRef": "Sword"}],
+                                                {"cap": {"BaseItem": 9}, "sword": {"BaseItem": 2}},
+                                                self.TABLES["itemstats"]), 2)
 
 
 class ToolsetTests(unittest.TestCase):

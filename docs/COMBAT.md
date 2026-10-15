@@ -3,9 +3,10 @@
 The first fight of the Human Noble origin, playable in
 `/Game/Cousland/Maps/L_CastleCousland`: the mabari in the larder, three waves of
 giant rats, and what the castle does once they are dead. It is a prototype of
-the loop (hostiles chase and bite, the player strikes, deaths drive the plot),
-not of Dragon Age's rules: the numbers below are placeholders until stats and
-abilities come from the game's data tables (the next Phase 3 item).
+the loop (hostiles chase and bite, the player strikes, deaths drive the plot).
+Health, attack, defense and damage come from the game's data tables, computed
+the way its scripts do (see "Stats" below); abilities, talents and armour are
+not there yet.
 
 ## How the fight is put together
 
@@ -52,15 +53,16 @@ py -m daotools unreal conv extracted/dog/json/al_bhn01al_castle_cousland/dog00cr
 
 - `daotools unreal area` exports, per creature, whether it is hostile
   (`GroupId` 1 or 36, `GROUP_HOSTILE*`) and its rank (`CREATURE_RANK_*`).
-- `BP_DlgNPC` (every spawned creature): `SetupCombat` gives hostiles health by
-  rank (critters 12, others 40) and shows it over their head. In `CombatTick`
+- `BP_DlgNPC` (every spawned creature): `SetupCombat` takes its stats from the
+  area file and shows a hostile's health over its head. In `CombatTick`
   a visible hostile within 15 m turns to the player, jogs to 1.1 m at 3 m/s and
-  bites for 2 every 2 s. `TakeHit` and `Die` hide the creature, drop its
-  `team:<id>` tag and tell the plot manager.
-- `BP_PlotManager`: the player's health (200, shown top left), the attack on F
-  or the left mouse button (`/Game/Cousland/Combat/IA_Attack`, mapped in
-  `IMC_Dialogue`): 6 damage to the nearest live hostile within 2.3 m, at most
-  every 0.6 s. Every creature bids its distance (`Bid` → `Offer`) and the
+  attacks every 2 s (`BP_PlotManager.AttackPlayer` rolls it). `TakeAttack`
+  rolls an attack against it (a hit, or "Miss" over its head); `TakeHit` and
+  `Die` hide the creature, drop its `team:<id>` tag and tell the plot manager.
+- `BP_PlotManager`: the player's stats (`SetPlayerStats`, health shown top
+  left), the attack on F or the left mouse button
+  (`/Game/Cousland/Combat/IA_Attack`, mapped in `IMC_Dialogue`): an attack on
+  the nearest live hostile within 2.3 m, at most once a second. Every creature bids its distance (`Bid` → `Offer`) and the
   nearest is hit. On a death it runs `death:<tag>`, and `teamdead:<id>` when no
   creature with that team tag is left. Fighting pauses during conversations.
   At 0 health the player is "knocked down" and healed (there is no game over
@@ -73,14 +75,54 @@ py -m daotools unreal conv extracted/dog/json/al_bhn01al_castle_cousland/dog00cr
   game puts a hired follower at your side), and every 0.5 s asks the plot
   manager for the nearest live hostile within 12 m of itself (`AssignTarget`,
   the same distance bids as the player's attack). It goes to that target and
-  strikes for 4 every 1.2 s. Party members stand still during conversations;
+  attacks every 1.5 s with its own stats. Party members stand still during conversations;
   you can still talk to them.
 
-Played through: Gilmore joins and follows, the mabari's conversation starts the
-fight and the dog joins; Gilmore and the dog alone (the player not attacking)
-kill all 18 rats in about half a minute while the rats bite the player (64/200
-left); the castle reacts as above, and Gilmore leaves the party at the end of
-his conversation. Alone, the player needs about 40 swings.
+Played through (with the placeholder numbers that came before the stats):
+Gilmore joins and follows, the mabari's conversation starts the fight and the
+dog joins; Gilmore and the dog kill all 18 rats, the castle reacts as above,
+and Gilmore leaves the party at the end of his conversation.
+
+## Stats
+
+`tools/daotools/stats.py` ports the scripts that set a creature's numbers
+(`sys_autoscale_h`, `sys_chargen_h`, `combat_damage_h`, `combat_h`) and reads
+the tables they use from `packages/core/data/2da.erf`: `packages_base` (a
+creature's class, strategy and minimum level), `autoscale` (per rank: level
+offset, attribute, health and damage scales), `as_data` (how a strategy spends
+attribute points), `cla_data` (class base health, attack, defense, health and
+damage per level, attribute adjustments), `race_base`, `itemstats` (weapon
+damage) and `difficulty` (the damage scaling threshold on Normal).
+
+- Level: the area's level plus the rank's offset, at least 1 and the package's
+  minimum. Attributes: 10, plus the points autoscaling spends by strategy, plus
+  the class's adjustments (and the race's, for the player).
+- Health: class base health x the rank's health scale, plus health per level
+  for each level above 1.
+- Damage: the equipped weapon's damage to damage x range (unarmed 3 to 4.5,
+  with strength counting 1.25 times), plus 25-50% of strength above 10, plus
+  damage per level. A hit above the threshold (7 on Normal) is multiplied by
+  the rank's damage scale: critters and normal creatures deal 0.4 of it.
+- To hit: attack + 50 + 4 - the target's defense, in percent.
+
+`daotools unreal area ... --game "<game>"` writes `NpcHealth`, `NpcAttack`,
+`NpcDefense`, `NpcDamage` (min and max per creature), `NpcDamageScale` and the
+player's `PlayerStats` (a level 1 human warrior with a longsword). Weapons
+come from the item templates, pulled once with
+`py -m daotools pull "<game>" "gen_im_wep*" --out extracted/items`;
+`--area-level` sets the level the area scales to (1 by default).
+`BP_AreaLoader.LoadStatData` reads them.
+
+At level 1 a giant rat has 40 health, attack 60, defense 45 and bites for
+4.7-7.4 (scaled to 3 above 7); Gilmore has 106 health and hits for 8.8-13.3;
+the mabari has 100 health; the player has 100 health and hits for 8.7-13.4,
+69% of the time against a rat. Checked in Play: a rat dies after four hits
+(one miss in five), and its bites take the player from 100 to 72 in eight.
+
+Not included, because the engine adds them outside the scripts: the
+attributes' bonuses to attack, defense and health, armour, item materials and
+talents. Both sides are missing the same pieces, so the fight keeps its shape,
+but the player is weaker than in the game, where armour soaks most rat bites.
 
 ## Path finding
 
@@ -99,7 +141,7 @@ Movers still don't push against each other or the player.
 ## Reading the fight
 
 - Your health: `/Game/Cousland/Combat/WBP_CombatHUD`, top left (a bar and
-  "Health n/200"), created by `BP_PlotManager.InitCombat`. The same widget
+  "Health n/100"), created by `BP_PlotManager.InitCombat`. The same widget
   shows short messages in the middle of the screen for 3 s: "Fight over" when
   the last visible hostile dies, and "Knocked down" at 0 health.
 - Hostiles: a red bar over their head (`WBP_HealthBar` in a screen-space
@@ -116,8 +158,8 @@ Movers still don't push against each other or the player.
 
 ## Not there yet
 
-Stats, attributes and abilities from the data tables; real-time with pause and
-tactics; hostiles only ever attack the player, never party members; party
+Abilities, talents, armour and the attributes' bonuses; real-time with pause
+and tactics; hostiles only ever attack the player, never party members; party
 members cannot be hurt or switched to; proper animations (everyone is a
 mannequin, the rats are small ones, and the attack is a generic punch);
 a game over.

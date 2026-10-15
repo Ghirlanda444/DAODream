@@ -292,15 +292,19 @@ def cut_doorways(solids: list[float], doors: list[tuple[list[float], float]]) ->
 
 
 def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start: str = "",
-         solids: dict | None = None, door_models: dict[str, tuple[float, float, float]] | None = None) -> dict:
+         solids: dict | None = None, door_models: dict[str, tuple[float, float, float]] | None = None,
+         creature_stats=None, player: dict | None = None) -> dict:
     """The runtime area file. `solids` (kit.solids, from the layout's rooms) replaces
     the navigation grid's walls with the level kit's walls, props and blockers.
+    `creature_stats` (utc -> stats.stats() dict) and `player` add the game's combat
+    numbers (see stats.py).
     `door_models` (template -> the door model's min and max along its width and its
     height, metres; see kit.door_models) places and sizes doors like the game: the
     door's origin is its hinge and the panel runs along its local X."""
     warnings: list[str] = []
     npc_tags, npc_names, npc_convs, npc_female, npc_pose, npc_active = [], [], [], [], [], []
     npc_team, npc_scale, npc_hostile, npc_rank = [], [], [], []
+    npc_health, npc_attack, npc_defense, npc_damage, npc_dscale = [], [], [], [], []
     others = 0
     for c in are_root.get("CreatureList") or []:
         utc = templates.get(str(c.get("TemplateResRef", "")).lower())
@@ -326,6 +330,13 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
                          else 0.8 if race == RACE_DWARF else 1.0)
         npc_hostile.append(1 if utc.get("GroupId") in (GROUP_HOSTILE, GROUP_HOSTILE_ON_GROUND) else 0)
         npc_rank.append(rank)
+        if creature_stats is not None:  # stats.stats() for this template (see the CLI)
+            st = creature_stats(utc)
+            npc_health.append(st["Health"])
+            npc_attack.append(st["Attack"])
+            npc_defense.append(st["Defense"])
+            npc_damage.extend(st["Damage"])
+            npc_dscale.append(st["DamageScale"])
         npc_pose.extend([*ue_point(c["XPosition"], c["YPosition"], c["ZPosition"]),
                          ue_yaw(c["XOrientation"], c["YOrientation"], c["ZOrientation"], c["WOrientation"])])
 
@@ -392,6 +403,15 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcScale": npc_scale,
         "NpcHostile": npc_hostile,
         "NpcRank": npc_rank,
+        "NpcHealth": npc_health,
+        "NpcAttack": npc_attack,
+        "NpcDefense": npc_defense,
+        "NpcDamage": npc_damage,
+        "NpcDamageScale": npc_dscale,
+        "Player": player or {},
+        # Flat for Blueprint: health, attack, defense, damage min and max, damage scaling threshold.
+        "PlayerStats": ([player["Health"], player["Attack"], player["Defense"], *player["Damage"],
+                         player["DamageThreshold"]] if player else []),
         "WaypointTags": wp_tags,
         "WaypointPose": wp_pose,
         "DoorTags": door_tags,
