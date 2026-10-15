@@ -467,6 +467,40 @@ class KitTests(unittest.TestCase):
         self.assertEqual(area.cut_doorways(wall, [([900.0, 0.0, 0.0], 80.0)]), (wall, 0))
 
 
+class DoorFitTests(unittest.TestCase):
+    @staticmethod
+    def box(x, y, z, hx, hy, hz, kind=0):
+        return [x, y, z, hx, hy, hz, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, kind]
+
+    def test_door_model_size(self):
+        mmh = {"_struct": "mdlh", "6999": [{"_struct": "node", "6999": [
+            {"_struct": "bbox", "6054": [0.0, -0.2, 0.0, 1.0], "6055": [2.0, 0.2, 3.0, 1.0]}]}]}
+        models = kit.door_models({"my_door": {"Appearance": 7}}, [{"ID": 7, "ModelName": "PLC_MyDoor_0"}],
+                                 {"plc_mydoor_0": (None, mmh)})
+        self.assertEqual(models, {"my_door": (0.0, 2.0, 3.0)})
+        self.assertEqual(kit.door_model_names({"my_door": {"Appearance": 7}}, [{"ID": 7, "ModelName": "PLC_MyDoor_0"}]),
+                         {"plc_mydoor_0"})
+
+    def test_frames_close_the_doorway(self):
+        # A 100 cm door at the origin facing +X (its width along Y); walls start at y = -200 and y = 150.
+        walls = self.box(0, -220, 200, 20, 20, 200) + self.box(0, 170, 200, 20, 20, 200)
+        frames, n = area.frame_doors([0.0, 0.0, 0.0, 0.0], [100.0, 200.0], walls)
+        self.assertEqual(n, 2)
+        self.assertEqual([(frames[i + 1], frames[i + 4]) for i in range(0, len(frames), 13)],
+                         [(-125.0, 75.0), (100.0, 50.0)])
+        # A wall 7 m away is a corridor beside the door, not its frame.
+        far = self.box(0, -720, 200, 20, 20, 200) + self.box(0, 170, 200, 20, 20, 200)
+        self.assertEqual(area.frame_doors([0.0, 0.0, 0.0, 0.0], [100.0, 200.0], far)[1], 1)
+
+    def test_drop_hanging_props(self):
+        nav = AreaTests.nav  # floor at 0 m around (10.5, 20.5) m
+        table = self.box(1050, -2050, 40, 50, 50, 40, kit.PROP)
+        lamp = self.box(1050, -2050, 250, 20, 20, 20, kit.PROP)
+        lintel = self.box(1050, -2050, 250, 20, 20, 20, kit.WALL)
+        kept, dropped = area.drop_hanging(table + lamp + lintel, nav)
+        self.assertEqual((dropped, kept), (1, table + lintel))
+
+
 class ToolsetTests(unittest.TestCase):
     def test_parse_dump(self):
         m = toolset.MARK

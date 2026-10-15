@@ -146,12 +146,111 @@ def _text(value) -> str:
     return value if isinstance(value, str) else ""
 
 
+def placeable_templates(json_dir: str | Path) -> dict[str, dict]:
+    """Every .utp dump under a pull folder, by template name (lower case)."""
+    found = {}
+    for p in sorted(Path(json_dir).rglob("*.utp.json")):
+        found.setdefault(p.name[:-len(".utp.json")].lower(), json.loads(p.read_text(encoding="utf-8"))["root"])
+    return found
+
+
 def creature_templates(json_dir: str | Path) -> dict[str, dict]:
     """Every .utc dump under a pull folder, by template name (lower case)."""
     found = {}
     for p in sorted(Path(json_dir).rglob("*.utc.json")):
         found.setdefault(p.name[:-len(".utc.json")].lower(), json.loads(p.read_text(encoding="utf-8"))["root"])
     return found
+
+
+def _axes(b: list[float]):
+    xa, za = b[6:9], b[9:12]
+    ya = (za[1] * xa[2] - za[2] * xa[1], za[2] * xa[0] - za[0] * xa[2], za[0] * xa[1] - za[1] * xa[0])
+    return xa, ya, za
+
+
+def _inside(b: list[float], p) -> bool:
+    d = [p[k] - b[k] for k in range(3)]
+    return all(abs(sum(d[k] * ax[k] for k in range(3))) <= b[3 + j] for j, ax in enumerate(_axes(b)))
+
+
+def _bottom(b: list[float]) -> float:
+    return b[2] - sum(abs(ax[2]) * b[3 + j] for j, ax in enumerate(_axes(b)))
+
+
+def drop_hanging(solids: list[float], nav: dict, above: float = 100.0) -> tuple[list[float], int]:
+    """Drop props (kind 1) whose box starts more than `above` cm over the floor
+    under it: lamps, banners, wall displays, shelves' contents. You walk under them,
+    and as greybox they only look like boxes floating in the room."""
+    w, h, cell = nav[NAV_WIDTH], nav[NAV_HEIGHT], nav[NAV_CELL]
+    ox, oy = nav[NAV_ORIGIN][0], nav[NAV_ORIGIN][1]
+    cls, fz = nav[NAV_CLASS], nav[NAV_FLOOR_Z]
+
+    def floor_under(x: float, y: float, z: float) -> float | None:
+        gi, gj = int((x / 100 - ox) / cell), int((-y / 100 - oy) / cell)
+        best = None
+        for j in range(gj - 2, gj + 3):
+            for i in range(gi - 2, gi + 3):
+                if 0 <= i < w and 0 <= j < h and cls[j * w + i] >= 0:
+                    f = fz[j * w + i] / 16 * 100
+                    if f <= z + 50 and (best is None or f > best):
+                        best = f
+        return best
+
+    out: list[float] = []
+    dropped = 0
+    for i in range(0, len(solids), 13):
+        b = solids[i:i + 13]
+        if b[12] == 1:
+            bottom = _bottom(b)
+            floor = floor_under(b[0], b[1], bottom)
+            if floor is None or bottom - floor > above:
+                dropped += 1
+                continue
+        out += b
+    return out, dropped
+
+
+MAX_FRAME = 260.0  # cm
+
+
+def frame_doors(door_pose: list[float], door_size: list[float], solids: list[float]) -> tuple[list[float], int]:
+    """Wall boxes that close the rest of each doorway. Measured at 1.5 m up, along
+    the door's width (its local Y), from the door's centre to the nearest wall or
+    blocker on each side: where the gap is wider than the door (the frame pieces
+    have no collision at walking height), the space between the door's edges and the
+    walls is filled up to the lintel (or 4 m). Doors standing inside a wall piece
+    (cut_doorways opens those) are left alone, and so is any side wider than
+    MAX_FRAME: there the door stands beside a corridor or an open room, not in a
+    wall."""
+    walls = [solids[i:i + 13] for i in range(0, len(solids), 13) if solids[i + 12] in (0, 2)]
+    out: list[float] = []
+    framed = 0
+    for d in range(len(door_pose) // 4):
+        x, y, z, yaw = door_pose[d * 4:d * 4 + 4]
+        width = door_size[d * 2]
+        r = math.radians(yaw)
+        side = (-math.sin(r), math.cos(r))
+        fwd = (math.cos(r), math.sin(r))
+        near = [b for b in walls if abs(b[0] - x) < 1200 and abs(b[1] - y) < 1200]
+
+        def hit(t: float, up: float = 150.0) -> bool:
+            return any(_inside(b, (x + side[0] * t, y + side[1] * t, z + up)) for b in near)
+
+        if hit(0):
+            continue
+        lo = next((-t for t in range(5, 805, 5) if hit(-t)), None)
+        hi = next((t for t in range(5, 805, 5) if hit(t)), None)
+        if lo is None or hi is None:
+            continue
+        top = next((u for u in range(int(door_size[d * 2 + 1]), 800, 10) if hit(0, u)), 400)
+        for a, b in ((lo, -width / 2), (width / 2, hi)):
+            if 5 < b - a <= MAX_FRAME:
+                mid = (a + b) / 2
+                out += [round(x + side[0] * mid, 1), round(y + side[1] * mid, 1), round(z + top / 2, 1),
+                        20.0, round((b - a) / 2, 1), round(top / 2, 1),
+                        round(fwd[0], 4), round(fwd[1], 4), 0.0, 0.0, 0.0, 1.0, 0]
+                framed += 1
+    return out, framed
 
 
 def cut_doorways(solids: list[float], doors: list[tuple[list[float], float]]) -> tuple[list[float], int]:
@@ -193,9 +292,12 @@ def cut_doorways(solids: list[float], doors: list[tuple[list[float], float]]) ->
 
 
 def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start: str = "",
-         solids: dict | None = None) -> dict:
+         solids: dict | None = None, door_models: dict[str, tuple[float, float, float]] | None = None) -> dict:
     """The runtime area file. `solids` (kit.solids, from the layout's rooms) replaces
-    the navigation grid's walls with the level kit's walls, props and blockers."""
+    the navigation grid's walls with the level kit's walls, props and blockers.
+    `door_models` (template -> the door model's min and max along its width and its
+    height, metres; see kit.door_models) places and sizes doors like the game: the
+    door's origin is its hinge and the panel runs along its local X."""
     warnings: list[str] = []
     npc_tags, npc_names, npc_convs, npc_female, npc_pose, npc_active = [], [], [], [], [], []
     npc_team, npc_scale, npc_hostile, npc_rank = [], [], [], []
@@ -236,7 +338,17 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         door_pose.extend([*ue_point(d["XPosition"], d["YPosition"], d["ZPosition"]),
                           ue_yaw(d["XOrientation"], d["YOrientation"], d["ZOrientation"], d["WOrientation"])])
         door_state.append(int(d.get("InitialState") or 0))
-        door_size_wh.extend(door_size(template))
+        model = (door_models or {}).get(template.lower())
+        if model:
+            lo, hi, height = model
+            yaw = math.radians(door_pose[-1])
+            # the game's local X is the actor's +Y in Unreal; centre the panel between lo and hi
+            mid = (lo + hi) / 2 * 100
+            door_pose[-4] = round(door_pose[-4] - math.sin(yaw) * mid, 1)
+            door_pose[-3] = round(door_pose[-3] + math.cos(yaw) * mid, 1)
+            door_size_wh.extend((round((hi - lo) * 100, 1), round(height * 100, 1)))
+        else:
+            door_size_wh.extend(door_size(template))
         door_active.append(1 if d.get("Active") else 0)
 
     labels, label_pos = [], []
@@ -256,11 +368,14 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         warnings.append(f"start waypoint {start} not found")
 
     boxes = floor_plan(navigation(layout_root))
-    solid_boxes, cut = [], 0
+    solid_boxes, cut, dropped, fitted = [], 0, 0, 0
     if solids is not None:
         boxes = [v for i in range(0, len(boxes), 7) if boxes[i + 6] == 0 for v in boxes[i:i + 7]]  # floors only
+        solid_boxes, dropped = drop_hanging(solids["Solids"], navigation(layout_root))
         doors = [(door_pose[i * 4:i * 4 + 3], door_size_wh[i * 2] / 2) for i in range(len(door_tags))]
-        solid_boxes, cut = cut_doorways(solids["Solids"], doors)
+        solid_boxes, cut = cut_doorways(solid_boxes, doors)
+        frames, fitted = frame_doors(door_pose, door_size_wh, solid_boxes)
+        solid_boxes += frames
     return {
         "Format": FORMAT,
         "Area": are_root.get("Tag") or "",
@@ -292,6 +407,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
                     "Teams": len({t for t in npc_team if t != NO_TEAM}),
                     "Inactive": npc_active.count(0), "OtherCreatures": others,
                     "Waypoints": len(wp_tags), "Doors": len(door_tags),
-                    "Solids": len(solid_boxes) // 13, "DoorwaysCut": cut},
+                    "Solids": len(solid_boxes) // 13, "DoorwaysCut": cut,
+                    "HangingPropsDropped": dropped, "DoorFrames": fitted},
         "Warnings": warnings,
     }

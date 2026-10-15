@@ -174,8 +174,9 @@ In Unreal each one is a `/Game/Cousland/Areas/BP_Door`, spawned by
 `BP_AreaLoader`: a brown greybox panel (`MI_Greybox_Door`) on a hinge, which
 swings 90 degrees when open and disappears when broken. The templates only
 name a model and the navigation grid is too coarse to show doorways, so the
-size comes from the kind of door: small ones (`sm`, the pantry door)
-1.6 x 2.6 m, all others 3 x 3.6 m. The panel spans across the door's facing
+size comes from the door's model when `unreal area` gets `--game` (see
+`docs/GAME_DATA.md`), otherwise from the kind of door: small ones 1.6 x 2.6 m,
+all others 3 x 3.6 m. The panel spans across the door's facing
 direction; closed, it sits in the wall line between the greybox walls.
 Within 2.5 m the player sees "E: open", "E: close" or "Locked", and E opens or
 closes it unless a character is close enough to talk (then E talks). Plot

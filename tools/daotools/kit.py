@@ -171,3 +171,28 @@ def load_kit(kit_dir: str | Path, names: set[str]) -> dict[str, tuple[dict | Non
         return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
     d = Path(kit_dir)
     return {n: (load(d / f"{n}.phy.json"), load(d / f"{n}.mmh.json")) for n in names}
+
+
+def door_model_names(templates: dict[str, dict], gda_records: list[dict]) -> set[str]:
+    """The models (placeable_types.gda ModelName) of the given placeable templates."""
+    rows = {r.get("ID"): r for r in gda_records}
+    return {str(rows[t.get("Appearance")].get("ModelName")).lower() for t in templates.values()
+            if t.get("Appearance") in rows and rows[t.get("Appearance")].get("ModelName")}
+
+
+def door_models(templates: dict[str, dict], gda_records: list[dict], kit: dict[str, tuple[dict | None, dict | None]]
+                ) -> dict[str, tuple[float, float, float]]:
+    """Door template -> (min, max) of its model along the model's X (the panel's
+    width; the hinge is at 0) and its height, metres. A placeable template's
+    `Appearance` is a row of placeable_types.gda, whose ModelName is the model; the
+    model hierarchy's bounding box gives the size."""
+    rows = {r.get("ID"): r for r in gda_records}
+    out = {}
+    for name, utp in templates.items():
+        row = rows.get(utp.get("Appearance"))
+        model = str((row or {}).get("ModelName") or "").lower()
+        box = _bbox(kit.get(model, (None, None))[1])
+        if box:
+            (cx, _, _), _, (hx, _, hz) = box
+            out[name] = (cx - hx, cx + hx, 2 * hz)
+    return out

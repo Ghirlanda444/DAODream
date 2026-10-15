@@ -31,6 +31,7 @@ from pathlib import Path
 
 from . import area, cnv, fsb, gda, kit, mfdecode, origin, plo, plotlogic, toolset, unreal
 from .erf import ERF, ERFError, is_erf
+from .gda import GDA
 from .fields import NAMES
 from .gff3 import GFF3, GFF3Error, is_gff3
 from .gff4 import GFF4, GFF4Error, to_jsonable
@@ -380,11 +381,25 @@ def cmd_unreal_area(args) -> int:
             print(f"kit: {got['Files']} files, {len(got['Missing'])} models without any", file=sys.stderr)
         solids = kit.solids(rooms, kit.load_kit(args.kit, names))
         print(f"kit: {solids['Summary']}", file=sys.stderr)
+    door_models = None
+    if args.game or args.placeable_types:
+        if args.game:
+            with ERF.open(Path(args.game) / "packages" / "core" / "data" / "2da.erf") as erf:
+                gda_records = GDA(GFF4(erf.read("placeable_types.gda")), ["ID", "Label", "ModelName"]).records()
+        else:
+            gda_records = GDA.open(args.placeable_types, ["ID", "Label", "ModelName"]).records()
+        doors = {n: t for n, t in area.placeable_templates(args.pull).items() if area.is_door(n, n)}
+        models = kit.door_model_names(doors, gda_records)
+        if args.game:
+            kit.pull(args.game, models, args.kit)
+        door_models = kit.door_models(doors, gda_records, kit.load_kit(args.kit, models))
+        print(f"doors: {len(door_models)} door templates sized from their models", file=sys.stderr)
     out = area.area(are_root, layout_root, area.creature_templates(args.pull), start=args.start or "",
-                    solids=solids)
+                    solids=solids, door_models=door_models)
     s = out["Summary"]
     print(f"{out['Area']}: {s['Floors']} floor boxes, {s['Walls']} grid walls, {s['Solids']} kit solids "
-          f"({s['DoorwaysCut']} doorways cut), {s['TalkingCreatures']} talking "
+          f"({s['DoorwaysCut']} doorways cut, {s['DoorFrames']} door frames, "
+          f"{s['HangingPropsDropped']} hanging props dropped), {s['TalkingCreatures']} talking "
           f"creatures and {s['TeamOnly']} more in {s['Teams']} teams ({s['Inactive']} hidden at first, "
           f"{s['OtherCreatures']} others left out), "
           f"{s['Waypoints']} waypoints, {s['Doors']} doors, {len(out['Labels'])} room labels", file=sys.stderr)
@@ -515,6 +530,8 @@ def build_parser() -> argparse.ArgumentParser:
                                    "blockers from the level kit instead of the navigation grid")
     s.add_argument("--kit", default="extracted/kit/json", help="folder for the kit pieces' physics and hierarchy JSON")
     s.add_argument("--game", help="game folder: pull the kit pieces the rooms use into --kit first")
+    s.add_argument("--placeable-types", help="placeable_types.gda (else read from --game), to size doors from "
+                                             "their models")
     s.add_argument("--out")
     s.set_defaults(func=cmd_unreal_area)
     s = u.add_parser("plots", help="what each plot's script does when a flag is set, as actions Unreal runs")

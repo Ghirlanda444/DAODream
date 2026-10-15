@@ -265,6 +265,20 @@ centre and half extents in cm, the box's X and Z axes, kind 0 wall, 1 prop,
 grid); walls and pillars without box collision, and props with round or no
 collision, fall back to their bounding box (small props, under 0.5 m, are
 dropped); decorative arch fades and beams have no collision and stay open.
+Props whose box starts more than 1 m above the floor under it (lamps,
+banners, wall displays, things on shelves) are dropped (`area.drop_hanging`):
+you walk under them, and as greybox they looked like boxes floating in the
+room.
+
+Doors come from their own model: a placeable template's `Appearance` is a row
+of `placeable_types.gda` (in `packages/core/data/2da.erf`), whose `ModelName`
+is the door model, and its `.mmh` bounding box gives the panel. The origin is
+the hinge and the panel runs along the model's X: the large castle doors
+(`PLC_LrgFerDrB_01_0`) are 2 x 3 m, the small ones (`PLC_SmFerDrB_01_0`)
+1.6 x 2.4 m. The doorways in the wall kit are wider than the doors where the
+frame pieces have no collision at walking height, so `area.frame_doors`
+fills the space between a door's edges and the walls beside it, up to the
+lintel (sides wider than 2.6 m are a corridor beside the door and stay open).
 Wall boxes that a door stands in are cut around the door
 (`area.cut_doorways`). With `--rooms` the grid's walls are dropped and these
 replace them; `--game` first pulls the kit pieces' `.phy` and `.mmh` into
@@ -272,8 +286,9 @@ replace them; `--game` first pulls the kit pieces' `.phy` and `.mmh` into
 a wall (one guard sits on a bench, one waypoint is in a plant), and the
 castle seen from above shows its rooms and corridors.
 
-Castle Cousland: 1,003 floor boxes, 1,164 wall, 1,289 prop and 201 blocker
-boxes from the kit (3 doorways cut), 36 talking characters
+Castle Cousland: 1,003 floor boxes, 1,164 wall, 969 prop and 201 blocker
+boxes from the kit (320 hanging props dropped, 28 door frames), 36 talking
+characters
 (the mabari is pulled separately, see `docs/COMBAT.md`; the cat is missing), 18 giant rats
 in two teams (hidden at first), 33 waypoints, 27 doors.
 Plot scripts act on these through `BP_PlotManager` (`docs/SCRIPTS.md`). In Unreal,
