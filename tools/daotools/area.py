@@ -27,6 +27,8 @@ import json
 import math
 from pathlib import Path
 
+from . import ambient
+
 FORMAT = "DAODream.Area 1"
 WALL_HEIGHT = 3.0  # m above the highest neighbouring floor
 FLOOR_THICKNESS = 0.2  # m
@@ -293,11 +295,13 @@ def cut_doorways(solids: list[float], doors: list[tuple[list[float], float]]) ->
 
 def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start: str = "",
          solids: dict | None = None, door_models: dict[str, tuple[float, float, float]] | None = None,
-         creature_stats=None, player: dict | None = None) -> dict:
+         creature_stats=None, player: dict | None = None, ambient_tables: dict | None = None) -> dict:
     """The runtime area file. `solids` (kit.solids, from the layout's rooms) replaces
     the navigation grid's walls with the level kit's walls, props and blockers.
     `creature_stats` (utc -> stats.stats() dict) and `player` add the game's combat
-    numbers (see stats.py).
+    numbers (see stats.py). `ambient_tables` (ambient.load_tables) adds what each
+    creature does on its own (see ambient.py); creatures with ambient behaviour are
+    kept even without a conversation or team.
     `door_models` (template -> the door model's min and max along its width and its
     height, metres; see kit.door_models) places and sizes doors like the game: the
     door's origin is its hinge and the panel runs along its local X."""
@@ -305,6 +309,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     npc_tags, npc_names, npc_convs, npc_female, npc_pose, npc_active = [], [], [], [], [], []
     npc_team, npc_scale, npc_hostile, npc_rank = [], [], [], []
     npc_health, npc_attack, npc_defense, npc_damage, npc_dscale = [], [], [], [], []
+    npc_ambient, npc_ambient_prefix = [], []
     others = 0
     for c in are_root.get("CreatureList") or []:
         utc = templates.get(str(c.get("TemplateResRef", "")).lower())
@@ -313,9 +318,12 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
             continue
         conversation = utc.get("DialogResRef") or ""
         team = int(c.get("TeamId", NO_TEAM))
-        if not conversation and team == NO_TEAM:
+        amb = ambient.settings(ambient.variables(utc, c), c.get("Tag") or "")
+        if not conversation and team == NO_TEAM and not (ambient_tables and amb["State"] & ambient.ENABLED):
             others += 1
             continue
+        npc_ambient.extend([amb["State"], amb["Move"], amb["Pattern"], amb["Freq"]])
+        npc_ambient_prefix.append(amb["Prefix"])
         look = utc.get("Appearance Data") if isinstance(utc.get("Appearance Data"), dict) else {}
         npc_tags.append(c.get("Tag") or "")
         npc_names.append(_text(utc.get("LocName")))
@@ -378,6 +386,14 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     if start and not start_pose:
         warnings.append(f"start waypoint {start} not found")
 
+    # Ambient destinations: [first, count] per creature into a flat list of waypoint indices.
+    amb_dest, npc_amb_dest = [], []
+    for prefix in npc_ambient_prefix:
+        found = ambient.destinations(prefix, wp_tags)
+        npc_amb_dest.extend([len(amb_dest), len(found)])
+        amb_dest.extend(found)
+    amb_patterns, amb_actions = ambient.pattern_table(ambient_tables) if ambient_tables else ([], [])
+
     boxes = floor_plan(navigation(layout_root))
     solid_boxes, cut, dropped, fitted = [], 0, 0, 0
     if solids is not None:
@@ -412,6 +428,13 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         # Flat for Blueprint: health, attack, defense, damage min and max, damage scaling threshold.
         "PlayerStats": ([player["Health"], player["Attack"], player["Defense"], *player["Damage"],
                          player["DamageThreshold"]] if player else []),
+        # Per creature: ambient state flags, move pattern, animation pattern, animation frequency.
+        "NpcAmbient": npc_ambient if ambient_tables else [],
+        "NpcAmbientDest": npc_amb_dest if ambient_tables else [],
+        "AmbientDest": amb_dest if ambient_tables else [],
+        # [pattern, first action, count] and [action, seconds]; see ambient.ACTIONS.
+        "AmbientPatterns": amb_patterns,
+        "AmbientActions": amb_actions,
         "WaypointTags": wp_tags,
         "WaypointPose": wp_pose,
         "DoorTags": door_tags,
@@ -423,7 +446,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "Labels": labels,
         "LabelPos": label_pos,
         "Summary": {"Floors": sum(1 for k in boxes[6::7] if k == 0), "Walls": sum(1 for k in boxes[6::7] if k == 1),
-                    "TalkingCreatures": sum(1 for c in npc_convs if c), "TeamOnly": sum(1 for c in npc_convs if not c),
+                    "TalkingCreatures": sum(1 for c in npc_convs if c), "TeamOnly": sum(1 for c, t in zip(npc_convs, npc_team) if not c and t != NO_TEAM),
+                    "Ambient": sum(1 for f in npc_ambient[0::4] if int(f) & ambient.ENABLED) if ambient_tables else 0,
                     "Teams": len({t for t in npc_team if t != NO_TEAM}),
                     "Inactive": npc_active.count(0), "OtherCreatures": others,
                     "Waypoints": len(wp_tags), "Doors": len(door_tags),

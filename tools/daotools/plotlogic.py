@@ -16,6 +16,8 @@ cases are a short list of helper calls. This turns each case into actions:
   7 door      SetPlaceableActionResult(oDoor, PLACEABLE_ACTION_X, TRUE)        target tag, verb:
               SetPlaceableState(oDoor, PLC_STATE_DOOR_X)                        open, open2, close,
                                                                                 lock, unlock, break
+  9 ambient   Ambient_Start(oCreature, ..., nAnimPattern), Ambient_StartTeam,  target tag or team,
+              Ambient_StartTag / Ambient_Stop(oCreature)                       pattern (-1 its own), 0 stop
 
 Teams: UT_TeamAppears(TEAM, bool) and UT_TeamMove(TEAM, WAYPOINT, bRun) become
 `active` and `walk` with the target "team:<id>"; Unreal tags every spawned
@@ -42,9 +44,9 @@ import re
 from pathlib import Path
 
 FORMAT = "DAODream.PlotActions 1"
-JUMP, TALK, ACTIVE, SETFLAG, AUTOSAVE, WALK, DOOR, PARTY = 1, 2, 3, 4, 5, 6, 7, 8
+JUMP, TALK, ACTIVE, SETFLAG, AUTOSAVE, WALK, DOOR, PARTY, AMBIENT = 1, 2, 3, 4, 5, 6, 7, 8, 9
 _KIND_NAMES = {JUMP: "jump", TALK: "talk", ACTIVE: "active", SETFLAG: "setflag", AUTOSAVE: "autosave", WALK: "walk",
-               DOOR: "door", PARTY: "party"}
+               DOOR: "door", PARTY: "party", AMBIENT: "ambient"}
 _PARTY_CALLS = {"UT_HireFollower": 1, "SetFollowerRecruited": 1, "SetFollowerInParty": 1, "AddNonPartyFollower": 1,
                 "UT_FireFollower": 0, "Party_SetFollowerInCamp": 0}
 # What a door does for each placeable action / door state the scripts use.
@@ -144,6 +146,28 @@ def _resolver(text: str, plots_by_name: dict[str, dict], consts: dict):
             return objects[token]
         return token.strip('"') if token.startswith('"') else None
 
+    def ambient_action(fn: str, args: list[str]):
+        """Ambient_Start/StartTeam/StartTag(who, state, move, prefix, animation pattern, ...):
+        value is the animation pattern (-1: start with the one it has), 0 for Ambient_Stop."""
+        if fn == "Ambient_StartTeam":
+            team = value(args[0]) if args else None
+            target = f"team:{team}" if isinstance(team, int) else None
+        elif fn == "Ambient_StartTag":
+            known = args and (args[0].startswith('"') or isinstance(consts.get(args[0]), str))
+            target = value(args[0]) if known else None
+        else:
+            target = obj(args[0]) if args else None
+        if target is None:
+            return ("skip", f"{fn}({args[0] if args else ''}): object only known at runtime")
+        if fn == "Ambient_Stop":
+            return {"kind": AMBIENT, "target": target, "arg": "", "value": 0}
+        pattern = value(args[4]) if len(args) > 4 else 0
+        if isinstance(pattern, str) and pattern.lstrip("-").isdigit():
+            pattern = int(pattern)
+        if not isinstance(pattern, int):
+            return ("skip", f"{fn}: animation pattern {args[4]}")
+        return {"kind": AMBIENT, "target": target, "arg": "", "value": pattern or -1}
+
     def action(stmt: str):
         d = _DECLARATION.match(stmt)
         if d and (d.group(2) in objects or d.group(2) in locations or d.group(2) in commands):
@@ -197,6 +221,8 @@ def _resolver(text: str, plots_by_name: dict[str, dict], consts: dict):
                     "value": int(len(args) > 2 and value(args[2]) == 1)}
         if fn in _PARTY_CALLS and args:
             return {"kind": PARTY, "target": obj(args[0]), "arg": "", "value": _PARTY_CALLS[fn]}
+        if fn in ("Ambient_Start", "Ambient_StartTeam", "Ambient_StartTag", "Ambient_Stop"):
+            return ambient_action(fn, args)
         if fn == "UT_QuickMoveObject" and len(args) >= 2 and args[0] in objects:
             return {"kind": WALK, "target": objects[args[0]], "arg": str(value(args[1])),
                     "value": int(len(args) > 2 and value(args[2]) == 1)}

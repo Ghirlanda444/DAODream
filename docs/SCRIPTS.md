@@ -117,6 +117,7 @@ py -m daotools unreal plots --src extracted/scripts/src --plots extracted/plots/
 | 6 walk | `AddCommand`/`WR_AddCommand(creature, CommandMoveToObject/Location(...))`, `UT_QuickMoveObject` | walk (or jog, when the script runs) to the waypoint, then face its direction |
 | 8 party | `UT_HireFollower`, `SetFollowerRecruited`, `SetFollowerInParty`, `AddNonPartyFollower` / `UT_FireFollower`, `Party_SetFollowerInCamp` | join or leave the party: follow the player and fight beside them (`docs/COMBAT.md`) |
 | 7 door | `SetPlaceableActionResult(door, PLACEABLE_ACTION_OPEN/CLOSE/LOCK/UNLOCK, TRUE)`, `SetPlaceableState(door, PLC_STATE_DOOR_*)` | open, open the other way, close, lock, unlock (only if locked), break |
+| 9 ambient | `Ambient_Start(creature, ..., pattern)`, `Ambient_StartTeam`, `Ambient_StartTag` / `Ambient_Stop(creature)` | switch its ambient behaviour to that animation pattern, or stop it (`docs/AMBIENT.md`) |
 
 Creatures are found by tag (`object oX = UT_GetNearestCreatureByTag(...)` plus
 the string constants of every script); `PLT_<NAME>` is the plot named `<name>`
@@ -129,7 +130,7 @@ translate (the cook, the kitchen servants, the gambling guards, the scribe,
 the panicked soldiers), and so do all 8 door calls (in the day castle, the
 pantry door; the rest are night-castle doors) and all 12 team calls, and every party join and leave (Gilmore, Eleanor, and the
 companions in the general party plot `gen00pt_party`, which recruits the mabari). The rest
-is still skipped: ambient animations, making a door non-plot
+is still skipped: making a door non-plot
 (`SetPlot`), items, combat and area transitions.
 
 ### Death and team events

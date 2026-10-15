@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from daotools import area, cnv, fields as F, fsb, kit, mfdecode, plo, plotlogic, stats, toolset, unreal
+from daotools import ambient, area, cnv, fields as F, fsb, kit, mfdecode, plo, plotlogic, stats, toolset, unreal
 from daotools.cli import main
 from daotools.erf import ERF, ERFError, is_erf
 from daotools.gda import GDA, column_hash
@@ -535,6 +535,58 @@ class StatsTests(unittest.TestCase):
         self.assertEqual(stats.weapon_base_item([{"TemplateResRef": "cap"}, {"TemplateResRef": "Sword"}],
                                                 {"cap": {"BaseItem": 9}, "sword": {"BaseItem": 2}},
                                                 self.TABLES["itemstats"]), 2)
+
+
+class AmbientTests(unittest.TestCase):
+    # Made-up rows in the shape of ambient_anim_patterns and anim_base.
+    ANIMS = {650: {"AnimName": "my_pray_enter"}, 808: {"AnimName": "my_pointforward"},
+             838: {"AnimName": "my_wandereast"}, 640: {"AnimName": "my_twitch_v1"}, 700: {"AnimName": "my_stand"}}
+
+    def test_actions(self):
+        row = {"ActionTotal": 6, "Action0": 1.04, "Action1": 650.99, "Action2": 808.0, "Action3": 838.02,
+               "Action4": 700.0, "Action5": -3.0}
+        self.assertEqual(ambient.actions(row, self.ANIMS),
+                         [(ambient.IDLE, 4.0), (ambient.KNEEL, ambient.HOLD), (ambient.GESTURE, 2.5),
+                          (ambient.LOOK_RIGHT, 5.0), (ambient.IDLE, 2.5)])
+        index, flat = ambient.pattern_table({"patterns": {7: row, 8: {"ActionTotal": 0}}, "anims": self.ANIMS})
+        self.assertEqual(index, [7.0, 0.0, 5.0])
+        self.assertEqual(flat[:4], [float(ambient.IDLE), 4.0, float(ambient.KNEEL), -1.0])
+
+    def test_settings_and_destinations(self):
+        template = {"VarTable": [{"Name": "AMBIENT_SYSTEM_STATE", "Value": 0},
+                                 {"Name": "AMBIENT_MOVE_PREFIX", "Value": "ap_<tag>"},
+                                 {"Name": "AMBIENT_ANIM_FREQ", "Value": -1.0}]}
+        instance = {"VarTable": [{"Name": "AMBIENT_SYSTEM_STATE", "Value": 1},
+                                 {"Name": "AMBIENT_MOVE_PATTERN", "Value": 2},
+                                 {"Name": "AMBIENT_ANIM_PATTERN", "Value": 15}]}
+        st = ambient.settings(ambient.variables(template, instance), "maid")
+        self.assertEqual(st, {"State": 1, "Move": 2, "Prefix": "ap_maid", "Pattern": 15, "Freq": -1.0})
+        wps = ["start", "ap_maid_02", "ap_maid_01", "post", "post"]
+        self.assertEqual(ambient.destinations("ap_maid", wps), [2, 1])
+        self.assertEqual(ambient.destinations("post", wps), [3, 4])
+        self.assertEqual(ambient.destinations("", wps), [])
+
+    def test_plot_calls(self):
+        script = """
+            void main()
+            {
+                object oMaid = UT_GetNearestCreatureByTag(oPC, MY_CR_MAID);
+                if (nType == EVENT_TYPE_SET_PLOT)
+                {
+                    switch(nFlag)
+                    {
+                        case MAID_BUSY: Ambient_Start(oMaid, AMBIENT_SYSTEM_ENABLED, AMBIENT_MOVE_INVALID,
+                                                      AMBIENT_MOVE_PREFIX_NONE, 15); break;
+                        case MAID_RESTS: Ambient_Stop(oMaid); Ambient_StartTeam(MY_TEAM); break;
+                    }
+                }
+            }
+        """
+        plot = {"guid": "DDDD", "name": "my_maid", "script": "my_maid", "flags": {0: "MAID_BUSY", 1: "MAID_RESTS"}}
+        t = plotlogic.translate(script, plot, {}, {"MY_CR_MAID": "my_cr_maid", "MY_TEAM": 4})
+        self.assertEqual({k: [(a["kind"], a["target"], a["value"]) for a in v] for k, v in t["cases"].items()},
+                         {"MAID_BUSY": [(9, "my_cr_maid", 15)],
+                          "MAID_RESTS": [(9, "my_cr_maid", 0), (9, "team:4", -1)]})
 
 
 class ToolsetTests(unittest.TestCase):

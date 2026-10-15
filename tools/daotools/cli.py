@@ -29,7 +29,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import area, cnv, fsb, gda, kit, mfdecode, origin, plo, plotlogic, stats, toolset, unreal
+from . import ambient, area, cnv, fsb, gda, kit, mfdecode, origin, plo, plotlogic, stats, toolset, unreal
 from .erf import ERF, ERFError, is_erf
 from .gda import GDA
 from .fields import NAMES
@@ -394,8 +394,9 @@ def cmd_unreal_area(args) -> int:
             kit.pull(args.game, models, args.kit)
         door_models = kit.door_models(doors, gda_records, kit.load_kit(args.kit, models))
         print(f"doors: {len(door_models)} door templates sized from their models", file=sys.stderr)
-    creature_stats, player = None, None
+    creature_stats, player, ambient_tables = None, None, None
     if args.game:
+        ambient_tables = ambient.load_tables(args.game)
         tables = stats.load_tables(args.game)
         items = {p.name[:-len(".uti.json")].lower(): json.loads(p.read_text(encoding="utf-8"))["root"]
                  for p in sorted(Path(args.items).rglob("*.uti.json"))} if Path(args.items).exists() else {}
@@ -410,13 +411,14 @@ def cmd_unreal_area(args) -> int:
                              race=3, base_item=2, player_class=1)
         print(f"player: {player['Health']} health, damage {player['Damage']}", file=sys.stderr)
     out = area.area(are_root, layout_root, area.creature_templates(args.pull), start=args.start or "",
-                    solids=solids, door_models=door_models, creature_stats=creature_stats, player=player)
+                    solids=solids, door_models=door_models, creature_stats=creature_stats, player=player,
+                    ambient_tables=ambient_tables)
     s = out["Summary"]
     print(f"{out['Area']}: {s['Floors']} floor boxes, {s['Walls']} grid walls, {s['Solids']} kit solids "
           f"({s['DoorwaysCut']} doorways cut, {s['DoorFrames']} door frames, "
           f"{s['HangingPropsDropped']} hanging props dropped), {s['TalkingCreatures']} talking "
           f"creatures and {s['TeamOnly']} more in {s['Teams']} teams ({s['Inactive']} hidden at first, "
-          f"{s['OtherCreatures']} others left out), "
+          f"{s['OtherCreatures']} others left out, {s['Ambient']} with ambient behaviour), "
           f"{s['Waypoints']} waypoints, {s['Doors']} doors, {len(out['Labels'])} room labels", file=sys.stderr)
     for w in out["Warnings"]:
         print(f"warning: {w}", file=sys.stderr)

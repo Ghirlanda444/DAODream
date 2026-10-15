@@ -56,8 +56,10 @@ Each phase ends with something you can see running.
       opening). Characters walk to waypoints (Aldous after his talk), and the
       castle's 27 doors open, close and lock, by hand or from a plot (the
       pantry door when Gilmore leaves the party). Teams appear and move
-      together (the larder rats appear when the rat fight begins). The other
-      plots still need ambient animations, the party and combat
+      together (the larder rats appear when the rat fight begins). Castle
+      folk live their ambient routines from the scripts' settings: guards look
+      about, Mother Mallol and two guards pray in the chapel, a browser walks
+      the library (`docs/AMBIENT.md`)
 
 ## Phase 3: First fight
 
