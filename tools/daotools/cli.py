@@ -9,6 +9,7 @@ Examples:
   daotools tlk dump <file.tlk> --out strings.json
   daotools gda dump <file.gda> [--names columns.txt] --out table.json
   daotools cnv export <file.cnv> --tlk core_en-us.tlk --out conv.json
+  daotools unreal conv <name.dlg.conv.json> --names <pull json dir> --out runtime.json
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import cnv, gda
+from . import cnv, gda, unreal
 from .erf import ERF, ERFError, is_erf
 from .fields import NAMES
 from .gff3 import GFF3, GFF3Error, is_gff3
@@ -286,6 +287,15 @@ def cmd_cnv_export(args) -> int:
     return 0
 
 
+def cmd_unreal_conv(args) -> int:
+    conv = json.loads(Path(args.file).read_text(encoding="utf-8"))
+    out = unreal.conversation(conv, owner=args.owner, names_dir=args.names, true_flags=args.true_flag)
+    for w in out["Warnings"]:
+        print(f"warning: {w}", file=sys.stderr)
+    _write(_json(out), args.out)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="daotools", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -347,6 +357,18 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--transcript", action="store_true", help="readable script instead of JSON")
     s.add_argument("--out")
     s.set_defaults(func=cmd_cnv_export)
+
+    u = sub.add_parser("unreal", help="files for the Unreal project").add_subparsers(
+        dest="unreal_command", required=True)
+    s = u.add_parser("conv", help="a .dlg.conv.json from pull, in the shape Unreal reads at runtime")
+    s.add_argument("file")
+    s.add_argument("--owner", help="tag of the creature that owns the conversation "
+                                   "(default: the conversation name)")
+    s.add_argument("--names", help="folder searched for <tag>.utc.json to name the speakers")
+    s.add_argument("--true-flag", action="append", metavar="GUID:FLAG",
+                   help="plot flag that starts out set, e.g. a player-character flag; repeatable")
+    s.add_argument("--out")
+    s.set_defaults(func=cmd_unreal_conv)
     return p
 
 

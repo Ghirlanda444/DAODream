@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from daotools import cnv, fields as F
+from daotools import cnv, fields as F, unreal
 from daotools.cli import main
 from daotools.erf import ERF, ERFError, is_erf
 from daotools.gda import GDA, column_hash
@@ -232,6 +232,48 @@ class ConversationTests(unittest.TestCase):
             cnv.export(GFF4(build_tlk_v02({1: "x"})))
 
 
+class UnrealConversationTests(unittest.TestCase):
+    conv = {
+        "conversation": "bhn_test", "vo_bank": "bhn_test", "starts": [3, 0],
+        "lines": [
+            {"index": 0, "kind": "npc", "text": "<desc>Laughs</desc> Ah, <emp>Rendon</emp>.",
+             "speaker": "OWNER", "children": [1, 2], "stage": "bhn_stage",
+             "action": {"plot": "AAAA", "flag": 4}},
+            {"index": 1, "kind": "player", "text": "", "speaker": "PLAYER", "children": [],
+             "condition": {"plot": "BBBB", "flag": 260}},
+            {"index": 2, "kind": "player", "text": "Not now.", "speaker": "PLAYER", "children": [0],
+             "condition": {"plot": "BBBB", "flag": 2, "test": 0},
+             "action": {"script": "bhn_plot", "parameter": 1}},
+            {"index": 3, "kind": "npc", "text": "Indeed.", "speaker": "bhn_howe", "children": [],
+             "condition": {"plot": "CCCC", "flag": 1, "test": 7}},
+            {"index": 4, "missing": True},
+        ],
+    }
+
+    def test_runtime_shape(self):
+        with tempfile.TemporaryDirectory() as d:
+            for tag, name in (("bhn_test", "Teyrn Bryce"), ("bhn_howe", "Arl Howe")):
+                (Path(d) / f"{tag}.utc.json").write_text(json.dumps(
+                    {"root": {"Tag": tag, "LocName": {"strref": 1, "text": name}}}), encoding="utf-8")
+            out = unreal.conversation(self.conv, names_dir=d, true_flags=["BBBB:260"])
+        self.assertEqual(out["Format"], unreal.FORMAT)
+        self.assertEqual(out["Starts"], [3, 0])
+        self.assertEqual(out["SpeakerNames"],
+                         {"bhn_test": "Teyrn Bryce", "OWNER": "Teyrn Bryce", "bhn_howe": "Arl Howe"})
+        self.assertEqual(out["TrueFlags"], ["BBBB:260"])
+        first, silent, reply, howe, missing = out["Lines"]
+        self.assertEqual(first["Text"], "(Laughs) Ah, Rendon.")
+        self.assertEqual((first["ActionKey"], first["CondKey"], first["Stage"]), ("AAAA:4", "", "bhn_stage"))
+        self.assertEqual((silent["IsPlayer"], silent["Text"], silent["CondKey"]), (True, "", "BBBB:260"))
+        self.assertEqual((reply["CondKey"], reply["CondNot"], reply["ActionScript"]), ("BBBB:2", True, "bhn_plot"))
+        self.assertEqual((missing["Text"], missing["Children"], missing["Speaker"]), ("", [], ""))
+        self.assertEqual(out["Warnings"], ["line 3 condition: unknown plot test 7, read as 'flag is set'",
+                                           "line 4: missing"])
+        # Unreal maps JSON onto structs: every line has every key, and no nulls.
+        self.assertTrue(all(l.keys() == first.keys() for l in out["Lines"]))
+        self.assertNotIn("null", json.dumps(out))
+
+
 class CLITests(unittest.TestCase):
     def test_scan_find_pull(self):
         with tempfile.TemporaryDirectory() as d:
@@ -265,6 +307,14 @@ class CLITests(unittest.TestCase):
             self.assertEqual(summary["formats"], {"dlg: GFF V4.0 DLG V0.2": 1, "utc: GFF3 UTC V3.2": 1})
             utc = json.loads((conv_dir / "bhn100cr_father.utc.json").read_text(encoding="utf-8"))
             self.assertEqual(utc["root"]["Tag"], "bhn100cr_father")
+
+            runtime = out / "ue" / "bhn100cr_father.json"
+            self.assertEqual(main(["unreal", "conv", str(conv_dir / "bhn100cr_father.dlg.conv.json"),
+                                   "--names", str(out / "hn" / "json"), "--true-flag", "X:1",
+                                   "--out", str(runtime)]), 0)
+            runtime = json.loads(runtime.read_text(encoding="utf-8"))
+            self.assertEqual(runtime["Lines"][0]["Text"], "Ah, Rendon.")
+            self.assertEqual(runtime["TrueFlags"], ["X:1"])
 
 
 if __name__ == "__main__":

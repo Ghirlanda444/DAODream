@@ -85,3 +85,29 @@ Voice: one FMOD bank per conversation with the same name
 Areas: `bhn100ar_castle_cousland.are`, `bhn200ar_castle_after_siege.are`.
 Cutscenes: `bhn100cs_intro`, `bhn100cs_intropt01`, `bhn100cs_familyfarewel`,
 `bhn100cs_finding_byron`, `bhn200cs_night_falls`.
+
+## Conversations in Unreal
+
+`daotools unreal conv` turns a `.dlg.conv.json` from `pull` into the flat
+format the Unreal project reads at runtime (`daotools/unreal.py` documents the
+keys and rules). The output goes under `extracted/ue/`, so it stays out of git
+like all game data; Unreal reads it from there when you press Play.
+
+```powershell
+py -m daotools unreal conv extracted/human_noble/json/al_bhn01al_castle_cousland/bhn100cr_father.dlg.conv.json `
+  --names extracted/human_noble/json --true-flag <GUID>:260 --true-flag <GUID>:258 `
+  --out extracted/ue/conversations/bhn100cr_father.json
+```
+
+What the opening scene needs, from `bhn100cr_father`:
+
+- Starting entries are tried in order. The first four are gated on plot flags
+  set later in the origin; the fifth has no condition, so with no flags set the
+  conversation opens on Bryce and Howe in the hall.
+- Plot flags 256 and up are computed by the game rather than stored. One
+  player-character plot gates the gendered lines: flag 260 picks "my son" over
+  "my daughter" (player is male), and 258 picks the "prowess as a warrior"
+  lines (player is a warrior). Its GUID is the condition on line 65 of
+  `bhn100cr_father`. Until `.plo` files are read, these flags are passed in
+  with `--true-flag`.
+- A plot test of 0 means "flag is not set"; no other test value occurs here.
