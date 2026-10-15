@@ -19,16 +19,16 @@ Each phase ends with something you can see running.
       files parse on the real install
 - [x] Plot files (`.plo`): flag names, so conditions read as "QUEST_DONE"
       rather than numbers (`daotools plo list`, `unreal conv --plots`)
-- [ ] Voice-over: locate the Human Noble VO banks and map conversation lines
-      to audio files
+- [x] Voice-over: locate the Human Noble VO banks and map conversation lines
+      to audio files (`daotools fsb`, `unreal conv --vo`)
 
 ## Phase 1: Talking heads (first visible milestone)
 
 - [x] UE5 project, the main hall as a rough first build (greybox):
       `/Game/Cousland/Maps/L_GreatHall`, walked end to end in Play
-- [ ] Dialogue system in UE5 driven by the exported JSON: list-style replies
-      and conditions and actions on plot flags work (`/Game/Cousland/Dialogue`,
-      Bryce on the dais in L_GreatHall); voice-over playback still to do
+- [x] Dialogue system in UE5 driven by the exported JSON: list-style replies,
+      conditions and actions on plot flags, voice-over playback
+      (`/Game/Cousland/Dialogue`, Bryce on the dais in L_GreatHall)
 - [ ] The opening scene: Bryce and Howe in the main hall, playable with the
       original dialogue tree and voice
 

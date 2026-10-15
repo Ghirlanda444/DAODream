@@ -96,12 +96,17 @@ like all game data; Unreal reads it from there when you press Play.
 ```powershell
 py -m daotools unreal conv extracted/human_noble/json/al_bhn01al_castle_cousland/bhn100cr_father.dlg.conv.json `
   --names extracted/human_noble/json --plots extracted/plots/raw `
+  --vo extracted/human_noble/raw/loose/bhn100cr_father.fsb `
   --true-flag GEN_GENDER_MALE --true-flag GEN_CLASS_WARRIOR `
   --out extracted/ue/conversations/bhn100cr_father.json
+py -m daotools fsb extract extracted/human_noble/raw/loose/bhn100cr_father.fsb `
+  --out extracted/ue/vo/bhn100cr_father
 ```
 
 With `--plots`, `--true-flag` takes flag names, and the output gains
 `FlagNames`: every "GUID:FLAG" key the conversation uses, with its name.
+With `--vo`, each line's `Vo` names its voice-over file; Unreal plays
+`extracted/ue/vo/<VoBank>/<Vo>.wav` when the line is shown.
 
 What the opening scene needs, from `bhn100cr_father`:
 
@@ -116,6 +121,26 @@ What the opening scene needs, from `bhn100cr_father`:
   `GEN_CLASS_WARRIOR` (258) picks the "prowess as a warrior" lines. These are
   passed in with `--true-flag`.
 - A plot test of 0 means "flag is not set"; no other test value occurs here.
+
+## Voice-over (`.fsb`)
+
+Loose FMOD banks in `modules/single player/audio/vo/en-us/vo/`, one per
+conversation with the same name (the conversation's VO bank), plus a `.fev`
+event file each. `daotools fsb list` shows a bank's samples.
+
+- FSB4: a 48-byte header, one 80-byte header per sample (name, length,
+  mode, rate, channels), then the sample data back to back. FMOD pads each
+  sample with zero bytes after its last frame.
+- A line's sample is `<strref>_m.wav`, after the talk table string of its
+  text. The `_m` is on every conversation sample, not the player's gender:
+  gendered lines are separate lines with their own strings.
+- Conversation VO is MPEG-2 layer III, 24 kHz mono. Player lines are not
+  voiced. In `bhn100cr_father`, all 100 spoken lines have a sample and every
+  sample belongs to a line; across the 32 Human Noble conversations, 941 of
+  951 spoken lines are voiced.
+- Unreal's Windows media player (WmfMedia) opens `.wav` but not `.mp3`, so
+  `fsb extract` writes each sample as a `.wav` that wraps the unchanged MP3
+  frames (format tag 0x55); Windows decodes them. `--mp3` writes plain `.mp3`.
 
 ## Plots (`.plo`)
 

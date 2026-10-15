@@ -316,9 +316,19 @@ class VoiceOverTests(unittest.TestCase):
         self.assertEqual([l["Vo"] for l in unreal.conversation(conv)["Lines"]], ["", "", ""])
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / "c.fsb").write_bytes(self.bank)
-            self.assertEqual(main(["fsb", "extract", str(Path(d) / "c.fsb"), "--out", str(Path(d) / "vo")]), 0)
-            self.assertEqual(sorted(p.name for p in (Path(d) / "vo").iterdir()), ["26080_m.mp3", "26081_m.mp3"])
-            self.assertEqual((Path(d) / "vo" / "26080_m.mp3").read_bytes(), self.mp3)  # padding cut
+            self.assertEqual(main(["fsb", "extract", str(Path(d) / "c.fsb"), "--out", str(Path(d) / "mp3"),
+                                   "--mp3"]), 0)
+            self.assertEqual(sorted(p.name for p in (Path(d) / "mp3").iterdir()), ["26080_m.mp3", "26081_m.mp3"])
+            self.assertEqual((Path(d) / "mp3" / "26080_m.mp3").read_bytes(), self.mp3)  # padding cut
+            self.assertEqual(main(["fsb", "extract", str(Path(d) / "c.fsb"), "--out", str(Path(d) / "wav")]), 0)
+            wav = (Path(d) / "wav" / "26080_m.wav").read_bytes()
+        self.assertEqual((wav[:4], wav[8:12], wav[12:16]), (b"RIFF", b"WAVE", b"fmt "))
+        self.assertEqual(struct.unpack_from("<I", wav, 4)[0], len(wav) - 8)
+        tag, channels, rate, avg, align, bits, extra = struct.unpack_from("<HHIIHHH", wav, 20)
+        self.assertEqual((tag, channels, rate, extra), (0x55, 1, 24000, 12))
+        self.assertEqual(struct.unpack_from("<HIHHH", wav, 38), (1, 2, 168, 1, 0))  # 168-byte frames
+        data = wav.index(b"data")
+        self.assertEqual(wav[data + 8:data + 8 + struct.unpack_from("<I", wav, data + 4)[0]], self.mp3)
 
 
 class PlotTests(unittest.TestCase):

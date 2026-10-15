@@ -2,9 +2,10 @@
 
 Each conversation has a bank of the same name (e.g. bhn100cr_father.fsb).
 A sample is named "<strref>_m.wav" after the talk table string of the line it
-voices, and holds MPEG layer III audio (24 kHz mono for conversation VO),
-which is written out as an .mp3 without FMOD's trailing padding. Checked on
-the 38 Human Noble banks.
+voices, and holds MPEG layer III audio (24 kHz mono for conversation VO).
+It is written out without FMOD's trailing padding, either as an .mp3 or as
+a .wav that wraps the same MP3 frames (what Unreal's media player opens).
+Checked on the 38 Human Noble banks.
 
 Layout: a 48-byte header (magic, sample count, size of the sample headers,
 size of the data, version, mode, 8 zero bytes, 16-byte hash), then one
@@ -110,6 +111,25 @@ def mpeg_end(data: bytes) -> int:
             break
         pos += size
     return pos
+
+
+def mpeg_wav(sample: Sample) -> bytes:
+    """An MPEG sample as a .wav that holds the MP3 frames unchanged (format tag
+    0x55). Unreal's Windows media player (WmfMedia) opens .wav but not .mp3,
+    and Windows decodes the MP3 inside."""
+    mp3 = sample.data[:mpeg_end(sample.data)] or sample.data
+    h = int.from_bytes(mp3[:4], "big")
+    version, bitrate = (h >> 19) & 3, (h >> 12) & 15
+    kbps = _BITRATES[3 if version == 3 else 2][bitrate] if (h >> 21) & 0x7FF == 0x7FF else 0
+    block = (144 if version == 3 else 72) * kbps * 1000 // sample.frequency if sample.frequency else 0
+    avg_bytes = len(mp3) * sample.frequency // sample.length if sample.length else kbps * 125
+    # MPEGLAYER3WAVEFORMAT: WAVEFORMATEX plus ID, flags, block size, frames per block, codec delay.
+    fmt = struct.pack("<HHIIHHHHIHHH", 0x55, sample.channels or 1, sample.frequency, avg_bytes, 1, 0, 12,
+                      1, 2, block, 1, 0)
+    body = (b"WAVE" + b"fmt " + struct.pack("<I", len(fmt)) + fmt
+            + b"fact" + struct.pack("<II", 4, sample.length)
+            + b"data" + struct.pack("<I", len(mp3)) + mp3 + (b"\0" if len(mp3) % 2 else b""))
+    return b"RIFF" + struct.pack("<I", len(body)) + body
 
 
 def vo_sample(strref: int | None) -> str:

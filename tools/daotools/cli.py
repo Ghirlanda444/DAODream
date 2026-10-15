@@ -317,9 +317,12 @@ def cmd_fsb_extract(args) -> int:
         if s.codec != "mpeg":
             skipped[s.codec] += 1
             continue
-        (out / f"{s.stem}.mp3").write_bytes(s.data[:fsb.mpeg_end(s.data)] or s.data)
+        if args.mp3:
+            (out / f"{s.stem}.mp3").write_bytes(s.data[:fsb.mpeg_end(s.data)] or s.data)
+        else:
+            (out / f"{s.stem}.wav").write_bytes(fsb.mpeg_wav(s))
         written += 1
-    print(f"wrote {written} .mp3 files to {out}"
+    print(f"wrote {written} .{'mp3' if args.mp3 else 'wav'} files to {out}"
           + "".join(f"; skipped {n} {codec}" for codec, n in skipped.items()), file=sys.stderr)
     return 0
 
@@ -424,9 +427,10 @@ def build_parser() -> argparse.ArgumentParser:
     s = f.add_parser("list", help="samples in a bank: name, codec, rate, channels, length")
     s.add_argument("file")
     s.set_defaults(func=cmd_fsb_list)
-    s = f.add_parser("extract", help="write every MPEG sample as <name>.mp3")
+    s = f.add_parser("extract", help="write every MPEG sample as <name>.wav (MP3 inside), for Unreal")
     s.add_argument("file")
     s.add_argument("--out", required=True)
+    s.add_argument("--mp3", action="store_true", help="write plain .mp3 files instead")
     s.set_defaults(func=cmd_fsb_extract)
 
     pl = sub.add_parser("plo", help="plot files").add_subparsers(dest="plo_command", required=True)
