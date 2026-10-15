@@ -115,6 +115,7 @@ py -m daotools unreal plots --src extracted/scripts/src --plots extracted/plots/
 | 4 setflag | `WR_SetPlotFlag(PLT_X, FLAG, bool)` | set another flag, running that flag's actions too |
 | 5 autosave | `DoAutoSave()` | logged only; there are no saves yet |
 | 6 walk | `AddCommand`/`WR_AddCommand(creature, CommandMoveToObject/Location(...))`, `UT_QuickMoveObject` | walk (or jog, when the script runs) to the waypoint, then face its direction |
+| 7 door | `SetPlaceableActionResult(door, PLACEABLE_ACTION_OPEN/CLOSE/LOCK/UNLOCK, TRUE)`, `SetPlaceableState(door, PLC_STATE_DOOR_*)` | open, open the other way, close, lock, unlock (only if locked), break |
 
 Creatures are found by tag (`object oX = UT_GetNearestCreatureByTag(...)` plus
 the string constants of every script); `PLT_<NAME>` is the plot named `<name>`
@@ -124,10 +125,30 @@ skipped, so coverage is visible in the command's output.
 Coverage on the Human Noble plots (16 scripts): `bhn100pt_father` is complete
 apart from gore level and achievement tracking. All 14 single-character moves
 translate (the cook, the kitchen servants, the gambling guards, the scribe,
-the panicked soldiers). The rest is still skipped: moves of whole teams
-(`UT_TeamMove`, `UT_TeamAppears`, which need team membership from the area),
-ambient animations, party hire/fire, doors (`SetPlaceableActionResult`),
-items, combat and area transitions.
+the panicked soldiers), and so do all 8 door calls (in the day castle, the
+pantry door; the rest are night-castle doors). The rest is still skipped:
+moves of whole teams (`UT_TeamMove`, `UT_TeamAppears`, which need team
+membership from the area), ambient animations, party hire/fire, making a door
+non-plot (`SetPlot`), items, combat and area transitions.
+
+### Doors
+
+`daotools unreal area` exports every door in the area (placeables whose tag
+or template names a door): tag, pose, initial state and whether it is active.
+The game's door states are 0 closed, 1 locked, 2 open, 3 broken, 4 open the
+other way, 5 broken the other way (`PLC_STATE_DOOR_*`). Castle Cousland has 27.
+
+In Unreal each one is a `/Game/Cousland/Areas/BP_Door`, spawned by
+`BP_AreaLoader`: a brown greybox panel (`MI_Greybox_Door`) on a hinge, which
+swings 90 degrees when open and disappears when broken. The templates only
+name a model and the navigation grid is too coarse to show doorways, so the
+size comes from the kind of door: small ones (`sm`, the pantry door)
+1.6 x 2.6 m, all others 3 x 3.6 m. The panel spans across the door's facing
+direction; closed, it sits in the wall line between the greybox walls.
+Within 2.5 m the player sees "E: open", "E: close" or "Locked", and E opens or
+closes it unless a character is close enough to talk (then E talks). Plot
+actions find doors by tag; several ordinary doors share one tag
+(`bhn100ip_dr_lg_pt`), but every door a plot script names has its own.
 
 Walking is a straight line at 1.6 m/s (jogging 3.8 m/s) with the mannequin's
 walk or jog loop, done in `BP_DlgNPC`'s Tick (`WalkTo`, `StepWalk`). The
@@ -153,3 +174,7 @@ and logs the autosave. Bryce's opening with Howe, played to its end, sets
 conversation opens after Bryce's. Aldous' conversation, played to the end,
 sets `BHN_SCRIBE_MOVES_AWAY` and he walks 5.4 m to his waypoint.
 `DUNCAN_APPEARS` is translated but not reachable from a fresh start.
+Doors: E opens and closes a closed door in the main hall and does nothing on
+a locked one. Gilmore's conversation, played with `BHN_COOK_RATS_KILLED` set
+by hand (the larder fight does not exist yet), sets
+`BHN_GILMORE_LEAVES_PARTY`, and the pantry door swings open.

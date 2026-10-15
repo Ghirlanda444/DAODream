@@ -51,8 +51,10 @@ Each phase ends with something you can see running.
       that `BP_PlotManager` runs on one shared set of flags. Bryce's plot
       (`bhn100pt_father`) is fully ported and played through (parents move
       upstairs after Fergus' farewell, Bryce talks; Duncan joins after the
-      opening). Characters walk to waypoints (Aldous after his talk). The other
-      plots still need teams, doors, ambient animations, the party and combat
+      opening). Characters walk to waypoints (Aldous after his talk), and the
+      castle's 27 doors open, close and lock, by hand or from a plot (the
+      pantry door when Gilmore leaves the party). The other plots still need
+      teams, ambient animations, the party and combat
 
 ## Phase 3: First fight
 

@@ -375,7 +375,7 @@ def cmd_unreal_area(args) -> int:
     s = out["Summary"]
     print(f"{out['Area']}: {s['Floors']} floor boxes, {s['Walls']} wall boxes, {s['TalkingCreatures']} talking "
           f"creatures ({s['Inactive']} hidden at first, {s['OtherCreatures']} others left out), "
-          f"{s['Waypoints']} waypoints, {len(out['Labels'])} room labels", file=sys.stderr)
+          f"{s['Waypoints']} waypoints, {s['Doors']} doors, {len(out['Labels'])} room labels", file=sys.stderr)
     for w in out["Warnings"]:
         print(f"warning: {w}", file=sys.stderr)
     _write(json.dumps(out, ensure_ascii=False) + "\n", args.out)

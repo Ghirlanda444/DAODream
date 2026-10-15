@@ -396,7 +396,14 @@ class AreaTests(unittest.TestCase):
                     "ZPosition": 0, "XOrientation": 0, "YOrientation": 0, "ZOrientation": 0, "WOrientation": 1}],
                "WaypointList": [{"Tag": "start", "HasMapNote": 1, "MapNote": {"strref": 1, "text": "Main Hall"},
                                  "XPosition": 11.0, "YPosition": 21.0, "ZPosition": 0.0, "XOrientation": 0,
-                                 "YOrientation": 0, "ZOrientation": 0, "WOrientation": 1}]}
+                                 "YOrientation": 0, "ZOrientation": 0, "WOrientation": 1}],
+               "PlaceableList": [
+                   {"Tag": "bhn_door_cellar", "TemplateResRef": "bhn_dr_sm_wd", "Active": 1, "InitialState": 1,
+                    "XPosition": 12.0, "YPosition": 20.0, "ZPosition": 0.0, "XOrientation": 0, "YOrientation": 0,
+                    "ZOrientation": 0, "WOrientation": 1},
+                   {"Tag": "bhn_chest", "TemplateResRef": "bhn_chest", "Active": 1, "InitialState": 0,
+                    "XPosition": 0, "YPosition": 0, "ZPosition": 0, "XOrientation": 0, "YOrientation": 0,
+                    "ZOrientation": 0, "WOrientation": 1}]}
         templates = {"bhn_father": {"DialogResRef": "BHN_Father", "LocName": {"strref": 2, "text": "Bryce"},
                                     "Appearance Data": {"Gender": 1}},
                      "bhn_rat": {"DialogResRef": ""}}
@@ -407,6 +414,9 @@ class AreaTests(unittest.TestCase):
         self.assertEqual(out["NpcActive"], [1, 0])  # inactive talkers are kept, hidden until a plot shows them
         self.assertEqual((out["WaypointTags"], out["WaypointPose"]), (["start"], [1100.0, -2100.0, 0.0, -90.0]))
         self.assertEqual(out["Summary"]["OtherCreatures"], 1)
+        # Only doors, with their state (1 = locked) and a small door's greybox size.
+        self.assertEqual((out["DoorTags"], out["DoorPose"], out["DoorState"], out["DoorSize"], out["DoorActive"]),
+                         (["bhn_door_cellar"], [1200.0, -2000.0, 0.0, -90.0], [1], [160.0, 260.0], [1]))
         self.assertEqual((out["Start"], out["Labels"], out["LabelPos"]),
                          ([1100.0, -2100.0, 0.0, -90.0], ["Main Hall"], [1100.0, -2100.0, 0.0]))
         self.assertEqual(out["Summary"]["Floors"], 2)
@@ -482,6 +492,9 @@ class PlotLogicTests(unittest.TestCase):
                     {
                         UT_LocalJump(oGuard, MY_WP_GATE);
                         WR_SetPlotFlag(PLT_OTHER, OTHER_DONE, TRUE);
+                        object oGate = GetObjectByTag("my_door_gate");
+                        SetPlaceableActionResult(oGate, PLACEABLE_ACTION_UNLOCK, TRUE);
+                        SetPlaceableState(oGate, PLC_STATE_DOOR_OPEN_2);
                         break;
                     }
                     case GUARD_WALKS:
@@ -519,18 +532,19 @@ class PlotLogicTests(unittest.TestCase):
             out = plotlogic.export(d, plots)
         report = out["Plots"]["my_plot"]
         self.assertEqual(report["Cases"], {
-            "GUARD_MOVES": ["jump my_cr_guard my_wp_gate 1", "setflag  BBBB:7 1"],
+            "GUARD_MOVES": ["jump my_cr_guard my_wp_gate 1", "setflag  BBBB:7 1",
+                            "door my_door_gate unlock 1", "door my_door_gate open2 1"],
             "GUARD_TALKS": ["talk my_cr_guard  1", "active my_cr_guard  0", "autosave   1"],  # falls through
             "GUARD_WALKS": ["walk my_cr_guard my_wp_gate 0",  # the run flag is only known at runtime
                             "walk my_cr_guard my_wp_gate 1", "walk my_cr_guard my_wp_far 1"],
             "GUARD_LEAVES": ["active my_cr_guard  0", "autosave   1"]})
         self.assertEqual(report["Skipped"], ["GUARD_LEAVES: SetCreatureGoreLevel"])
         self.assertEqual(out["Keys"], ["AAAA:0", "AAAA:3", "AAAA:1", "AAAA:2"])
-        self.assertEqual((out["Start"], out["Count"]), ([0, 2, 5, 8], [2, 3, 3, 2]))
-        self.assertEqual(out["Kind"], [1, 4, 6, 6, 6, 2, 3, 5, 3, 5])
+        self.assertEqual((out["Start"], out["Count"]), ([0, 4, 7, 10], [4, 3, 3, 2]))
+        self.assertEqual(out["Kind"], [1, 4, 7, 7, 6, 6, 6, 2, 3, 5, 3, 5])
         self.assertEqual(out["Arg"][:2], ["my_wp_gate", "BBBB:7"])
-        self.assertEqual((out["Value"][2], out["Value"][6]), (0, 0))
-        self.assertEqual(out["Arg"][2:5], ["my_wp_gate", "my_wp_gate", "my_wp_far"])
+        self.assertEqual((out["Value"][4], out["Value"][8]), (0, 0))
+        self.assertEqual(out["Arg"][4:7], ["my_wp_gate", "my_wp_gate", "my_wp_far"])
 
 
 class CLITests(unittest.TestCase):

@@ -5,8 +5,8 @@ An area (.are, GFF3) places creatures, placeables and waypoints; its layout
 From the two this builds a greybox the Unreal project spawns at runtime:
 floor and wall boxes from the grid, and the creatures that have a
 conversation, at their places, plus every waypoint (where plot scripts move
-people). Nothing here is a game model: the boxes come from the walkable/blocked
-cells.
+people) and every door. Nothing here is a game model: the boxes come from the
+walkable/blocked cells, and doors are sized by kind (see door_size).
 
 Navigation grid (field IDs observed on hrt201d, Castle Cousland):
 3086/3087 width/height in cells, 3088 cell size (m), 3090 origin (m),
@@ -116,6 +116,23 @@ def floor_plan(nav: dict) -> list[float]:
     return boxes
 
 
+# Door states (PLC_STATE_DOOR_* in the game's constants).
+DOOR_CLOSED, DOOR_LOCKED, DOOR_OPEN, DOOR_BROKEN, DOOR_OPEN_2, DOOR_BROKEN_2 = range(6)
+
+
+def is_door(tag: str, template: str) -> bool:
+    name = f"{tag} {template}".lower()
+    return "door" in name or "_dr_" in name
+
+
+def door_size(template: str) -> tuple[float, float]:
+    """Width and height (Unreal cm) for a greybox door. The templates only name a
+    model, and the navigation grid is too coarse to show the doorway, so small
+    doors (`sm`, the pantry) are 1.6 x 2.6 m and all others 3 x 3.6 m."""
+    name = template.lower()
+    return (160.0, 260.0) if "_sm_" in name or "pantry" in name else (300.0, 360.0)
+
+
 def _text(value) -> str:
     if isinstance(value, dict):
         return value.get("text") or ""
@@ -153,6 +170,18 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         npc_pose.extend([*ue_point(c["XPosition"], c["YPosition"], c["ZPosition"]),
                          ue_yaw(c["XOrientation"], c["YOrientation"], c["ZOrientation"], c["WOrientation"])])
 
+    door_tags, door_pose, door_state, door_size_wh, door_active = [], [], [], [], []
+    for d in are_root.get("PlaceableList") or []:
+        template = str(d.get("TemplateResRef") or "")
+        if not is_door(d.get("Tag") or "", template):
+            continue
+        door_tags.append(d.get("Tag") or "")
+        door_pose.extend([*ue_point(d["XPosition"], d["YPosition"], d["ZPosition"]),
+                          ue_yaw(d["XOrientation"], d["YOrientation"], d["ZOrientation"], d["WOrientation"])])
+        door_state.append(int(d.get("InitialState") or 0))
+        door_size_wh.extend(door_size(template))
+        door_active.append(1 if d.get("Active") else 0)
+
     labels, label_pos = [], []
     wp_tags, wp_pose = [], []
     start_pose: list[float] = []
@@ -184,10 +213,15 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcActive": npc_active,
         "WaypointTags": wp_tags,
         "WaypointPose": wp_pose,
+        "DoorTags": door_tags,
+        "DoorPose": door_pose,
+        "DoorState": door_state,
+        "DoorSize": door_size_wh,
+        "DoorActive": door_active,
         "Labels": labels,
         "LabelPos": label_pos,
         "Summary": {"Floors": sum(1 for k in boxes[6::7] if k == 0), "Walls": sum(1 for k in boxes[6::7] if k == 1),
                     "TalkingCreatures": len(npc_tags), "Inactive": npc_active.count(0), "OtherCreatures": others,
-                    "Waypoints": len(wp_tags)},
+                    "Waypoints": len(wp_tags), "Doors": len(door_tags)},
         "Warnings": warnings,
     }

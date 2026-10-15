@@ -11,6 +11,9 @@ cases are a short list of helper calls. This turns each case into actions:
   5 autosave  DoAutoSave()
   6 walk      AddCommand/WR_AddCommand(oCreature, CommandMoveToObject(oWP, bRun))   target tag,
               CommandMoveToLocation(GetLocation(oWP), bRun), UT_QuickMoveObject    waypoint tag, run 1/0
+  7 door      SetPlaceableActionResult(oDoor, PLACEABLE_ACTION_X, TRUE)        target tag, verb:
+              SetPlaceableState(oDoor, PLC_STATE_DOOR_X)                        open, open2, close,
+                                                                                lock, unlock, break
 
 Case fall-through (a case without `break`) is followed, as the game does.
 Anything else in a case is listed under "Skipped" so coverage is visible.
@@ -28,8 +31,14 @@ import re
 from pathlib import Path
 
 FORMAT = "DAODream.PlotActions 1"
-JUMP, TALK, ACTIVE, SETFLAG, AUTOSAVE, WALK = 1, 2, 3, 4, 5, 6
-_KIND_NAMES = {JUMP: "jump", TALK: "talk", ACTIVE: "active", SETFLAG: "setflag", AUTOSAVE: "autosave", WALK: "walk"}
+JUMP, TALK, ACTIVE, SETFLAG, AUTOSAVE, WALK, DOOR = 1, 2, 3, 4, 5, 6, 7
+_KIND_NAMES = {JUMP: "jump", TALK: "talk", ACTIVE: "active", SETFLAG: "setflag", AUTOSAVE: "autosave", WALK: "walk",
+               DOOR: "door"}
+# What a door does for each placeable action / door state the scripts use.
+_DOOR_ACTIONS = {"PLACEABLE_ACTION_OPEN": "open", "PLACEABLE_ACTION_CLOSE": "close",
+                 "PLACEABLE_ACTION_UNLOCK": "unlock", "PLACEABLE_ACTION_LOCK": "lock"}
+_DOOR_STATES = {"PLC_STATE_DOOR_UNLOCKED": "close", "PLC_STATE_DOOR_LOCKED": "lock", "PLC_STATE_DOOR_OPEN": "open",
+                "PLC_STATE_DOOR_OPEN_2": "open2", "PLC_STATE_DOOR_DEAD": "break", "PLC_STATE_DOOR_DEAD_2": "break"}
 
 _COMMENTS = re.compile(r"//[^\n]*|/\*.*?\*/", re.S)
 _CONST = re.compile(r"const\s+(string|int)\s+(\w+)\s*=\s*(\"[^\"]*\"|-?\d+)\s*;")
@@ -145,6 +154,13 @@ def translate(script: str, plot: dict, plots_by_name: dict[str, dict], consts: d
             if dest is None:
                 return ("skip", f"{fn}: not a move to a known waypoint")
             return {"kind": WALK, "target": objects[args[0]], "arg": dest[0], "value": dest[1]}
+        if fn == "SetPlaceableActionResult" and len(args) >= 2 and args[0] in objects:
+            verb = _DOOR_ACTIONS.get(args[1])
+            if verb is None or (len(args) > 2 and value(args[2]) != 1):
+                return ("skip", f"{fn}({args[1]})")
+            return {"kind": DOOR, "target": objects[args[0]], "arg": verb, "value": 1}
+        if fn == "SetPlaceableState" and len(args) >= 2 and args[0] in objects and args[1] in _DOOR_STATES:
+            return {"kind": DOOR, "target": objects[args[0]], "arg": _DOOR_STATES[args[1]], "value": 1}
         if fn == "UT_QuickMoveObject" and len(args) >= 2 and args[0] in objects:
             return {"kind": WALK, "target": objects[args[0]], "arg": str(value(args[1])),
                     "value": int(len(args) > 2 and value(args[2]) == 1)}
