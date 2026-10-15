@@ -10,7 +10,8 @@ Runtime rules (see docs/GAME_DATA.md for how they were derived):
 - Starts are tried in order; the first whose condition holds is used.
 - A condition holds when its flag is set (or not set, with CondNot).
   Script conditions cannot run yet and are treated as holding.
-- An action sets its flag. Script actions are ignored for now.
+- An action sets its flag, or clears it with ActionNot (plot test 0 on an
+  action, as on a condition). Script actions are ignored for now.
 """
 
 from __future__ import annotations
@@ -94,8 +95,6 @@ def conversation(conv: dict, *, owner: str | None = None, names_dir: str | Path 
             speaker = ""
         cond_key, cond_not, cond_script = _plot_slot(line.get("condition"), warnings, f"line {i} condition")
         act_key, act_not, act_script = _plot_slot(line.get("action"), warnings, f"line {i} action")
-        if act_not:
-            warnings.append(f"line {i} action: plot test on an action")
         text = display_text(line.get("text"))
         vo = ""
         if vo_samples is not None:
@@ -115,6 +114,7 @@ def conversation(conv: dict, *, owner: str | None = None, names_dir: str | Path 
             "CondNot": cond_not,
             "CondScript": cond_script,
             "ActionKey": act_key,
+            "ActionNot": act_not,
             "ActionScript": act_script,
             "Vo": vo,
         })

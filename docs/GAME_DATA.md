@@ -93,6 +93,30 @@ format the Unreal project reads at runtime (`daotools/unreal.py` documents the
 keys and rules). The output goes under `extracted/ue/`, so it stays out of git
 like all game data; Unreal reads it from there when you press Play.
 
+A whole origin in one command (16 s for Human Noble):
+
+```powershell
+py -m daotools unreal origin extracted/human_noble --plots extracted/plots/raw `
+  --true-flag GEN_GENDER_MALE --true-flag GEN_CLASS_WARRIOR --out extracted/ue
+```
+
+It writes `extracted/ue/conversations/<name>.json` for every conversation,
+the voice to `extracted/ue/vo/<VoBank>/<Vo>.wav`, and
+`extracted/ue/conversations/index.json` (owner, the creatures that use the
+conversation, line and voice counts, warnings). Rules:
+
+- A conversation found in several archives is taken from the newest
+  `patch*` folder, otherwise the first copy; copies that differ are reported.
+  In Human Noble every copy is identical.
+- The owner (who "OWNER" lines are spoken by) is the creature whose
+  `DialogResRef` is the conversation, preferring the one whose tag matches
+  its name. Guards share conversations (`bhn100cr_guard` is used by the
+  praying guards, for instance).
+- Result for Human Noble: 32 conversations, 941 of 951 spoken lines voiced.
+  `bhn200ip_hallway` (one line, an interactive placeable) has no bank.
+
+One conversation at a time, the same thing by hand:
+
 ```powershell
 py -m daotools unreal conv extracted/human_noble/json/al_bhn01al_castle_cousland/bhn100cr_father.dlg.conv.json `
   --names extracted/human_noble/json --plots extracted/plots/raw `
@@ -106,7 +130,8 @@ py -m daotools fsb extract extracted/human_noble/raw/loose/bhn100cr_father.fsb `
 With `--plots`, `--true-flag` takes flag names, and the output gains
 `FlagNames`: every "GUID:FLAG" key the conversation uses, with its name.
 With `--vo`, each line's `Vo` names its voice-over file; Unreal plays
-`extracted/ue/vo/<VoBank>/<Vo>.wav` when the line is shown.
+`extracted/ue/vo/<VoBank>/<Vo>.wav` when the line is shown. An action with
+plot test 0 clears its flag (`ActionNot`); 9 lines in Human Noble do this.
 
 What the opening scene needs, from `bhn100cr_father`:
 

@@ -14,6 +14,7 @@ Examples:
   daotools fsb extract <bank.fsb> --out <folder>
   daotools unreal conv <name.dlg.conv.json> --names <pull json dir> --plots <plo dir> --vo <bank.fsb>
                        --out runtime.json
+  daotools unreal origin <pull dir> --plots <plo dir> --true-flag GEN_GENDER_MALE --out extracted/ue
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import cnv, fsb, gda, mfdecode, plo, unreal
+from . import cnv, fsb, gda, mfdecode, origin, plo, unreal
 from .erf import ERF, ERFError, is_erf
 from .fields import NAMES
 from .gff3 import GFF3, GFF3Error, is_gff3
@@ -330,17 +331,39 @@ def cmd_fsb_extract(args) -> int:
     return 0
 
 
-def cmd_unreal_conv(args) -> int:
-    conv = json.loads(Path(args.file).read_text(encoding="utf-8"))
-    plots = plo.load_dir(args.plots) if args.plots else None
-    vo_samples = fsb.FSB.open(args.vo).names() if args.vo else None
-    true_flags = []
-    for flag in args.true_flag or []:
+def _true_flags(flags: list[str] | None, plots: dict | None) -> list[str]:
+    keys = []
+    for flag in flags or []:
         if ":" not in flag:
             if plots is None:
                 raise ValueError(f"--true-flag {flag}: flag names need --plots")
             flag = plo.flag_key(plots, flag)
-        true_flags.append(flag)
+        keys.append(flag)
+    return keys
+
+
+def cmd_unreal_origin(args) -> int:
+    plots = plo.load_dir(args.plots) if args.plots else None
+    index = origin.export(args.pull, args.out, plots=plots, true_flags=_true_flags(args.true_flag, plots),
+                          voice=not args.no_vo)
+    convs = index["Conversations"]
+    for name, c in convs.items():
+        print(f"{name}: {c['Lines']} lines, {c['VoicedLines']}/{c['SpokenLines']} spoken lines voiced, "
+              f"owner {c['Owner']}" + (f", {len(c['Warnings'])} warnings" if c["Warnings"] else ""),
+              file=sys.stderr)
+    for w in index["Warnings"]:
+        print(f"warning: {w}", file=sys.stderr)
+    print(f"{len(convs)} conversations, {sum(c['VoicedLines'] for c in convs.values())} of "
+          f"{sum(c['SpokenLines'] for c in convs.values())} spoken lines voiced; "
+          f"index in {Path(args.out) / 'conversations' / 'index.json'}", file=sys.stderr)
+    return 0
+
+
+def cmd_unreal_conv(args) -> int:
+    conv = json.loads(Path(args.file).read_text(encoding="utf-8"))
+    plots = plo.load_dir(args.plots) if args.plots else None
+    vo_samples = fsb.FSB.open(args.vo).names() if args.vo else None
+    true_flags = _true_flags(args.true_flag, plots)
     out = unreal.conversation(conv, owner=args.owner, names_dir=args.names, true_flags=true_flags,
                               plots=plots, vo_samples=vo_samples)
     for w in out["Warnings"]:
@@ -424,6 +447,14 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--vo", help="the conversation's VO bank (.fsb), to fill each line's Vo")
     s.add_argument("--out")
     s.set_defaults(func=cmd_unreal_conv)
+    s = u.add_parser("origin", help="every conversation in a pull folder, with voice, plus an index")
+    s.add_argument("pull", help="folder written by `daotools pull` (json/ and raw/)")
+    s.add_argument("--plots", help="folder of extracted .plo files, to name the flags")
+    s.add_argument("--true-flag", action="append", metavar="GUID:FLAG|NAME",
+                   help="plot flag that starts out set, e.g. GEN_GENDER_MALE; repeatable")
+    s.add_argument("--no-vo", action="store_true", help="skip decoding the voice-over")
+    s.add_argument("--out", required=True, help="e.g. extracted/ue")
+    s.set_defaults(func=cmd_unreal_origin)
 
     f = sub.add_parser("fsb", help="FMOD sound banks (voice-over)").add_subparsers(
         dest="fsb_command", required=True)
