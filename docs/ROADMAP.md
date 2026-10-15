@@ -24,7 +24,8 @@ Each phase ends with something you can see running.
 
 ## Phase 1: Talking heads (first visible milestone)
 
-- [ ] UE5 project, the main hall as a rough first build (greybox)
+- [x] UE5 project, the main hall as a rough first build (greybox):
+      `/Game/Cousland/Maps/L_GreatHall`, walked end to end in Play
 - [ ] Dialogue system in UE5 driven by the exported JSON: list-style replies,
       conditions and actions on plot flags, voice-over playback
 - [ ] The opening scene: Bryce and Howe in the main hall, playable with the
