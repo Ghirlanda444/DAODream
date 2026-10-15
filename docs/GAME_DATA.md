@@ -196,3 +196,46 @@ py -m daotools plo list extracted/plots/raw --out extracted/plots/plots.json
 - Every plot GUID in `bhn100cr_father` resolves. The Human Noble plots are
   `plt_bhn*` in the single player archive; the player-character and codex
   plots it also uses are in core.
+
+## Areas and layouts (`.are`, `.arl`)
+
+An area (`.are`, GFF3, in the area archive) places things; its `Layout`
+field names the level it is built on, whose files are in
+`packages/core/env/<Layout>/` (one `.rim` per room chunk, plus loose
+`<Layout>.arl` and `.opf` next to that folder). Castle Cousland by day is
+`bhn100ar_castle_cousland` on layout `hrt201d` ("Castle Cousland Main Floor").
+
+- `.are` lists: `CreatureList` (57 here: tag, template, position, orientation
+  quaternion, `Active`; the rats start inactive), `PlaceableList` (56),
+  `TriggerList` (46, with geometry), `WaypointList` (33; those with a map note
+  name the rooms: Main Hall, Kitchen, Chapel, Your Room...), `StageList`
+  (18), `SoundList` (74).
+- Positions are metres, right-handed, Z up, yaw 0 facing +Y (Bryce at
+  (-39.4, -4.6) faces Howe with yaw -80). The game's start waypoint is
+  `bhn100wp_start`, next to Bryce.
+- `.arl` (GFF4 `ARL V4.0`): 59 `ROOM` structs with bounding boxes (render
+  chunks; they overlap and some cover the whole castle, so they are no use as
+  a floor plan) and a navigation grid (`NAVI`): 299 x 276 cells of 0.5 m from
+  (-131.1, -74.7). Per cell, field 3093 is the floor height in 1/16 m and field
+  3114 is -1 for blocked cells and >= 0 for walkable ones. Checked against all
+  35 placed characters: each stands on a walkable cell at exactly that height
+  (from -6 m in the cellars to 12 m in the family quarters).
+- A creature's template (`.utc`) gives its conversation (`DialogResRef`),
+  name and gender (`Appearance Data/Gender`: 1 male, 2 female).
+
+`daotools unreal area` turns this into what Unreal spawns at runtime: floor
+and wall boxes (walkable cells merged into rectangles per height; walls on
+blocked cells next to walkable ones, 3 m tall) and the creatures that have a
+conversation, in Unreal coordinates (x' = 100x, y' = -100y, z' = 100z,
+yaw' = -(yaw + 90)):
+
+```powershell
+py -m daotools unreal area extracted/human_noble/json/al_bhn01al_castle_cousland/bhn100ar_castle_cousland.are.json `
+  --layout "<game>/packages/core/env/hrt201d.arl" --pull extracted/human_noble/json `
+  --start bhn100wp_start --out extracted/ue/areas/bhn100ar_castle_cousland.json
+```
+
+Castle Cousland: 1,003 floor boxes, 606 wall boxes, 35 talking characters
+(the dog and cat use templates outside the Human Noble pull). In Unreal,
+`/Game/Cousland/Maps/L_CastleCousland` holds one `BP_AreaLoader` that builds
+it on Play; the level itself holds no game data.

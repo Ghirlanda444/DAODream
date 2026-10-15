@@ -1,0 +1,186 @@
+"""Areas: where the walkable floor is and who stands where, for Unreal.
+
+An area (.are, GFF3) places creatures, placeables and waypoints; its layout
+(.arl, GFF4 "ARL ", loose under packages/core/env) holds a navigation grid.
+From the two this builds a greybox the Unreal project spawns at runtime:
+floor and wall boxes from the grid, and the creatures that have a
+conversation, at their places. Nothing here is a game model: the boxes come
+from the walkable/blocked cells.
+
+Navigation grid (field IDs observed on hrt201d, Castle Cousland):
+3086/3087 width/height in cells, 3088 cell size (m), 3090 origin (m),
+3093 floor height per cell in 1/16 m, 3114 cell class (-1 blocked, >= 0
+walkable). Cells are row-major, rows along +Y. One height per cell.
+
+Coordinates: the game is right-handed Z-up in metres with yaw 0 facing +Y.
+Unreal is left-handed Z-up in centimetres with yaw 0 facing +X, so
+x' = 100 x, y' = -100 y, z' = 100 z and yaw' = -(yaw + 90).
+"""
+
+from __future__ import annotations
+
+import json
+import math
+from pathlib import Path
+
+FORMAT = "DAODream.Area 1"
+WALL_HEIGHT = 3.0  # m above the highest neighbouring floor
+FLOOR_THICKNESS = 0.2  # m
+
+# Navigation grid fields.
+NAV_WIDTH, NAV_HEIGHT, NAV_CELL, NAV_ORIGIN = "3086", "3087", "3088", "3090"
+NAV_FLOOR_Z, NAV_CLASS = "3093", "3114"
+
+
+def ue_point(x: float, y: float, z: float) -> tuple[float, float, float]:
+    return round(x * 100, 1), round(-y * 100, 1), round(z * 100, 1)
+
+
+def ue_yaw(qx: float, qy: float, qz: float, qw: float) -> float:
+    """Unreal yaw (degrees) for a game orientation quaternion."""
+    yaw = math.degrees(math.atan2(2 * (qw * qz + qx * qy), 1 - 2 * (qy * qy + qz * qz)))
+    return round((-(yaw + 90) + 180) % 360 - 180, 1)
+
+
+def navigation(layout_root: dict) -> dict:
+    """The navigation grid struct from an .arl dump (`daotools gff dump`)."""
+    for value in layout_root.values():
+        if isinstance(value, dict):
+            for inner in value.values():
+                if isinstance(inner, dict) and inner.get("_struct") == "NAVI":
+                    return inner
+    raise ValueError("no navigation grid (NAVI) in this layout")
+
+
+def _runs(width: int, height: int, key) -> list[tuple[int, int, int, int, object]]:
+    """Merge cells with the same key into rectangles: (i0, j0, i1, j1, key),
+    end-exclusive. Cells whose key is None are skipped."""
+    open_runs: dict[tuple[int, int, object], list[int]] = {}
+    rects = []
+    for j in range(height):
+        row_runs = []
+        i = 0
+        while i < width:
+            k = key(i, j)
+            if k is None:
+                i += 1
+                continue
+            start = i
+            while i < width and key(i, j) == k:
+                i += 1
+            row_runs.append((start, i, k))
+        current = {}
+        for start, end, k in row_runs:
+            prev = open_runs.pop((start, end, k), None)
+            current[(start, end, k)] = prev if prev is not None else [j]
+        for (start, end, k), (j0,) in open_runs.items():
+            rects.append((start, j0, end, j, k))
+        open_runs = current
+    for (start, end, k), (j0,) in open_runs.items():
+        rects.append((start, j0, end, height, k))
+    return rects
+
+
+def floor_plan(nav: dict) -> list[float]:
+    """Boxes as a flat list, 7 numbers each: x0, y0, z0, x1, y1, z1 (Unreal cm)
+    and kind (0 floor, 1 wall)."""
+    w, h, cell = nav[NAV_WIDTH], nav[NAV_HEIGHT], nav[NAV_CELL]
+    ox, oy = nav[NAV_ORIGIN][0], nav[NAV_ORIGIN][1]
+    cls, fz = nav[NAV_CLASS], nav[NAV_FLOOR_Z]
+
+    def walkable(i, j):
+        return 0 <= i < w and 0 <= j < h and cls[j * w + i] >= 0
+
+    def floor_key(i, j):
+        return fz[j * w + i] if walkable(i, j) else None
+
+    def wall_key(i, j):
+        if walkable(i, j):
+            return None
+        near = [fz[b * w + a] for a, b in ((i - 1, j), (i + 1, j), (i, j - 1), (i, j + 1)) if walkable(a, b)]
+        return (min(near), max(near)) if near else None
+
+    boxes: list[float] = []
+
+    def add(i0, j0, i1, j1, z0, z1, kind):
+        x0, y0 = ox + i0 * cell, oy + j0 * cell
+        x1, y1 = ox + i1 * cell, oy + j1 * cell
+        a, b = ue_point(x0, y1, z0), ue_point(x1, y0, z1)  # the Y flip swaps the ends
+        boxes.extend([a[0], a[1], a[2], b[0], b[1], b[2], kind])
+
+    for i0, j0, i1, j1, z in _runs(w, h, floor_key):
+        add(i0, j0, i1, j1, z / 16 - FLOOR_THICKNESS, z / 16, 0)
+    for i0, j0, i1, j1, (lo, hi) in _runs(w, h, wall_key):
+        add(i0, j0, i1, j1, lo / 16 - FLOOR_THICKNESS, hi / 16 + WALL_HEIGHT, 1)
+    return boxes
+
+
+def _text(value) -> str:
+    if isinstance(value, dict):
+        return value.get("text") or ""
+    return value if isinstance(value, str) else ""
+
+
+def creature_templates(json_dir: str | Path) -> dict[str, dict]:
+    """Every .utc dump under a pull folder, by template name (lower case)."""
+    found = {}
+    for p in sorted(Path(json_dir).rglob("*.utc.json")):
+        found.setdefault(p.name[:-len(".utc.json")].lower(), json.loads(p.read_text(encoding="utf-8"))["root"])
+    return found
+
+
+def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start: str = "") -> dict:
+    """The runtime area file."""
+    warnings: list[str] = []
+    npc_tags, npc_names, npc_convs, npc_female, npc_pose = [], [], [], [], []
+    others = 0
+    for c in are_root.get("CreatureList") or []:
+        if not c.get("Active"):
+            continue
+        utc = templates.get(str(c.get("TemplateResRef", "")).lower())
+        if utc is None:
+            warnings.append(f"creature {c.get('Tag')}: template {c.get('TemplateResRef')} not found")
+            continue
+        conversation = utc.get("DialogResRef") or ""
+        if not conversation:
+            others += 1
+            continue
+        look = utc.get("Appearance Data") if isinstance(utc.get("Appearance Data"), dict) else {}
+        npc_tags.append(c.get("Tag") or "")
+        npc_names.append(_text(utc.get("LocName")))
+        npc_convs.append(conversation.lower())
+        npc_female.append(1 if look.get("Gender") == 2 else 0)
+        npc_pose.extend([*ue_point(c["XPosition"], c["YPosition"], c["ZPosition"]),
+                         ue_yaw(c["XOrientation"], c["YOrientation"], c["ZOrientation"], c["WOrientation"])])
+
+    labels, label_pos = [], []
+    start_pose: list[float] = []
+    for wp in are_root.get("WaypointList") or []:
+        pos = ue_point(wp["XPosition"], wp["YPosition"], wp["ZPosition"])
+        if wp.get("Tag") == start:
+            start_pose = [*pos, ue_yaw(wp["XOrientation"], wp["YOrientation"], wp["ZOrientation"],
+                                      wp["WOrientation"])]
+        if wp.get("HasMapNote") and _text(wp.get("MapNote")):
+            labels.append(_text(wp.get("MapNote")))
+            label_pos.extend(pos)
+    if start and not start_pose:
+        warnings.append(f"start waypoint {start} not found")
+
+    boxes = floor_plan(navigation(layout_root))
+    return {
+        "Format": FORMAT,
+        "Area": are_root.get("Tag") or "",
+        "Layout": are_root.get("Layout") or "",
+        "Start": start_pose,
+        "Boxes": boxes,
+        "NpcTags": npc_tags,
+        "NpcNames": npc_names,
+        "NpcConversations": npc_convs,
+        "NpcFemale": npc_female,
+        "NpcPose": npc_pose,
+        "Labels": labels,
+        "LabelPos": label_pos,
+        "Summary": {"Floors": sum(1 for k in boxes[6::7] if k == 0), "Walls": sum(1 for k in boxes[6::7] if k == 1),
+                    "TalkingCreatures": len(npc_tags), "OtherCreatures": others},
+        "Warnings": warnings,
+    }

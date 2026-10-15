@@ -1,10 +1,11 @@
 import json
+import math
 import struct
 import tempfile
 import unittest
 from pathlib import Path
 
-from daotools import cnv, fields as F, fsb, mfdecode, plo, unreal
+from daotools import area, cnv, fields as F, fsb, mfdecode, plo, unreal
 from daotools.cli import main
 from daotools.erf import ERF, ERFError, is_erf
 from daotools.gda import GDA, column_hash
@@ -360,6 +361,50 @@ class OriginTests(unittest.TestCase):
         self.assertEqual((entry["UsedBy"], entry["Source"], entry["SpokenLines"], entry["VoicedLines"]),
                          (["bhn_guard_2", "bhn_guard_amb"], "patch002", 1, 1))
         self.assertEqual(index["Warnings"], ["bhn_guard: the 3 copies differ; using patch002"])
+
+
+class AreaTests(unittest.TestCase):
+    # 4 x 3 cells of 1 m from (10, 20): a 2 x 2 floor at 0 m, one cell at 1 m, the rest blocked.
+    #   row 0: F F B B
+    #   row 1: F F U B     (U = upper, 16/16 m)
+    #   row 2: B B B B
+    nav = {"_struct": "NAVI", "3086": 4, "3087": 3, "3088": 1.0, "3090": [10.0, 20.0, 0.0],
+           "3093": [0, 0, 0, 0, 0, 0, 16, 0, 0, 0, 0, 0],
+           "3114": [5, 5, -1, -1, 5, 5, 15, -1, -1, -1, -1, -1]}
+
+    def test_floor_plan(self):
+        boxes = area.floor_plan(self.nav)
+        rows = [boxes[i:i + 7] for i in range(0, len(boxes), 7)]
+        floors = sorted(r for r in rows if r[6] == 0)
+        # The 2 x 2 floor merges into one box; Y is flipped, so y 20..22 m becomes -2200..-2000 cm.
+        self.assertEqual(floors, [[1000.0, -2200.0, -20.0, 1200.0, -2000.0, 0.0, 0],
+                                  [1200.0, -2200.0, 80.0, 1300.0, -2100.0, 100.0, 0]])
+        walls = [r for r in rows if r[6] == 1]
+        self.assertTrue(walls)
+        self.assertTrue(all(r[5] >= 300.0 for r in walls))  # 3 m above the floor beside them
+
+    def test_yaw_and_area(self):
+        # Game yaw 0 faces +Y; Bryce's -80 degrees faces +X, which is -10 degrees in Unreal.
+        q = math.radians(-80) / 2
+        self.assertAlmostEqual(area.ue_yaw(0, 0, math.sin(q), math.cos(q)), -10.0, places=1)
+        are = {"Tag": "bhn_area", "Layout": "lay", "CreatureList": [
+                   {"Tag": "bryce", "TemplateResRef": "bhn_father", "Active": 1, "XPosition": 10.5, "YPosition": 20.5,
+                    "ZPosition": 0.0, "XOrientation": 0, "YOrientation": 0, "ZOrientation": 0, "WOrientation": 1},
+                   {"Tag": "rat", "TemplateResRef": "bhn_rat", "Active": 0, "XPosition": 0, "YPosition": 0,
+                    "ZPosition": 0, "XOrientation": 0, "YOrientation": 0, "ZOrientation": 0, "WOrientation": 1}],
+               "WaypointList": [{"Tag": "start", "HasMapNote": 1, "MapNote": {"strref": 1, "text": "Main Hall"},
+                                 "XPosition": 11.0, "YPosition": 21.0, "ZPosition": 0.0, "XOrientation": 0,
+                                 "YOrientation": 0, "ZOrientation": 0, "WOrientation": 1}]}
+        templates = {"bhn_father": {"DialogResRef": "BHN_Father", "LocName": {"strref": 2, "text": "Bryce"},
+                                    "Appearance Data": {"Gender": 1}}}
+        out = area.area(are, {"3020": {"3110": self.nav}}, templates, start="start")
+        self.assertEqual((out["NpcTags"], out["NpcNames"], out["NpcConversations"], out["NpcFemale"]),
+                         (["bryce"], ["Bryce"], ["bhn_father"], [0]))
+        self.assertEqual(out["NpcPose"], [1050.0, -2050.0, 0.0, -90.0])
+        self.assertEqual((out["Start"], out["Labels"], out["LabelPos"]),
+                         ([1100.0, -2100.0, 0.0, -90.0], ["Main Hall"], [1100.0, -2100.0, 0.0]))
+        self.assertEqual(out["Summary"]["Floors"], 2)
+        self.assertEqual(out["Warnings"], [])
 
 
 class PlotTests(unittest.TestCase):

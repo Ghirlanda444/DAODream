@@ -27,7 +27,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import cnv, fsb, gda, mfdecode, origin, plo, unreal
+from . import area, cnv, fsb, gda, mfdecode, origin, plo, unreal
 from .erf import ERF, ERFError, is_erf
 from .fields import NAMES
 from .gff3 import GFF3, GFF3Error, is_gff3
@@ -359,6 +359,19 @@ def cmd_unreal_origin(args) -> int:
     return 0
 
 
+def cmd_unreal_area(args) -> int:
+    are_root = json.loads(Path(args.file).read_text(encoding="utf-8"))["root"]
+    layout_root = to_jsonable(GFF4.open(args.layout).root, NAMES)
+    out = area.area(are_root, layout_root, area.creature_templates(args.pull), start=args.start or "")
+    s = out["Summary"]
+    print(f"{out['Area']}: {s['Floors']} floor boxes, {s['Walls']} wall boxes, {s['TalkingCreatures']} talking "
+          f"creatures ({s['OtherCreatures']} others left out), {len(out['Labels'])} room labels", file=sys.stderr)
+    for w in out["Warnings"]:
+        print(f"warning: {w}", file=sys.stderr)
+    _write(json.dumps(out, ensure_ascii=False) + "\n", args.out)
+    return 0
+
+
 def cmd_unreal_conv(args) -> int:
     conv = json.loads(Path(args.file).read_text(encoding="utf-8"))
     plots = plo.load_dir(args.plots) if args.plots else None
@@ -455,6 +468,14 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--no-vo", action="store_true", help="skip decoding the voice-over")
     s.add_argument("--out", required=True, help="e.g. extracted/ue")
     s.set_defaults(func=cmd_unreal_origin)
+    s = u.add_parser("area", help="an area's walkable floor (from its layout's navigation grid) and "
+                                  "talking creatures, for Unreal to spawn")
+    s.add_argument("file", help="the area's .are.json from pull")
+    s.add_argument("--layout", required=True, help="the area's layout .arl (packages/core/env/<Layout>.arl)")
+    s.add_argument("--pull", required=True, help="pull json folder, for the creature templates")
+    s.add_argument("--start", help="waypoint tag where the player starts")
+    s.add_argument("--out")
+    s.set_defaults(func=cmd_unreal_area)
 
     f = sub.add_parser("fsb", help="FMOD sound banks (voice-over)").add_subparsers(
         dest="fsb_command", required=True)
