@@ -25,8 +25,11 @@ team or ambient behaviour (the warning servant, the bodies): plots move and
 kill them.
 
 `L_CastleNight` is a copy of `L_CastleCousland` whose `BP_AreaLoader` loads
-the night area, lit by a dim blue moonlight (directional light 0.6, not the
-atmosphere's sun, so the sky is dark) and a faint blue sky light. Its loader's
+the night area, lit by a dim blue moon (directional light 0.6 at 35 degrees,
+lighting the atmosphere, so the sky is a deep blue) and a blue sky light that
+keeps the shadows readable. An unbound post-process volume (`NightGrade`)
+fixes the exposure at -1.5 EV, so the eye does not adapt the night into day,
+and takes some colour out. Its loader's
 `StartFlags` (`BHN_MAIN_BATTLE_BEGUN`, `BHN_MOTHER_BATTLE_BEGUN`) are added
 quietly at load, so the level also plays when started on its own; arriving
 from the day castle they are already set.
