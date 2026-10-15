@@ -29,8 +29,8 @@ Each phase ends with something you can see running.
 - [x] Dialogue system in UE5 driven by the exported JSON: list-style replies,
       conditions and actions on plot flags, voice-over playback
       (`/Game/Cousland/Dialogue`, Bryce on the dais in L_GreatHall)
-- [ ] The opening scene: Bryce and Howe in the main hall, playable with the
-      original dialogue tree and voice
+- [x] The opening scene: Bryce and Howe in the main hall, playable with the
+      original dialogue tree and voice (played through and heard in Play)
 
 ## Phase 2: Castle Cousland
 
