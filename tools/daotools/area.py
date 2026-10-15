@@ -4,8 +4,9 @@ An area (.are, GFF3) places creatures, placeables and waypoints; its layout
 (.arl, GFF4 "ARL ", loose under packages/core/env) holds a navigation grid.
 From the two this builds a greybox the Unreal project spawns at runtime:
 floor and wall boxes from the grid, and the creatures that have a
-conversation, at their places. Nothing here is a game model: the boxes come
-from the walkable/blocked cells.
+conversation, at their places, plus every waypoint (where plot scripts move
+people). Nothing here is a game model: the boxes come from the walkable/blocked
+cells.
 
 Navigation grid (field IDs observed on hrt201d, Castle Cousland):
 3086/3087 width/height in cells, 3088 cell size (m), 3090 origin (m),
@@ -132,11 +133,9 @@ def creature_templates(json_dir: str | Path) -> dict[str, dict]:
 def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start: str = "") -> dict:
     """The runtime area file."""
     warnings: list[str] = []
-    npc_tags, npc_names, npc_convs, npc_female, npc_pose = [], [], [], [], []
+    npc_tags, npc_names, npc_convs, npc_female, npc_pose, npc_active = [], [], [], [], [], []
     others = 0
     for c in are_root.get("CreatureList") or []:
-        if not c.get("Active"):
-            continue
         utc = templates.get(str(c.get("TemplateResRef", "")).lower())
         if utc is None:
             warnings.append(f"creature {c.get('Tag')}: template {c.get('TemplateResRef')} not found")
@@ -150,16 +149,20 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         npc_names.append(_text(utc.get("LocName")))
         npc_convs.append(conversation.lower())
         npc_female.append(1 if look.get("Gender") == 2 else 0)
+        npc_active.append(1 if c.get("Active") else 0)  # inactive ones wait for a plot to show them
         npc_pose.extend([*ue_point(c["XPosition"], c["YPosition"], c["ZPosition"]),
                          ue_yaw(c["XOrientation"], c["YOrientation"], c["ZOrientation"], c["WOrientation"])])
 
     labels, label_pos = [], []
+    wp_tags, wp_pose = [], []
     start_pose: list[float] = []
     for wp in are_root.get("WaypointList") or []:
         pos = ue_point(wp["XPosition"], wp["YPosition"], wp["ZPosition"])
+        pose = [*pos, ue_yaw(wp["XOrientation"], wp["YOrientation"], wp["ZOrientation"], wp["WOrientation"])]
+        wp_tags.append(wp.get("Tag") or "")
+        wp_pose.extend(pose)
         if wp.get("Tag") == start:
-            start_pose = [*pos, ue_yaw(wp["XOrientation"], wp["YOrientation"], wp["ZOrientation"],
-                                      wp["WOrientation"])]
+            start_pose = pose
         if wp.get("HasMapNote") and _text(wp.get("MapNote")):
             labels.append(_text(wp.get("MapNote")))
             label_pos.extend(pos)
@@ -178,9 +181,13 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcConversations": npc_convs,
         "NpcFemale": npc_female,
         "NpcPose": npc_pose,
+        "NpcActive": npc_active,
+        "WaypointTags": wp_tags,
+        "WaypointPose": wp_pose,
         "Labels": labels,
         "LabelPos": label_pos,
         "Summary": {"Floors": sum(1 for k in boxes[6::7] if k == 0), "Walls": sum(1 for k in boxes[6::7] if k == 1),
-                    "TalkingCreatures": len(npc_tags), "OtherCreatures": others},
+                    "TalkingCreatures": len(npc_tags), "Inactive": npc_active.count(0), "OtherCreatures": others,
+                    "Waypoints": len(wp_tags)},
         "Warnings": warnings,
     }

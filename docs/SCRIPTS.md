@@ -94,3 +94,51 @@ waypoint), `UT_Talk` (start a conversation), `WR_SetObjectActive` (show or
 hide a creature), `WR_SetPlotFlag` (set another flag) and `DoAutoSave`.
 Waypoint and object names come from `bhn_constants_h`. Porting a plot means
 implementing those helpers once in Unreal and the cases per plot.
+
+## Plot logic in Unreal
+
+The cases are not rewritten by hand: `daotools unreal plots` reads each plot's
+script and turns every `case` of its SET handler into actions, following
+fall-through the way the game does. It writes them to git-ignored `extracted/`,
+since they come from the scripts:
+
+```powershell
+py -m daotools unreal plots --src extracted/scripts/src --plots extracted/plots/raw `
+  --only "bhn*" --out extracted/ue/plots.json
+```
+
+| Kind | Script call | Unreal |
+| --- | --- | --- |
+| 1 jump | `UT_LocalJump(creature, waypoint)` | teleport the creature to the waypoint's pose |
+| 2 talk | `UT_Talk(creature, ...)` | start its conversation, after the current one ends |
+| 3 active | `WR_SetObjectActive(object, bool)` | show or hide it (hidden: no collision, cannot talk) |
+| 4 setflag | `WR_SetPlotFlag(PLT_X, FLAG, bool)` | set another flag, running that flag's actions too |
+| 5 autosave | `DoAutoSave()` | logged only; there are no saves yet |
+
+Creatures are found by tag (`object oX = UT_GetNearestCreatureByTag(...)` plus
+the string constants of every script); `PLT_<NAME>` is the plot named `<name>`
+and its flag constants are that plot's flag names. Anything else is listed as
+skipped, so coverage is visible in the command's output.
+
+Coverage on the Human Noble plots (16 scripts): `bhn100pt_father` is complete
+apart from gore level and achievement tracking. The others are partial: they
+also use ambient animations, movement commands, team appearances, party
+hire/fire, doors (`SetPlaceableActionResult`), items, combat and area
+transitions, which need systems that do not exist yet.
+
+At runtime `/Game/Cousland/Plots/BP_PlotManager` holds the flags for the whole
+level (before, each dialogue runner had its own set, so a flag set in one
+conversation was invisible to the others). It loads `plots.json` on BeginPlay,
+and `SetFlag` runs a flag's actions the first time it becomes true.
+`BPC_DialogueRunner` reads and sets flags through it and reports when a
+conversation starts and ends; `BP_AreaLoader` gives it the area's waypoints and
+tags each spawned character with its creature tag. Whichever needs the manager
+first finds it or spawns it, so levels need no setup.
+
+Tested in Play on L_CastleCousland: Fergus' farewell, played to the end, sets
+`BHN_FATHER_PARENTS_JOIN`; Bryce and Eleanor move to their upstairs
+waypoints, and Bryce's conversation opens on the start line that requires that
+flag as soon as Fergus' ends. Played to its end, Bryce's sets
+`BHN_FATHER_READY_FOR_NIGHT_TRANSITION`, which sets `BHN_FATHER_READY_TO_GO`
+and logs the autosave. `DUNCAN_JOINS` and `DUNCAN_APPEARS` are translated but
+not yet played through.

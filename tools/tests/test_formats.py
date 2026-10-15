@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from daotools import area, cnv, fields as F, fsb, mfdecode, plo, toolset, unreal
+from daotools import area, cnv, fields as F, fsb, mfdecode, plo, plotlogic, toolset, unreal
 from daotools.cli import main
 from daotools.erf import ERF, ERFError, is_erf
 from daotools.gda import GDA, column_hash
@@ -390,17 +390,23 @@ class AreaTests(unittest.TestCase):
         are = {"Tag": "bhn_area", "Layout": "lay", "CreatureList": [
                    {"Tag": "bryce", "TemplateResRef": "bhn_father", "Active": 1, "XPosition": 10.5, "YPosition": 20.5,
                     "ZPosition": 0.0, "XOrientation": 0, "YOrientation": 0, "ZOrientation": 0, "WOrientation": 1},
-                   {"Tag": "rat", "TemplateResRef": "bhn_rat", "Active": 0, "XPosition": 0, "YPosition": 0,
+                   {"Tag": "rat", "TemplateResRef": "bhn_rat", "Active": 1, "XPosition": 0, "YPosition": 0,
+                    "ZPosition": 0, "XOrientation": 0, "YOrientation": 0, "ZOrientation": 0, "WOrientation": 1},
+                   {"Tag": "late", "TemplateResRef": "bhn_father", "Active": 0, "XPosition": 0, "YPosition": 0,
                     "ZPosition": 0, "XOrientation": 0, "YOrientation": 0, "ZOrientation": 0, "WOrientation": 1}],
                "WaypointList": [{"Tag": "start", "HasMapNote": 1, "MapNote": {"strref": 1, "text": "Main Hall"},
                                  "XPosition": 11.0, "YPosition": 21.0, "ZPosition": 0.0, "XOrientation": 0,
                                  "YOrientation": 0, "ZOrientation": 0, "WOrientation": 1}]}
         templates = {"bhn_father": {"DialogResRef": "BHN_Father", "LocName": {"strref": 2, "text": "Bryce"},
-                                    "Appearance Data": {"Gender": 1}}}
+                                    "Appearance Data": {"Gender": 1}},
+                     "bhn_rat": {"DialogResRef": ""}}
         out = area.area(are, {"3020": {"3110": self.nav}}, templates, start="start")
         self.assertEqual((out["NpcTags"], out["NpcNames"], out["NpcConversations"], out["NpcFemale"]),
-                         (["bryce"], ["Bryce"], ["bhn_father"], [0]))
-        self.assertEqual(out["NpcPose"], [1050.0, -2050.0, 0.0, -90.0])
+                         (["bryce", "late"], ["Bryce", "Bryce"], ["bhn_father", "bhn_father"], [0, 0]))
+        self.assertEqual(out["NpcPose"][:4], [1050.0, -2050.0, 0.0, -90.0])
+        self.assertEqual(out["NpcActive"], [1, 0])  # inactive talkers are kept, hidden until a plot shows them
+        self.assertEqual((out["WaypointTags"], out["WaypointPose"]), (["start"], [1100.0, -2100.0, 0.0, -90.0]))
+        self.assertEqual(out["Summary"]["OtherCreatures"], 1)
         self.assertEqual((out["Start"], out["Labels"], out["LabelPos"]),
                          ([1100.0, -2100.0, 0.0, -90.0], ["Main Hall"], [1100.0, -2100.0, 0.0]))
         self.assertEqual(out["Summary"]["Floors"], 2)
@@ -459,6 +465,59 @@ class PlotTests(unittest.TestCase):
             self.assertEqual(main(["plo", "list", d, "--out", str(Path(d) / "plots.json")]), 0)
             listed = json.loads((Path(d) / "plots.json").read_text(encoding="utf-8"))
             self.assertEqual(listed["BBBB"]["flags"], {"260": "GEN_GENDER_MALE"})
+
+
+class PlotLogicTests(unittest.TestCase):
+    # Made-up script in the shape of a plot script, not game text.
+    SCRIPT = """
+        #include "my_constants_h"
+        int StartingConditional()
+        {
+            object oGuard = UT_GetNearestCreatureByTag(oPC, MY_CR_GUARD);  // a creature
+            if (nType == EVENT_TYPE_SET_PLOT)
+            {
+                switch(nFlag)
+                {
+                    case GUARD_MOVES:
+                    {
+                        UT_LocalJump(oGuard, MY_WP_GATE);
+                        WR_SetPlotFlag(PLT_OTHER, OTHER_DONE, TRUE);
+                        break;
+                    }
+                    case GUARD_TALKS:
+                        UT_Talk(oGuard, oPC);
+                    case GUARD_LEAVES:
+                        WR_SetObjectActive(oGuard, FALSE);
+                        SetCreatureGoreLevel(oGuard, 0.5);
+                        DoAutoSave();
+                        break;
+                }
+            }
+            return nResult;
+        }
+    """
+
+    def test_translate_and_export(self):
+        plots = {"AAAA": {"guid": "AAAA", "name": "my_plot", "script": "my_plot",
+                          "flags": {0: "GUARD_MOVES", 1: "GUARD_TALKS", 2: "GUARD_LEAVES"}},
+                 "BBBB": {"guid": "BBBB", "name": "other", "script": "", "flags": {7: "OTHER_DONE"}}}
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "my_plot.nss").write_text(self.SCRIPT, encoding="utf-8")
+            (Path(d) / "my_constants_h.nss").write_text(
+                'const string MY_CR_GUARD = "my_cr_guard";\nconst string MY_WP_GATE = "my_wp_gate";\n',
+                encoding="utf-8")
+            out = plotlogic.export(d, plots)
+        report = out["Plots"]["my_plot"]
+        self.assertEqual(report["Cases"], {
+            "GUARD_MOVES": ["jump my_cr_guard my_wp_gate 1", "setflag  BBBB:7 1"],
+            "GUARD_TALKS": ["talk my_cr_guard  1", "active my_cr_guard  0", "autosave   1"],  # falls through
+            "GUARD_LEAVES": ["active my_cr_guard  0", "autosave   1"]})
+        self.assertEqual(report["Skipped"], ["GUARD_LEAVES: SetCreatureGoreLevel"])
+        self.assertEqual(out["Keys"], ["AAAA:0", "AAAA:1", "AAAA:2"])
+        self.assertEqual((out["Start"], out["Count"]), ([0, 2, 5], [2, 3, 2]))
+        self.assertEqual(out["Kind"], [1, 4, 2, 3, 5, 3, 5])
+        self.assertEqual(out["Arg"][:2], ["my_wp_gate", "BBBB:7"])
+        self.assertEqual(out["Value"][3], 0)
 
 
 class CLITests(unittest.TestCase):

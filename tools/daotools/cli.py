@@ -16,6 +16,7 @@ Examples:
   daotools unreal conv <name.dlg.conv.json> --names <pull json dir> --plots <plo dir> --vo <bank.fsb>
                        --out runtime.json
   daotools unreal origin <pull dir> --plots <plo dir> --true-flag GEN_GENDER_MALE --out extracted/ue
+  daotools unreal plots --src extracted/scripts/src --plots <plo dir> --only "bhn*" --out extracted/ue/plots.json
 """
 
 from __future__ import annotations
@@ -28,7 +29,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import area, cnv, fsb, gda, mfdecode, origin, plo, toolset, unreal
+from . import area, cnv, fsb, gda, mfdecode, origin, plo, plotlogic, toolset, unreal
 from .erf import ERF, ERFError, is_erf
 from .fields import NAMES
 from .gff3 import GFF3, GFF3Error, is_gff3
@@ -373,10 +374,22 @@ def cmd_unreal_area(args) -> int:
     out = area.area(are_root, layout_root, area.creature_templates(args.pull), start=args.start or "")
     s = out["Summary"]
     print(f"{out['Area']}: {s['Floors']} floor boxes, {s['Walls']} wall boxes, {s['TalkingCreatures']} talking "
-          f"creatures ({s['OtherCreatures']} others left out), {len(out['Labels'])} room labels", file=sys.stderr)
+          f"creatures ({s['Inactive']} hidden at first, {s['OtherCreatures']} others left out), "
+          f"{s['Waypoints']} waypoints, {len(out['Labels'])} room labels", file=sys.stderr)
     for w in out["Warnings"]:
         print(f"warning: {w}", file=sys.stderr)
     _write(json.dumps(out, ensure_ascii=False) + "\n", args.out)
+    return 0
+
+
+def cmd_unreal_plots(args) -> int:
+    out = plotlogic.export(args.src, plo.load_dir(args.plots), only=args.only)
+    for name, p in out["Plots"].items():
+        print(f"{name}: {sum(1 for a in p['Cases'].values() if a)} flags with actions, "
+              f"{len(p['Skipped'])} skipped", file=sys.stderr)
+        for skip in p["Skipped"]:
+            print(f"  skipped {skip}", file=sys.stderr)
+    _write(_json(out), args.out)
     return 0
 
 
@@ -484,6 +497,12 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--start", help="waypoint tag where the player starts")
     s.add_argument("--out")
     s.set_defaults(func=cmd_unreal_area)
+    s = u.add_parser("plots", help="what each plot's script does when a flag is set, as actions Unreal runs")
+    s.add_argument("--src", required=True, help="script source folder from 'toolset scripts'")
+    s.add_argument("--plots", required=True, help="folder of extracted .plo files")
+    s.add_argument("--only", default="*", help="plot name pattern, e.g. 'bhn*' (default: all)")
+    s.add_argument("--out")
+    s.set_defaults(func=cmd_unreal_plots)
 
     f = sub.add_parser("fsb", help="FMOD sound banks (voice-over)").add_subparsers(
         dest="fsb_command", required=True)

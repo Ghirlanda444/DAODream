@@ -46,8 +46,12 @@ Each phase ends with something you can see running.
       (with voice) in L_CastleCousland
 - [ ] Plot logic: what the 16 plot scripts do when a flag is set (parents
       moving upstairs, doors, the night). The source of all 2,079 scripts comes
-      out of the official toolset (`daotools toolset scripts`, `docs/SCRIPTS.md`);
-      porting to Unreal is next
+      out of the official toolset (`daotools toolset scripts`, `docs/SCRIPTS.md`).
+      Started: the scripts are translated into actions (`daotools unreal plots`)
+      that `BP_PlotManager` runs on one shared set of flags. Bryce's plot
+      (`bhn100pt_father`) is fully ported and played through (parents move
+      upstairs after Fergus' farewell, Bryce talks). The other plots still need
+      doors, movement, ambient animations, the party and combat
 
 ## Phase 3: First fight
 

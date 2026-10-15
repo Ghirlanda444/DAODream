@@ -225,8 +225,10 @@ field names the level it is built on, whose files are in
 
 `daotools unreal area` turns this into what Unreal spawns at runtime: floor
 and wall boxes (walkable cells merged into rectangles per height; walls on
-blocked cells next to walkable ones, 3 m tall) and the creatures that have a
-conversation, in Unreal coordinates (x' = 100x, y' = -100y, z' = 100z,
+blocked cells next to walkable ones, 3 m tall), the creatures that have a
+conversation (inactive ones too, spawned hidden until a plot shows them) and
+every waypoint (where plot scripts move people), in Unreal coordinates
+(x' = 100x, y' = -100y, z' = 100z,
 yaw' = -(yaw + 90)):
 
 ```powershell
@@ -236,6 +238,7 @@ py -m daotools unreal area extracted/human_noble/json/al_bhn01al_castle_cousland
 ```
 
 Castle Cousland: 1,003 floor boxes, 606 wall boxes, 35 talking characters
-(the dog and cat use templates outside the Human Noble pull). In Unreal,
+(the dog and cat use templates outside the Human Noble pull), 33 waypoints.
+Plot scripts act on these through `BP_PlotManager` (`docs/SCRIPTS.md`). In Unreal,
 `/Game/Cousland/Maps/L_CastleCousland` holds one `BP_AreaLoader` that builds
 it on Play; the level itself holds no game data.
