@@ -53,8 +53,9 @@ Each phase ends with something you can see running.
       upstairs after Fergus' farewell, Bryce talks; Duncan joins after the
       opening). Characters walk to waypoints (Aldous after his talk), and the
       castle's 27 doors open, close and lock, by hand or from a plot (the
-      pantry door when Gilmore leaves the party). The other plots still need
-      teams, ambient animations, the party and combat
+      pantry door when Gilmore leaves the party). Teams appear and move
+      together (the larder rats appear when the rat fight begins). The other
+      plots still need ambient animations, the party and combat
 
 ## Phase 3: First fight
 

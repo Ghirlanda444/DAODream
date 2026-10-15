@@ -15,6 +15,10 @@ cases are a short list of helper calls. This turns each case into actions:
               SetPlaceableState(oDoor, PLC_STATE_DOOR_X)                        open, open2, close,
                                                                                 lock, unlock, break
 
+Teams: UT_TeamAppears(TEAM, bool) and UT_TeamMove(TEAM, WAYPOINT, bRun) become
+`active` and `walk` with the target "team:<id>"; Unreal tags every spawned
+creature with its team (area.py exports TeamId).
+
 Case fall-through (a case without `break`) is followed, as the game does.
 Anything else in a case is listed under "Skipped" so coverage is visible.
 Creatures are resolved from `object oX = UT_GetNearestCreatureByTag(..., CONST)`
@@ -161,6 +165,19 @@ def translate(script: str, plot: dict, plots_by_name: dict[str, dict], consts: d
             return {"kind": DOOR, "target": objects[args[0]], "arg": verb, "value": 1}
         if fn == "SetPlaceableState" and len(args) >= 2 and args[0] in objects and args[1] in _DOOR_STATES:
             return {"kind": DOOR, "target": objects[args[0]], "arg": _DOOR_STATES[args[1]], "value": 1}
+        if fn in ("UT_TeamAppears", "UT_TeamMove") and args:
+            team = value(args[0])
+            if not isinstance(team, int):
+                return ("skip", f"{fn}({args[0]}): unknown team")
+            if fn == "UT_TeamAppears":
+                if len(args) > 2 and args[2] != "OBJECT_TYPE_CREATURE":
+                    return ("skip", f"{fn}: {args[2]} teams")
+                return {"kind": ACTIVE, "target": f"team:{team}", "arg": "",
+                        "value": int(len(args) < 2 or value(args[1]) == 1)}
+            if len(args) < 2:
+                return ("skip", f"{fn}: no destination")
+            return {"kind": WALK, "target": f"team:{team}", "arg": str(value(args[1])),
+                    "value": int(len(args) > 2 and value(args[2]) == 1)}
         if fn == "UT_QuickMoveObject" and len(args) >= 2 and args[0] in objects:
             return {"kind": WALK, "target": objects[args[0]], "arg": str(value(args[1])),
                     "value": int(len(args) > 2 and value(args[2]) == 1)}

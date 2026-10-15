@@ -4,8 +4,9 @@ An area (.are, GFF3) places creatures, placeables and waypoints; its layout
 (.arl, GFF4 "ARL ", loose under packages/core/env) holds a navigation grid.
 From the two this builds a greybox the Unreal project spawns at runtime:
 floor and wall boxes from the grid, and the creatures that have a
-conversation, at their places, plus every waypoint (where plot scripts move
-people) and every door. Nothing here is a game model: the boxes come from the
+conversation or belong to a team (plot scripts show, hide and move teams), at
+their places, plus every waypoint (where plot scripts move people) and every
+door. Nothing here is a game model: the boxes come from the
 walkable/blocked cells, and doors are sized by kind (see door_size).
 
 Navigation grid (field IDs observed on hrt201d, Castle Cousland):
@@ -27,6 +28,8 @@ from pathlib import Path
 FORMAT = "DAODream.Area 1"
 WALL_HEIGHT = 3.0  # m above the highest neighbouring floor
 FLOOR_THICKNESS = 0.2  # m
+RACE_DWARF, RACE_ANIMAL = 1, 5  # RACE_* in the game's constants; 3 is human
+NO_TEAM = -1
 
 # Navigation grid fields.
 NAV_WIDTH, NAV_HEIGHT, NAV_CELL, NAV_ORIGIN = "3086", "3087", "3088", "3090"
@@ -151,6 +154,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     """The runtime area file."""
     warnings: list[str] = []
     npc_tags, npc_names, npc_convs, npc_female, npc_pose, npc_active = [], [], [], [], [], []
+    npc_team, npc_scale = [], []
     others = 0
     for c in are_root.get("CreatureList") or []:
         utc = templates.get(str(c.get("TemplateResRef", "")).lower())
@@ -158,7 +162,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
             warnings.append(f"creature {c.get('Tag')}: template {c.get('TemplateResRef')} not found")
             continue
         conversation = utc.get("DialogResRef") or ""
-        if not conversation:
+        team = int(c.get("TeamId", NO_TEAM))
+        if not conversation and team == NO_TEAM:
             others += 1
             continue
         look = utc.get("Appearance Data") if isinstance(utc.get("Appearance Data"), dict) else {}
@@ -167,6 +172,10 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         npc_convs.append(conversation.lower())
         npc_female.append(1 if look.get("Gender") == 2 else 0)
         npc_active.append(1 if c.get("Active") else 0)  # inactive ones wait for a plot to show them
+        npc_team.append(team)
+        # Greybox stand-ins: a mannequin, smaller for dwarves and animals (giant rats).
+        race = utc.get("Race")
+        npc_scale.append(0.35 if race == RACE_ANIMAL else 0.8 if race == RACE_DWARF else 1.0)
         npc_pose.extend([*ue_point(c["XPosition"], c["YPosition"], c["ZPosition"]),
                          ue_yaw(c["XOrientation"], c["YOrientation"], c["ZOrientation"], c["WOrientation"])])
 
@@ -211,6 +220,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcFemale": npc_female,
         "NpcPose": npc_pose,
         "NpcActive": npc_active,
+        "NpcTeam": npc_team,
+        "NpcScale": npc_scale,
         "WaypointTags": wp_tags,
         "WaypointPose": wp_pose,
         "DoorTags": door_tags,
@@ -221,7 +232,9 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "Labels": labels,
         "LabelPos": label_pos,
         "Summary": {"Floors": sum(1 for k in boxes[6::7] if k == 0), "Walls": sum(1 for k in boxes[6::7] if k == 1),
-                    "TalkingCreatures": len(npc_tags), "Inactive": npc_active.count(0), "OtherCreatures": others,
+                    "TalkingCreatures": sum(1 for c in npc_convs if c), "TeamOnly": sum(1 for c in npc_convs if not c),
+                    "Teams": len({t for t in npc_team if t != NO_TEAM}),
+                    "Inactive": npc_active.count(0), "OtherCreatures": others,
                     "Waypoints": len(wp_tags), "Doors": len(door_tags)},
         "Warnings": warnings,
     }

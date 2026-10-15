@@ -393,7 +393,10 @@ class AreaTests(unittest.TestCase):
                    {"Tag": "rat", "TemplateResRef": "bhn_rat", "Active": 1, "XPosition": 0, "YPosition": 0,
                     "ZPosition": 0, "XOrientation": 0, "YOrientation": 0, "ZOrientation": 0, "WOrientation": 1},
                    {"Tag": "late", "TemplateResRef": "bhn_father", "Active": 0, "XPosition": 0, "YPosition": 0,
-                    "ZPosition": 0, "XOrientation": 0, "YOrientation": 0, "ZOrientation": 0, "WOrientation": 1}],
+                    "ZPosition": 0, "XOrientation": 0, "YOrientation": 0, "ZOrientation": 0, "WOrientation": 1},
+                   {"Tag": "larder_rat", "TemplateResRef": "bhn_rat_giant", "Active": 0, "TeamId": 1,
+                    "XPosition": 0, "YPosition": 0, "ZPosition": 0, "XOrientation": 0, "YOrientation": 0,
+                    "ZOrientation": 0, "WOrientation": 1}],
                "WaypointList": [{"Tag": "start", "HasMapNote": 1, "MapNote": {"strref": 1, "text": "Main Hall"},
                                  "XPosition": 11.0, "YPosition": 21.0, "ZPosition": 0.0, "XOrientation": 0,
                                  "YOrientation": 0, "ZOrientation": 0, "WOrientation": 1}],
@@ -406,12 +409,17 @@ class AreaTests(unittest.TestCase):
                     "ZOrientation": 0, "WOrientation": 1}]}
         templates = {"bhn_father": {"DialogResRef": "BHN_Father", "LocName": {"strref": 2, "text": "Bryce"},
                                     "Appearance Data": {"Gender": 1}},
-                     "bhn_rat": {"DialogResRef": ""}}
+                     "bhn_rat": {"DialogResRef": ""},
+                     "bhn_rat_giant": {"DialogResRef": "", "Race": 5, "LocName": {"strref": 3, "text": "Giant Rat"}}}
         out = area.area(are, {"3020": {"3110": self.nav}}, templates, start="start")
+        # Talkers and team members; the rat without a team or conversation is left out.
         self.assertEqual((out["NpcTags"], out["NpcNames"], out["NpcConversations"], out["NpcFemale"]),
-                         (["bryce", "late"], ["Bryce", "Bryce"], ["bhn_father", "bhn_father"], [0, 0]))
+                         (["bryce", "late", "larder_rat"], ["Bryce", "Bryce", "Giant Rat"],
+                          ["bhn_father", "bhn_father", ""], [0, 0, 0]))
         self.assertEqual(out["NpcPose"][:4], [1050.0, -2050.0, 0.0, -90.0])
-        self.assertEqual(out["NpcActive"], [1, 0])  # inactive talkers are kept, hidden until a plot shows them
+        self.assertEqual(out["NpcActive"], [1, 0, 0])  # inactive ones are kept, hidden until a plot shows them
+        self.assertEqual((out["NpcTeam"], out["NpcScale"]), ([-1, -1, 1], [1.0, 1.0, 0.35]))
+        self.assertEqual((out["Summary"]["TalkingCreatures"], out["Summary"]["TeamOnly"]), (2, 1))
         self.assertEqual((out["WaypointTags"], out["WaypointPose"]), (["start"], [1100.0, -2100.0, 0.0, -90.0]))
         self.assertEqual(out["Summary"]["OtherCreatures"], 1)
         # Only doors, with their state (1 = locked) and a small door's greybox size.
@@ -505,6 +513,9 @@ class PlotLogicTests(unittest.TestCase):
                         AddCommand(oGuard, cMove, TRUE);
                         WR_AddCommand(oGuard, CommandMoveToObject(oPost, TRUE));
                         UT_QuickMoveObject(oGuard, "my_wp_far", TRUE);
+                        UT_TeamAppears(MY_TEAM_RATS);
+                        UT_TeamMove(MY_TEAM_RATS, MY_WP_GATE, TRUE);
+                        UT_TeamAppears(MY_TEAM_RATS, FALSE, OBJECT_TYPE_PLACEABLE);
                         break;
                     }
                     case GUARD_TALKS:
@@ -527,7 +538,8 @@ class PlotLogicTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / "my_plot.nss").write_text(self.SCRIPT, encoding="utf-8")
             (Path(d) / "my_constants_h.nss").write_text(
-                'const string MY_CR_GUARD = "my_cr_guard";\nconst string MY_WP_GATE = "my_wp_gate";\n',
+                'const string MY_CR_GUARD = "my_cr_guard";\nconst string MY_WP_GATE = "my_wp_gate";\n'
+                'const int MY_TEAM_RATS = 7;\n',
                 encoding="utf-8")
             out = plotlogic.export(d, plots)
         report = out["Plots"]["my_plot"]
@@ -536,14 +548,17 @@ class PlotLogicTests(unittest.TestCase):
                             "door my_door_gate unlock 1", "door my_door_gate open2 1"],
             "GUARD_TALKS": ["talk my_cr_guard  1", "active my_cr_guard  0", "autosave   1"],  # falls through
             "GUARD_WALKS": ["walk my_cr_guard my_wp_gate 0",  # the run flag is only known at runtime
-                            "walk my_cr_guard my_wp_gate 1", "walk my_cr_guard my_wp_far 1"],
+                            "walk my_cr_guard my_wp_gate 1", "walk my_cr_guard my_wp_far 1",
+                            "active team:7  1", "walk team:7 my_wp_gate 1"],
             "GUARD_LEAVES": ["active my_cr_guard  0", "autosave   1"]})
-        self.assertEqual(report["Skipped"], ["GUARD_LEAVES: SetCreatureGoreLevel"])
+        self.assertEqual(report["Skipped"], ["GUARD_WALKS: UT_TeamAppears: OBJECT_TYPE_PLACEABLE teams",
+                                             "GUARD_LEAVES: SetCreatureGoreLevel"])
         self.assertEqual(out["Keys"], ["AAAA:0", "AAAA:3", "AAAA:1", "AAAA:2"])
-        self.assertEqual((out["Start"], out["Count"]), ([0, 4, 7, 10], [4, 3, 3, 2]))
-        self.assertEqual(out["Kind"], [1, 4, 7, 7, 6, 6, 6, 2, 3, 5, 3, 5])
+        self.assertEqual((out["Start"], out["Count"]), ([0, 4, 9, 12], [4, 5, 3, 2]))
+        self.assertEqual(out["Kind"], [1, 4, 7, 7, 6, 6, 6, 3, 6, 2, 3, 5, 3, 5])
         self.assertEqual(out["Arg"][:2], ["my_wp_gate", "BBBB:7"])
-        self.assertEqual((out["Value"][4], out["Value"][8]), (0, 0))
+        self.assertEqual((out["Value"][4], out["Value"][10]), (0, 0))
+        self.assertEqual((out["Target"][7:9], out["Arg"][8]), (["team:7", "team:7"], "my_wp_gate"))
         self.assertEqual(out["Arg"][4:7], ["my_wp_gate", "my_wp_gate", "my_wp_far"])
 
 

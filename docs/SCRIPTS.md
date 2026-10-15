@@ -126,10 +126,29 @@ Coverage on the Human Noble plots (16 scripts): `bhn100pt_father` is complete
 apart from gore level and achievement tracking. All 14 single-character moves
 translate (the cook, the kitchen servants, the gambling guards, the scribe,
 the panicked soldiers), and so do all 8 door calls (in the day castle, the
-pantry door; the rest are night-castle doors). The rest is still skipped:
-moves of whole teams (`UT_TeamMove`, `UT_TeamAppears`, which need team
-membership from the area), ambient animations, party hire/fire, making a door
-non-plot (`SetPlot`), items, combat and area transitions.
+pantry door; the rest are night-castle doors) and all 12 team calls. The rest
+is still skipped: ambient animations, party hire/fire, making a door non-plot
+(`SetPlot`), items, combat and area transitions.
+
+### Teams
+
+Creatures in an area carry a `TeamId` (-1 for none); scripts show, hide and
+move whole teams with `UT_TeamAppears(team, bool)` and
+`UT_TeamMove(team, waypoint, bRun)`. The team numbers are `BHN_TEAM_*` in
+`bhn_constants_h`. `daotools unreal area` now also exports creatures that
+have no conversation but belong to a team, with their team and a stand-in
+size (`NpcTeam`, `NpcScale`: animals such as the giant rats are 35% mannequins,
+dwarves 80%). The translator turns the team calls into the existing `active`
+and `walk` actions with the target `team:<id>`, and `BP_AreaLoader` tags every
+spawned team member with `team:<id>`, so `BP_PlotManager` needed no change.
+`UT_TeamAppears` on placeable teams (the mouse holes) is still skipped, and
+team members walk to the exact waypoint, so they end up on one spot where the
+game spreads them around it.
+
+In the day castle the teams are the giant rats: 6 in the larder (team 1,
+`BHN_TEAM_RATS`) and 12 more (team 25), all hidden at first. Every other team
+(Howe's soldiers, the castle guards, the servants at night) is in the night
+castle, which is not built in Unreal yet.
 
 ### Doors
 
@@ -178,3 +197,8 @@ Doors: E opens and closes a closed door in the main hall and does nothing on
 a locked one. Gilmore's conversation, played with `BHN_COOK_RATS_KILLED` set
 by hand (the larder fight does not exist yet), sets
 `BHN_GILMORE_LEAVES_PARTY`, and the pantry door swings open.
+Teams: no conversation we have sets `BHN_COOK_RAT_FIGHT_BEGINS` (likely the
+mabari's, which is outside the Human Noble pull), so it was set from the
+editor's console during Play (`ke * SetFlag <GUID:FLAG> true`): the six larder
+rats appear and the other twelve stay hidden. `ke * WalkNpc team:1
+<waypoint> true` sends all six jogging to a waypoint.

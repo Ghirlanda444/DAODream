@@ -237,7 +237,8 @@ py -m daotools unreal area extracted/human_noble/json/al_bhn01al_castle_cousland
   --start bhn100wp_start --out extracted/ue/areas/bhn100ar_castle_cousland.json
 ```
 
-Castle Cousland: 1,003 floor boxes, 606 wall boxes, 35 talking characters
+Castle Cousland: 1,003 floor boxes, 606 wall boxes, 35 talking characters,
+18 giant rats in two teams (hidden at first)
 (the dog and cat use templates outside the Human Noble pull), 33 waypoints, 27 doors.
 Plot scripts act on these through `BP_PlotManager` (`docs/SCRIPTS.md`). In Unreal,
 `/Game/Cousland/Maps/L_CastleCousland` holds one `BP_AreaLoader` that builds
