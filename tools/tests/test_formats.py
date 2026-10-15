@@ -564,6 +564,37 @@ class PlotLogicTests(unittest.TestCase):
         self.assertEqual(out["Arg"][4:7], ["my_wp_gate", "my_wp_gate", "my_wp_far"])
 
 
+class PartyLogicTests(unittest.TestCase):
+    # Made-up party plot in the shape of the game's, not game text.
+    SCRIPT = """
+        void main()
+        {
+            object oWolf = Party_GetFollowerByTag(MY_FL_WOLF);
+            object oKnight = UT_GetNearestObjectByTag(GetHero(), MY_CR_KNIGHT);
+            if (nType == EVENT_TYPE_SET_PLOT)
+            {
+                switch(nBitFlag)
+                {
+                    case WOLF_JOINS: SetFollowerRecruited(oWolf, nValue, strPlot, 1, 2, FALSE); break;
+                    case WOLF_WAITS: Party_SetFollowerInCamp(oWolf, 2); break;
+                    case KNIGHT_JOINS: UT_HireFollower(oKnight); break;
+                    case KNIGHT_LEAVES: UT_FireFollower(oKnight, TRUE, FALSE); break;
+                }
+            }
+        }
+    """
+
+    def test_join_and_leave(self):
+        plot = {"guid": "CCCC", "name": "my_party", "script": "my_party",
+                "flags": {0: "WOLF_JOINS", 1: "WOLF_WAITS", 2: "KNIGHT_JOINS", 3: "KNIGHT_LEAVES"}}
+        consts = {"MY_FL_WOLF": "my_fl_wolf", "MY_CR_KNIGHT": "my_cr_knight"}
+        t = plotlogic.translate(self.SCRIPT, plot, {}, consts)
+        self.assertEqual({k: [(a["kind"], a["target"], a["value"]) for a in v] for k, v in t["cases"].items()},
+                         {"WOLF_JOINS": [(8, "my_fl_wolf", 1)], "WOLF_WAITS": [(8, "my_fl_wolf", 0)],
+                          "KNIGHT_JOINS": [(8, "my_cr_knight", 1)], "KNIGHT_LEAVES": [(8, "my_cr_knight", 0)]})
+        self.assertTrue(plotlogic._matches("gen00pt_party", "bhn*, gen00pt_party"))
+
+
 class EventLogicTests(unittest.TestCase):
     # Made-up creature and area scripts in the shape of the game's, not game text.
     CREATURE = """

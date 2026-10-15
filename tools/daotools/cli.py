@@ -16,7 +16,7 @@ Examples:
   daotools unreal conv <name.dlg.conv.json> --names <pull json dir> --plots <plo dir> --vo <bank.fsb>
                        --out runtime.json
   daotools unreal origin <pull dir> --plots <plo dir> --true-flag GEN_GENDER_MALE --out extracted/ue
-  daotools unreal plots --src extracted/scripts/src --plots <plo dir> --only "bhn*" --out extracted/ue/plots.json
+  daotools unreal plots --src extracted/scripts/src --plots <plo dir> --only "bhn*,gen00pt_party" --out extracted/ue/plots.json
 """
 
 from __future__ import annotations
@@ -505,7 +505,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = u.add_parser("plots", help="what each plot's script does when a flag is set, as actions Unreal runs")
     s.add_argument("--src", required=True, help="script source folder from 'toolset scripts'")
     s.add_argument("--plots", required=True, help="folder of extracted .plo files")
-    s.add_argument("--only", default="*", help="plot name pattern, e.g. 'bhn*' (default: all)")
+    s.add_argument("--only", default="*", help="plot/script name patterns, comma separated, e.g. 'bhn*,gen00pt_party' (default: all)")
     s.add_argument("--out")
     s.set_defaults(func=cmd_unreal_plots)
 

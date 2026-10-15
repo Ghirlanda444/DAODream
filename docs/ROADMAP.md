@@ -62,7 +62,9 @@ Each phase ends with something you can see running.
 - [ ] The larder quest with the mabari: first combat prototype. Started: the
       larder fight plays start to finish with the game's own logic (the
       mabari's conversation starts it, three waves of rats, the castle reacts
-      when they are dead), with placeholder numbers (`docs/COMBAT.md`)
+      when they are dead), with placeholder numbers (`docs/COMBAT.md`).
+      Gilmore and the mabari join the party when the scripts say so, follow
+      you and fight beside you
 - [ ] Real-time with pause, tactics slots, DAO's stats and abilities from the
       data tables
 

@@ -104,7 +104,7 @@ since they come from the scripts:
 
 ```powershell
 py -m daotools unreal plots --src extracted/scripts/src --plots extracted/plots/raw `
-  --only "bhn*" --out extracted/ue/plots.json
+  --only "bhn*,gen00pt_party" --out extracted/ue/plots.json
 ```
 
 | Kind | Script call | Unreal |
@@ -115,6 +115,7 @@ py -m daotools unreal plots --src extracted/scripts/src --plots extracted/plots/
 | 4 setflag | `WR_SetPlotFlag(PLT_X, FLAG, bool)` | set another flag, running that flag's actions too |
 | 5 autosave | `DoAutoSave()` | logged only; there are no saves yet |
 | 6 walk | `AddCommand`/`WR_AddCommand(creature, CommandMoveToObject/Location(...))`, `UT_QuickMoveObject` | walk (or jog, when the script runs) to the waypoint, then face its direction |
+| 8 party | `UT_HireFollower`, `SetFollowerRecruited`, `SetFollowerInParty`, `AddNonPartyFollower` / `UT_FireFollower`, `Party_SetFollowerInCamp` | join or leave the party: follow the player and fight beside them (`docs/COMBAT.md`) |
 | 7 door | `SetPlaceableActionResult(door, PLACEABLE_ACTION_OPEN/CLOSE/LOCK/UNLOCK, TRUE)`, `SetPlaceableState(door, PLC_STATE_DOOR_*)` | open, open the other way, close, lock, unlock (only if locked), break |
 
 Creatures are found by tag (`object oX = UT_GetNearestCreatureByTag(...)` plus
@@ -126,8 +127,9 @@ Coverage on the Human Noble plots (16 scripts): `bhn100pt_father` is complete
 apart from gore level and achievement tracking. All 14 single-character moves
 translate (the cook, the kitchen servants, the gambling guards, the scribe,
 the panicked soldiers), and so do all 8 door calls (in the day castle, the
-pantry door; the rest are night-castle doors) and all 12 team calls. The rest
-is still skipped: ambient animations, party hire/fire, making a door non-plot
+pantry door; the rest are night-castle doors) and all 12 team calls, and every party join and leave (Gilmore, Eleanor, and the
+companions in the general party plot `gen00pt_party`, which recruits the mabari). The rest
+is still skipped: ambient animations, making a door non-plot
 (`SetPlot`), items, combat and area transitions.
 
 ### Death and team events

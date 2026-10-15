@@ -11,18 +11,23 @@ abilities come from the game's data tables (the next Phase 3 item).
 
 All of it is the game's own logic, translated:
 
-1. Talking to the mabari (`gen00fl_dog`, conversation `dog00cr_main`) in the
+1. Ser Gilmore joins the party in his conversation (`BHN_GILMORE_IN_PARTY`,
+   whose handler calls `UT_HireFollower`) and comes along to the larder.
+2. Talking to the mabari (`gen00fl_dog`, conversation `dog00cr_main`) in the
    larder plays Gilmore's lines and sets `BHN_COOK_RAT_FIGHT_BEGINS`.
-2. The cook's plot script (`bhn100pt_cook`) handles that flag: the pantry door
+3. The cook's plot script (`bhn100pt_cook`) handles that flag: the pantry door
    locks and team 1 (`BHN_TEAM_RATS`, six giant rats) appears. It also sets
-   the mabari's party and codex flags; there is no party yet.
-3. Each rat's death script (`bhn100cr_rat_giant`) brings in its replacement:
+   `BHN_DOG_IN_PARTY`, which sets the general party plot's `GEN_DOG_RECRUITED`
+   (`gen00pt_party`), whose handler recruits the dog: it joins and fights.
+4. Each rat's death script (`bhn100cr_rat_giant`) brings in its replacement:
    rats 1-6 activate 7-12, rats 7-12 activate 13-18. Rats 7-18 are team 25.
-4. When team 25 is destroyed, the area script (`bhn100ar_castle_cousland`)
+5. When team 25 is destroyed, the area script (`bhn100ar_castle_cousland`)
    unlocks the pantry and upstairs doors, sets `BHN_COOK_RATS_KILLED` and has
-   Gilmore talk.
+   Gilmore talk. At the end of that conversation he leaves the party
+   (`BHN_GILMORE_LEAVES_PARTY`, `UT_FireFollower`) and opens the pantry door;
+   the dog stays.
 
-Steps 3 and 4 come from `daotools unreal plots`, which now also translates
+Steps 4 and 5 come from `daotools unreal plots`, which now also translates
 creature death branches (key `death:<tag>`) and area team-destroyed cases (key
 `teamdead:<id>`) into the same action table as the plot scripts (see
 `docs/SCRIPTS.md`).
@@ -60,13 +65,27 @@ py -m daotools unreal conv extracted/dog/json/al_bhn01al_castle_cousland/dog00cr
   creature with that team tag is left. Fighting pauses during conversations.
   At 0 health the player is "knocked down" and healed (there is no game over
   yet).
+- The party: plot actions of kind 8 (`party`, from `UT_HireFollower`,
+  `SetFollowerRecruited`, `SetFollowerInParty`, `AddNonPartyFollower` and their
+  opposites `UT_FireFollower`, `Party_SetFollowerInCamp`) call
+  `BP_DlgNPC.SetInParty`. A party member (`PartyTick`) follows the player and
+  stops 3 m away, reappears 2 m behind the player when more than 25 m off (the
+  game puts a hired follower at your side), and every 0.5 s asks the plot
+  manager for the nearest live hostile within 12 m of itself (`AssignTarget`,
+  the same distance bids as the player's attack). It goes to that target and
+  strikes for 4 every 1.2 s. Party members stand still during conversations;
+  you can still talk to them.
 
-Played through: talking to the mabari starts the fight, the six rats come, 18
-rats die over three waves (about 40 swings), and the castle reacts as above.
+Played through: Gilmore joins and follows, the mabari's conversation starts the
+fight and the dog joins; Gilmore and the dog alone (the player not attacking)
+kill all 18 rats in about half a minute while the rats bite the player (64/200
+left); the castle reacts as above, and Gilmore leaves the party at the end of
+his conversation. Alone, the player needs about 40 swings.
 
 ## Not there yet
 
 Stats, attributes and abilities from the data tables; real-time with pause and
-tactics; the mabari fighting at your side (it needs a party); attack animations
-and hit reactions (the player has none, creatures only switch between idle and
-jog); collision while chasing (creatures can pass through walls); a game over.
+tactics; hostiles only ever attack the player, never party members; party
+members cannot be hurt or switched to; attack animations and hit reactions (the
+player has none, creatures only switch between idle and jog); collision while
+moving (creatures and followers pass through walls); a game over.

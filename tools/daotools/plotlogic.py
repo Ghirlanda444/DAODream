@@ -11,6 +11,8 @@ cases are a short list of helper calls. This turns each case into actions:
   5 autosave  DoAutoSave()
   6 walk      AddCommand/WR_AddCommand(oCreature, CommandMoveToObject(oWP, bRun))   target tag,
               CommandMoveToLocation(GetLocation(oWP), bRun), UT_QuickMoveObject    waypoint tag, run 1/0
+  8 party     UT_HireFollower, SetFollowerRecruited, SetFollowerInParty,       target tag, 1 join
+              AddNonPartyFollower / UT_FireFollower, Party_SetFollowerInCamp     0 leave
   7 door      SetPlaceableActionResult(oDoor, PLACEABLE_ACTION_X, TRUE)        target tag, verb:
               SetPlaceableState(oDoor, PLC_STATE_DOOR_X)                        open, open2, close,
                                                                                 lock, unlock, break
@@ -40,9 +42,11 @@ import re
 from pathlib import Path
 
 FORMAT = "DAODream.PlotActions 1"
-JUMP, TALK, ACTIVE, SETFLAG, AUTOSAVE, WALK, DOOR = 1, 2, 3, 4, 5, 6, 7
+JUMP, TALK, ACTIVE, SETFLAG, AUTOSAVE, WALK, DOOR, PARTY = 1, 2, 3, 4, 5, 6, 7, 8
 _KIND_NAMES = {JUMP: "jump", TALK: "talk", ACTIVE: "active", SETFLAG: "setflag", AUTOSAVE: "autosave", WALK: "walk",
-               DOOR: "door"}
+               DOOR: "door", PARTY: "party"}
+_PARTY_CALLS = {"UT_HireFollower": 1, "SetFollowerRecruited": 1, "SetFollowerInParty": 1, "AddNonPartyFollower": 1,
+                "UT_FireFollower": 0, "Party_SetFollowerInCamp": 0}
 # What a door does for each placeable action / door state the scripts use.
 _DOOR_ACTIONS = {"PLACEABLE_ACTION_OPEN": "open", "PLACEABLE_ACTION_CLOSE": "close",
                  "PLACEABLE_ACTION_UNLOCK": "unlock", "PLACEABLE_ACTION_LOCK": "lock"}
@@ -51,8 +55,9 @@ _DOOR_STATES = {"PLC_STATE_DOOR_UNLOCKED": "close", "PLC_STATE_DOOR_LOCKED": "lo
 
 _COMMENTS = re.compile(r"//[^\n]*|/\*.*?\*/", re.S)
 _CONST = re.compile(r"const\s+(string|int)\s+(\w+)\s*=\s*(\"[^\"]*\"|-?\d+)\s*;")
-_OBJECT = re.compile(r"object\s+(\w+)\s*=\s*(?:UT_GetNearestCreatureByTag|UT_GetNearestObjectByTag|GetObjectByTag)"
-                     r"\s*\(\s*(?:\w+\s*,\s*)?(\w+|\"[^\"]*\")")
+_OBJECT = re.compile(r"object\s+(\w+)\s*=\s*(?:UT_GetNearestCreatureByTag|UT_GetNearestObjectByTag|GetObjectByTag"
+                     r"|Party_GetFollowerByTag)"
+                     r"\s*\(\s*(?:\w+(?:\(\s*\))?\s*,\s*)?(\w+|\"[^\"]*\")")
 _LOCATION = re.compile(r"location\s+(\w+)\s*=\s*GetLocation\s*\(\s*(\w+)\s*\)")
 _COMMAND = re.compile(r"command\s+(\w+)\s*=\s*(CommandMoveTo(?:Object|Location)\s*\(.*?\))\s*;")
 _DECLARATION = re.compile(r"^(object|location|command)\s+(\w+)\s*=")
@@ -149,7 +154,7 @@ def _resolver(text: str, plots_by_name: dict[str, dict], consts: dict):
         fn, args = m.group(1), _args(m.group(2))
         if fn in _IGNORED:
             return None
-        if fn in ("UT_LocalJump", "UT_Talk", "WR_SetObjectActive") and args and obj(args[0]) is None:
+        if (fn in ("UT_LocalJump", "UT_Talk", "WR_SetObjectActive") or fn in _PARTY_CALLS) and args                 and obj(args[0]) is None:
             return ("skip", f"{fn}({args[0]}): object only known at runtime")
         if fn == "UT_LocalJump" and len(args) >= 2:
             return {"kind": JUMP, "target": obj(args[0]), "arg": str(value(args[1])), "value": 1}
@@ -190,6 +195,8 @@ def _resolver(text: str, plots_by_name: dict[str, dict], consts: dict):
                 return ("skip", f"{fn}: no destination")
             return {"kind": WALK, "target": f"team:{team}", "arg": str(value(args[1])),
                     "value": int(len(args) > 2 and value(args[2]) == 1)}
+        if fn in _PARTY_CALLS and args:
+            return {"kind": PARTY, "target": obj(args[0]), "arg": "", "value": _PARTY_CALLS[fn]}
         if fn == "UT_QuickMoveObject" and len(args) >= 2 and args[0] in objects:
             return {"kind": WALK, "target": objects[args[0]], "arg": str(value(args[1])),
                     "value": int(len(args) > 2 and value(args[2]) == 1)}
@@ -249,7 +256,7 @@ def translate(script: str, plot: dict, plots_by_name: dict[str, dict], consts: d
     m = re.search(r"EVENT_TYPE_SET_PLOT", text)
     if not m:
         return {"cases": {}, "skipped": ["no EVENT_TYPE_SET_PLOT handler"]}
-    switch = re.search(r"switch\s*\(\s*nFlag\s*\)", text[m.end():])
+    switch = re.search(r"switch\s*\(\s*n(?:Bit)?Flag\s*\)", text[m.end():])
     if not switch:
         return {"cases": {}, "skipped": ["no switch(nFlag) for SET events"]}
     body = _block(text, m.end() + switch.end())
@@ -283,6 +290,11 @@ def translate(script: str, plot: dict, plots_by_name: dict[str, dict], consts: d
     return {"cases": result, "skipped": skipped}
 
 
+def _matches(name: str, only: str) -> bool:
+    """`only` is one or more name patterns separated by commas, e.g. "bhn*,gen00pt_party"."""
+    return any(fnmatch.fnmatch(name.lower(), pattern.strip().lower()) for pattern in only.split(","))
+
+
 def export(src_dir: str | Path, plots: dict[str, dict], only: str = "*") -> dict:
     """The runtime file: flat arrays keyed by "GUID:FLAG" (plus "death:<tag>" and
     "teamdead:<id>" from creature and area scripts whose name matches `only`), and a
@@ -295,7 +307,7 @@ def export(src_dir: str | Path, plots: dict[str, dict], only: str = "*") -> dict
     for guid, plot in sorted(plots.items(), key=lambda kv: kv[1]["name"]):
         script = plot.get("script") or ""
         path = Path(src_dir) / f"{script}.nss"
-        if not script or not fnmatch.fnmatch(plot["name"].lower(), only.lower()) or not path.exists():
+        if not script or not _matches(plot["name"], only) or not path.exists():
             continue
         t = translate(path.read_text(encoding="utf-8", errors="replace"), plot, by_name, consts)
         flag_ids = {name: fid for fid, name in plot["flags"].items()}
@@ -318,7 +330,7 @@ def export(src_dir: str | Path, plots: dict[str, dict], only: str = "*") -> dict
         }
     events = {}
     for path in sorted(Path(src_dir).glob("*.nss")):
-        if not fnmatch.fnmatch(path.stem.lower(), only.lower()):
+        if not _matches(path.stem, only):
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
         if "EVENT_TYPE_DEATH" not in text and "EVENT_TYPE_TEAM_DESTROYED" not in text:
