@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from daotools import cnv, fields as F, fsb, plo, unreal
+from daotools import cnv, fields as F, fsb, mfdecode, plo, unreal
 from daotools.cli import main
 from daotools.erf import ERF, ERFError, is_erf
 from daotools.gda import GDA, column_hash
@@ -320,15 +320,15 @@ class VoiceOverTests(unittest.TestCase):
                                    "--mp3"]), 0)
             self.assertEqual(sorted(p.name for p in (Path(d) / "mp3").iterdir()), ["26080_m.mp3", "26081_m.mp3"])
             self.assertEqual((Path(d) / "mp3" / "26080_m.mp3").read_bytes(), self.mp3)  # padding cut
-            self.assertEqual(main(["fsb", "extract", str(Path(d) / "c.fsb"), "--out", str(Path(d) / "wav")]), 0)
-            wav = (Path(d) / "wav" / "26080_m.wav").read_bytes()
+        # Decoding to PCM goes through Windows' MP3 decoder, which needs real audio (checked on the
+        # install, see docs/GAME_DATA.md); the PCM .wav writer is checked here.
+        pcm = struct.pack("<4h", 0, 1000, -1000, 7)
+        wav = mfdecode.pcm_wav(24000, 1, 16, pcm)
         self.assertEqual((wav[:4], wav[8:12], wav[12:16]), (b"RIFF", b"WAVE", b"fmt "))
         self.assertEqual(struct.unpack_from("<I", wav, 4)[0], len(wav) - 8)
-        tag, channels, rate, avg, align, bits, extra = struct.unpack_from("<HHIIHHH", wav, 20)
-        self.assertEqual((tag, channels, rate, extra), (0x55, 1, 24000, 12))
-        self.assertEqual(struct.unpack_from("<HIHHH", wav, 38), (1, 2, 168, 1, 0))  # 168-byte frames
-        data = wav.index(b"data")
-        self.assertEqual(wav[data + 8:data + 8 + struct.unpack_from("<I", wav, data + 4)[0]], self.mp3)
+        self.assertEqual(struct.unpack_from("<HHIIHH", wav, 20), (1, 1, 24000, 48000, 2, 16))
+        self.assertEqual(wav[36:44], b"data" + struct.pack("<I", len(pcm)))
+        self.assertEqual(wav[44:], pcm)
 
 
 class PlotTests(unittest.TestCase):

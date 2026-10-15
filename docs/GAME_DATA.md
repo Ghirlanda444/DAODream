@@ -138,9 +138,18 @@ event file each. `daotools fsb list` shows a bank's samples.
   voiced. In `bhn100cr_father`, all 100 spoken lines have a sample and every
   sample belongs to a line; across the 32 Human Noble conversations, 941 of
   951 spoken lines are voiced.
-- Unreal's Windows media player (WmfMedia) opens `.wav` but not `.mp3`, so
-  `fsb extract` writes each sample as a `.wav` that wraps the unchanged MP3
-  frames (format tag 0x55); Windows decodes them. `--mp3` writes plain `.mp3`.
+- How Unreal plays it: a Media Player (WmfMedia) opens the file and, with
+  `NativeAudioOut=True` under `[/Script/WmfMediaFactory.WmfMediaSettings]` in
+  `Config/DefaultEngine.ini`, sends it straight to the Windows mixer. Without
+  that setting the audio goes through a Media Sound component, which stayed
+  silent here (no samples reached it, even for a PCM test tone).
+- In native mode WmfMedia refuses `.mp3` and plays an MP3 wrapped in a
+  `.wav` as silence, so it needs PCM. `fsb extract` therefore decodes each
+  sample to a 16-bit PCM `.wav` with Windows' own MP3 decoder (Media
+  Foundation, called through ctypes; Windows only). `--mp3` writes plain
+  `.mp3` instead. The father's 100 lines come to 24 MB.
+- Checked by metering the default playback device during Play: silence
+  before, speech-level peaks while a line plays, silence after Esc.
 
 ## Plots (`.plo`)
 

@@ -26,7 +26,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import cnv, fsb, gda, plo, unreal
+from . import cnv, fsb, gda, mfdecode, plo, unreal
 from .erf import ERF, ERFError, is_erf
 from .fields import NAMES
 from .gff3 import GFF3, GFF3Error, is_gff3
@@ -317,10 +317,13 @@ def cmd_fsb_extract(args) -> int:
         if s.codec != "mpeg":
             skipped[s.codec] += 1
             continue
-        if args.mp3:
-            (out / f"{s.stem}.mp3").write_bytes(s.data[:fsb.mpeg_end(s.data)] or s.data)
-        else:
-            (out / f"{s.stem}.wav").write_bytes(fsb.mpeg_wav(s))
+        mp3_path = out / f"{s.stem}.mp3"
+        mp3_path.write_bytes(fsb.mp3(s))
+        if not args.mp3:
+            # Unreal's media player only plays PCM through the system mixer.
+            rate, channels, bits, pcm = mfdecode.decode(str(mp3_path.resolve()))
+            (out / f"{s.stem}.wav").write_bytes(mfdecode.pcm_wav(rate, channels, bits, pcm))
+            mp3_path.unlink()
         written += 1
     print(f"wrote {written} .{'mp3' if args.mp3 else 'wav'} files to {out}"
           + "".join(f"; skipped {n} {codec}" for codec, n in skipped.items()), file=sys.stderr)
@@ -427,7 +430,8 @@ def build_parser() -> argparse.ArgumentParser:
     s = f.add_parser("list", help="samples in a bank: name, codec, rate, channels, length")
     s.add_argument("file")
     s.set_defaults(func=cmd_fsb_list)
-    s = f.add_parser("extract", help="write every MPEG sample as <name>.wav (MP3 inside), for Unreal")
+    s = f.add_parser("extract", help="write every MPEG sample as a PCM <name>.wav for Unreal "
+                                     "(decoded by Windows Media Foundation)")
     s.add_argument("file")
     s.add_argument("--out", required=True)
     s.add_argument("--mp3", action="store_true", help="write plain .mp3 files instead")
@@ -448,7 +452,7 @@ def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return args.func(args)
-    except (ERFError, GFF3Error, GFF4Error, fsb.FSBError, OSError, ValueError) as e:
+    except (ERFError, GFF3Error, GFF4Error, fsb.FSBError, mfdecode.DecodeError, OSError, ValueError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
 
