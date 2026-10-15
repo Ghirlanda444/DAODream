@@ -50,8 +50,9 @@ Each phase ends with something you can see running.
       Started: the scripts are translated into actions (`daotools unreal plots`)
       that `BP_PlotManager` runs on one shared set of flags. Bryce's plot
       (`bhn100pt_father`) is fully ported and played through (parents move
-      upstairs after Fergus' farewell, Bryce talks). The other plots still need
-      doors, movement, ambient animations, the party and combat
+      upstairs after Fergus' farewell, Bryce talks; Duncan joins after the
+      opening). Characters walk to waypoints (Aldous after his talk). The other
+      plots still need teams, doors, ambient animations, the party and combat
 
 ## Phase 3: First fight
 

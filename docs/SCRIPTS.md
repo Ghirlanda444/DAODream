@@ -114,6 +114,7 @@ py -m daotools unreal plots --src extracted/scripts/src --plots extracted/plots/
 | 3 active | `WR_SetObjectActive(object, bool)` | show or hide it (hidden: no collision, cannot talk) |
 | 4 setflag | `WR_SetPlotFlag(PLT_X, FLAG, bool)` | set another flag, running that flag's actions too |
 | 5 autosave | `DoAutoSave()` | logged only; there are no saves yet |
+| 6 walk | `AddCommand`/`WR_AddCommand(creature, CommandMoveToObject/Location(...))`, `UT_QuickMoveObject` | walk (or jog, when the script runs) to the waypoint, then face its direction |
 
 Creatures are found by tag (`object oX = UT_GetNearestCreatureByTag(...)` plus
 the string constants of every script); `PLT_<NAME>` is the plot named `<name>`
@@ -121,10 +122,17 @@ and its flag constants are that plot's flag names. Anything else is listed as
 skipped, so coverage is visible in the command's output.
 
 Coverage on the Human Noble plots (16 scripts): `bhn100pt_father` is complete
-apart from gore level and achievement tracking. The others are partial: they
-also use ambient animations, movement commands, team appearances, party
-hire/fire, doors (`SetPlaceableActionResult`), items, combat and area
-transitions, which need systems that do not exist yet.
+apart from gore level and achievement tracking. All 14 single-character moves
+translate (the cook, the kitchen servants, the gambling guards, the scribe,
+the panicked soldiers). The rest is still skipped: moves of whole teams
+(`UT_TeamMove`, `UT_TeamAppears`, which need team membership from the area),
+ambient animations, party hire/fire, doors (`SetPlaceableActionResult`),
+items, combat and area transitions.
+
+Walking is a straight line at 1.6 m/s (jogging 3.8 m/s) with the mannequin's
+walk or jog loop, done in `BP_DlgNPC`'s Tick (`WalkTo`, `StepWalk`). The
+characters are plain actors, not pawns, so there is no navigation mesh or path
+finding yet; the moves in these plots are short and within one room.
 
 At runtime `/Game/Cousland/Plots/BP_PlotManager` holds the flags for the whole
 level (before, each dialogue runner had its own set, so a flag set in one
@@ -140,5 +148,8 @@ Tested in Play on L_CastleCousland: Fergus' farewell, played to the end, sets
 waypoints, and Bryce's conversation opens on the start line that requires that
 flag as soon as Fergus' ends. Played to its end, Bryce's sets
 `BHN_FATHER_READY_FOR_NIGHT_TRANSITION`, which sets `BHN_FATHER_READY_TO_GO`
-and logs the autosave. `DUNCAN_JOINS` and `DUNCAN_APPEARS` are translated but
-not yet played through.
+and logs the autosave. Bryce's opening with Howe, played to its end, sets
+`BHN_FATHER_DUNCAN_JOINS`: Duncan moves to his waypoint in the hall and his
+conversation opens after Bryce's. Aldous' conversation, played to the end,
+sets `BHN_SCRIBE_MOVES_AWAY` and he walks 5.4 m to his waypoint.
+`DUNCAN_APPEARS` is translated but not reachable from a fresh start.

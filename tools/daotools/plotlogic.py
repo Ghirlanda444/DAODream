@@ -9,12 +9,16 @@ cases are a short list of helper calls. This turns each case into actions:
   3 active    WR_SetObjectActive(oObject, TRUE/FALSE)  target tag, 1/0
   4 setflag   WR_SetPlotFlag(PLT_NAME, FLAG, TRUE/FALSE)   "GUID:FLAG", 1/0
   5 autosave  DoAutoSave()
+  6 walk      AddCommand/WR_AddCommand(oCreature, CommandMoveToObject(oWP, bRun))   target tag,
+              CommandMoveToLocation(GetLocation(oWP), bRun), UT_QuickMoveObject    waypoint tag, run 1/0
 
 Case fall-through (a case without `break`) is followed, as the game does.
 Anything else in a case is listed under "Skipped" so coverage is visible.
 Creatures are resolved from `object oX = UT_GetNearestCreatureByTag(..., CONST)`
 lines and string constants from every exported script; `PLT_<NAME>` is the
-plot named <name> and flag constants are the plot's flag names.
+plot named <name> and flag constants are the plot's flag names. A move's
+destination may go through a `location` or `command` variable first; a run
+flag that is only known at runtime counts as walking.
 """
 
 from __future__ import annotations
@@ -24,13 +28,16 @@ import re
 from pathlib import Path
 
 FORMAT = "DAODream.PlotActions 1"
-JUMP, TALK, ACTIVE, SETFLAG, AUTOSAVE = 1, 2, 3, 4, 5
-_KIND_NAMES = {JUMP: "jump", TALK: "talk", ACTIVE: "active", SETFLAG: "setflag", AUTOSAVE: "autosave"}
+JUMP, TALK, ACTIVE, SETFLAG, AUTOSAVE, WALK = 1, 2, 3, 4, 5, 6
+_KIND_NAMES = {JUMP: "jump", TALK: "talk", ACTIVE: "active", SETFLAG: "setflag", AUTOSAVE: "autosave", WALK: "walk"}
 
 _COMMENTS = re.compile(r"//[^\n]*|/\*.*?\*/", re.S)
 _CONST = re.compile(r"const\s+(string|int)\s+(\w+)\s*=\s*(\"[^\"]*\"|-?\d+)\s*;")
 _OBJECT = re.compile(r"object\s+(\w+)\s*=\s*(?:UT_GetNearestCreatureByTag|UT_GetNearestObjectByTag|GetObjectByTag)"
                      r"\s*\(\s*(?:\w+\s*,\s*)?(\w+|\"[^\"]*\")")
+_LOCATION = re.compile(r"location\s+(\w+)\s*=\s*GetLocation\s*\(\s*(\w+)\s*\)")
+_COMMAND = re.compile(r"command\s+(\w+)\s*=\s*(CommandMoveTo(?:Object|Location)\s*\(.*?\))\s*;")
+_DECLARATION = re.compile(r"^(object|location|command)\s+(\w+)\s*=")
 _CALL = re.compile(r"^(\w+)\s*\((.*)\)$", re.S)
 _IGNORED = {"break", "Log_Plot", "Log_Trace", "LogTrace", "plot_GlobalPlotHandler"}
 
@@ -85,6 +92,8 @@ def translate(script: str, plot: dict, plots_by_name: dict[str, dict], consts: d
     objects = {}
     for var, ref in _OBJECT.findall(text):
         objects[var] = ref.strip('"') if ref.startswith('"') else consts.get(ref, ref)
+    locations = {var: objects[obj] for var, obj in _LOCATION.findall(text) if obj in objects}
+    commands = dict(_COMMAND.findall(text))
     flag_ids = {name: fid for fid, name in plot["flags"].items()}
     skipped: list[str] = []
 
@@ -96,7 +105,21 @@ def translate(script: str, plot: dict, plots_by_name: dict[str, dict], consts: d
             return token.strip('"')
         return consts.get(token, token)
 
+    def move(cmd: str):
+        """(waypoint tag, run) for a CommandMoveTo... expression, or None."""
+        m = _CALL.match(commands.get(cmd.strip(), cmd.strip()))
+        if not m or m.group(1) not in ("CommandMoveToObject", "CommandMoveToLocation"):
+            return None
+        args = _args(m.group(2))
+        where = (objects if m.group(1) == "CommandMoveToObject" else locations).get(args[0]) if args else None
+        if where is None:
+            return None
+        return where, int(len(args) > 1 and value(args[1]) == 1)
+
     def action(stmt: str):
+        d = _DECLARATION.match(stmt)
+        if d and (d.group(2) in objects or d.group(2) in locations or d.group(2) in commands):
+            return None  # resolved where it is used
         m = _CALL.match(stmt)
         if not m:
             return None if stmt in _IGNORED else ("skip", stmt)
@@ -117,6 +140,14 @@ def translate(script: str, plot: dict, plots_by_name: dict[str, dict], consts: d
             return {"kind": SETFLAG, "target": "", "arg": f"{target['guid']}:{fid}", "value": int(value(args[2]) == 1)}
         if fn == "DoAutoSave":
             return {"kind": AUTOSAVE, "target": "", "arg": "", "value": 1}
+        if fn in ("AddCommand", "WR_AddCommand") and len(args) >= 2 and args[0] in objects:
+            dest = move(args[1])
+            if dest is None:
+                return ("skip", f"{fn}: not a move to a known waypoint")
+            return {"kind": WALK, "target": objects[args[0]], "arg": dest[0], "value": dest[1]}
+        if fn == "UT_QuickMoveObject" and len(args) >= 2 and args[0] in objects:
+            return {"kind": WALK, "target": objects[args[0]], "arg": str(value(args[1])),
+                    "value": int(len(args) > 2 and value(args[2]) == 1)}
         return ("skip", fn)
 
     m = re.search(r"EVENT_TYPE_SET_PLOT", text)

@@ -484,6 +484,16 @@ class PlotLogicTests(unittest.TestCase):
                         WR_SetPlotFlag(PLT_OTHER, OTHER_DONE, TRUE);
                         break;
                     }
+                    case GUARD_WALKS:
+                    {
+                        object oPost = UT_GetNearestObjectByTag(oPC, MY_WP_GATE);
+                        location lPost = GetLocation(oPost);
+                        command cMove = CommandMoveToLocation(lPost, bHurry);
+                        AddCommand(oGuard, cMove, TRUE);
+                        WR_AddCommand(oGuard, CommandMoveToObject(oPost, TRUE));
+                        UT_QuickMoveObject(oGuard, "my_wp_far", TRUE);
+                        break;
+                    }
                     case GUARD_TALKS:
                         UT_Talk(oGuard, oPC);
                     case GUARD_LEAVES:
@@ -499,7 +509,7 @@ class PlotLogicTests(unittest.TestCase):
 
     def test_translate_and_export(self):
         plots = {"AAAA": {"guid": "AAAA", "name": "my_plot", "script": "my_plot",
-                          "flags": {0: "GUARD_MOVES", 1: "GUARD_TALKS", 2: "GUARD_LEAVES"}},
+                          "flags": {0: "GUARD_MOVES", 1: "GUARD_TALKS", 2: "GUARD_LEAVES", 3: "GUARD_WALKS"}},
                  "BBBB": {"guid": "BBBB", "name": "other", "script": "", "flags": {7: "OTHER_DONE"}}}
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / "my_plot.nss").write_text(self.SCRIPT, encoding="utf-8")
@@ -511,13 +521,16 @@ class PlotLogicTests(unittest.TestCase):
         self.assertEqual(report["Cases"], {
             "GUARD_MOVES": ["jump my_cr_guard my_wp_gate 1", "setflag  BBBB:7 1"],
             "GUARD_TALKS": ["talk my_cr_guard  1", "active my_cr_guard  0", "autosave   1"],  # falls through
+            "GUARD_WALKS": ["walk my_cr_guard my_wp_gate 0",  # the run flag is only known at runtime
+                            "walk my_cr_guard my_wp_gate 1", "walk my_cr_guard my_wp_far 1"],
             "GUARD_LEAVES": ["active my_cr_guard  0", "autosave   1"]})
         self.assertEqual(report["Skipped"], ["GUARD_LEAVES: SetCreatureGoreLevel"])
-        self.assertEqual(out["Keys"], ["AAAA:0", "AAAA:1", "AAAA:2"])
-        self.assertEqual((out["Start"], out["Count"]), ([0, 2, 5], [2, 3, 2]))
-        self.assertEqual(out["Kind"], [1, 4, 2, 3, 5, 3, 5])
+        self.assertEqual(out["Keys"], ["AAAA:0", "AAAA:3", "AAAA:1", "AAAA:2"])
+        self.assertEqual((out["Start"], out["Count"]), ([0, 2, 5, 8], [2, 3, 3, 2]))
+        self.assertEqual(out["Kind"], [1, 4, 6, 6, 6, 2, 3, 5, 3, 5])
         self.assertEqual(out["Arg"][:2], ["my_wp_gate", "BBBB:7"])
-        self.assertEqual(out["Value"][3], 0)
+        self.assertEqual((out["Value"][2], out["Value"][6]), (0, 0))
+        self.assertEqual(out["Arg"][2:5], ["my_wp_gate", "my_wp_gate", "my_wp_far"])
 
 
 class CLITests(unittest.TestCase):
