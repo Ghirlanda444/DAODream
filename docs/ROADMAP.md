@@ -42,7 +42,11 @@ Each phase ends with something you can see running.
 - [ ] Characters: rebuilt models (MetaHuman or custom), the original ones as
       proportion and costume reference
 - [ ] Exploration: Fergus, Oriana and Oren, Nan in the kitchen, Ser Gilmore,
-      the guests
+      the guests. All 35 talking characters already stand in place and talk
+      (with voice) in L_CastleCousland
+- [ ] Plot logic: what the 16 plot scripts do when a flag is set (parents
+      moving upstairs, doors, the night). Surveyed in `docs/SCRIPTS.md`; needs
+      the script source (official toolset) or a disassembler
 
 ## Phase 3: First fight
 
