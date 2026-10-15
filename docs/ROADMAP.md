@@ -75,7 +75,13 @@ Each phase ends with something you can see running.
 
 ## Phase 4: The siege
 
-- [ ] Night attack, fighting through the castle, the escape, Duncan
+- [ ] Night attack, fighting through the castle, the escape, Duncan. Started:
+      the night castle (`bhn200ar_castle_after_siege`) is
+      `/Game/Cousland/Maps/L_CastleNight`, reached from the day castle by the
+      scripts' area transition with all flags carried over. The night opens
+      as in the game (the mabari growls, a servant runs in and is cut down,
+      Howe's men attack, the dog joins you, Mother comes out), and the
+      castle's triggers bring out Howe's soldiers as you go (`docs/NIGHT.md`)
 - [ ] Origin complete: start to finish without debug tools
 
 ## Later

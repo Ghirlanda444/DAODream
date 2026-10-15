@@ -104,7 +104,7 @@ since they come from the scripts:
 
 ```powershell
 py -m daotools unreal plots --src extracted/scripts/src --plots extracted/plots/raw `
-  --only "bhn*,gen00pt_party" --out extracted/ue/plots.json
+  --only "bhn*,gen00pt_party" --true-flag GEN_GENDER_MALE --out extracted/ue/plots.json
 ```
 
 | Kind | Script call | Unreal |
@@ -117,6 +117,10 @@ py -m daotools unreal plots --src extracted/scripts/src --plots extracted/plots/
 | 6 walk | `AddCommand`/`WR_AddCommand(creature, CommandMoveToObject/Location(...))`, `UT_QuickMoveObject` | walk (or jog, when the script runs) to the waypoint, then face its direction |
 | 8 party | `UT_HireFollower`, `SetFollowerRecruited`, `SetFollowerInParty`, `AddNonPartyFollower` / `UT_FireFollower`, `Party_SetFollowerInCamp` | join or leave the party: follow the player and fight beside them (`docs/COMBAT.md`) |
 | 7 door | `SetPlaceableActionResult(door, PLACEABLE_ACTION_OPEN/CLOSE/LOCK/UNLOCK, TRUE)`, `SetPlaceableState(door, PLC_STATE_DOOR_*)` | open, open the other way, close, lock, unlock (only if locked), break |
+| 10 hostile | `UT_CombatStart(attacker, ...)`, `UT_TeamGoesHostile(team)`, `SetGroupId(creature, GROUP_*)` | turn hostile (it attacks) or back |
+| 11 exit | `UT_ExitDestroy(creature, run, waypoint)` | walk or run to the waypoint, then vanish |
+| 12 kill | `KillCreature(creature)` | lie dead where it stands (a held frame of a death animation), no longer talks |
+| 13 transition | `UT_DoAreaTransition(area, waypoint)` | save the flags and open that area's level (`L_CastleCousland`, `L_CastleNight`) |
 | 9 ambient | `Ambient_Start(creature, ..., pattern)`, `Ambient_StartTeam`, `Ambient_StartTag` / `Ambient_Stop(creature)` | switch its ambient behaviour to that animation pattern, or stop it (`docs/AMBIENT.md`) |
 
 Creatures are found by tag (`object oX = UT_GetNearestCreatureByTag(...)` plus
@@ -143,6 +147,51 @@ script's `EVENT_TYPE_TEAM_DESTROYED` cases (`switch (nTeamID)`) the key
 creature dies or the last member of a team does (`docs/COMBAT.md`). Objects
 known only at runtime (array elements in loops, used by the night castle's
 Howe soldiers) are skipped, not guessed.
+
+Two more events: an area script's `EVENT_TYPE_AREALOAD_PRELOADEXIT` and
+`POSTLOADEXIT` cases become `load:<area>`, which `BP_AreaLoader` runs once the
+area is built (in the day castle, Bryce starts talking to you; at night, the
+people Howe's men have killed lie where they fell). A load handler
+that branches on game state (anything but its "once" and debug checks) is left
+out whole, since run unconditionally it would misplace people. A trigger
+script's `EVENT_TYPE_ENTER` case becomes `enter:<script>` (see Triggers below).
+Calls to helper functions defined in the same script (`HoweWarriorStartMother()`)
+are expanded in place, objects re-assigned from one tag to the next
+(`oSoldier = GetObjectByTag(...)`) are followed statement by statement, and of
+`if (nDebug == FALSE) {...} else {...}` only the game's branch is kept.
+
+### Triggers
+
+An area's `TriggerList` places trigger polygons (geometry relative to the
+trigger's position). Their template (`.utt`) names the script
+(`EventScript`). `daotools unreal area` exports each as a box around its
+polygon, from 0.5 m below to 3 m above, with either the key of its script's
+enter event, or, for the game's generic talk trigger (`gen00tr_talk`), its
+variables: who speaks (`TRIG_TALK_SPEAKER`), the flag that must be set
+(`TRIG_TALK_ACTIVE_FOR_*`), the flags that must not be (`TRIG_TALK_INACTIVE_FOR_*`,
+two), the flags it sets (`TRIG_TALK_SET_*`, two) and whether it repeats.
+`BP_AreaLoader.SpawnTriggers` places a `/Game/Cousland/Areas/BP_Trigger` for
+each; four times a second it checks whether the player is inside, and on
+stepping in runs the event once, or for a talk trigger checks the flags, sets
+its flags and has the speaker talk. Sound and reverb zones (no template) are
+skipped. The day castle has 22 (Fergus, the cook and the gambling guard
+calling out as you pass, the night transition), the night castle 15 (Mother
+remarking on each room, Howe's men waiting upstairs, in the kitchen and the
+east hall).
+
+### Defined flags
+
+Conversations also test *defined* flags (IDs 256 and up), which the game
+computes on request in a plot script's `EVENT_TYPE_GET_PLOT` handler (written
+as the `else` of the SET handler in most scripts). Where a case only reads
+plot flags into variables and returns a boolean of them, `daotools unreal plots`
+turns it into OR-of-AND clauses over real flags (from the truth table, merged):
+`DOG_DEFINED_AFTER_BATTLE_BEGUN_AND_PRELUDE_NOT_STARTED` is
+`BHN_MAIN_BATTLE_BEGUN & !BHN_MAIN_START_PRELUDE`. 275 defined flags across
+all plots come out this way; the rest test injuries, items, gender or local
+variables and stay false. `--true-flag` adds flags that are always true
+(`GEN_GENDER_MALE`, as for the conversations). `BP_PlotManager` keeps them in
+its flag set: `RecomputeDefined` runs before every flag's actions and on load.
 
 ### Teams
 

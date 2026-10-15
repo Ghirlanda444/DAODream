@@ -156,6 +156,70 @@ def placeable_templates(json_dir: str | Path) -> dict[str, dict]:
     return found
 
 
+def trigger_templates(json_dir: str | Path) -> dict[str, dict]:
+    """Every .utt dump under a pull folder, by template name (lower case)."""
+    found = {}
+    for p in sorted(Path(json_dir).rglob("*.utt.json")):
+        found.setdefault(p.name[:-len(".utt.json")].lower(), json.loads(p.read_text(encoding="utf-8"))["root"])
+    return found
+
+
+TALK_TRIGGER = "gen00tr_talk"
+TRIGGER_HEIGHT = 300.0  # cm above the polygon's lowest point
+TRIGGER_BELOW = 50.0
+
+
+def _flag_key(local: dict, plot: str, flag: str) -> str:
+    """"GUID:FLAG" from a plot GUID variable and a flag variable, or "" when unset."""
+    guid, fid = str(local.get(plot) or ""), local.get(flag)
+    if not guid or guid.upper() == "NONE" or fid is None or int(fid) < 0:
+        return ""
+    return f"{guid}:{int(fid)}"
+
+
+def triggers(are_root: dict, templates: dict[str, dict]) -> dict:
+    """Trigger volumes: tag, box (UE min and max corner of the polygon, from a bit below it
+    to 3 m above), the event key its script runs on entering ("enter:<script>"), and for the
+    generic talk trigger (gen00tr_talk) who speaks and the flags that gate it and that it sets:
+    [speaker, active for, inactive for, inactive for 2, sets, sets 2] (flag keys "GUID:FLAG")."""
+    tags, boxes, keys, talk, repeat = [], [], [], [], []
+    for t in are_root.get("TriggerList") or []:
+        utt = templates.get(str(t.get("TemplateResRef") or "").lower())
+        if utt is None or not t.get("Geometry"):
+            continue
+        local = {v["Name"]: v.get("Value") for src in (utt, t) for v in src.get("VarTable") or [] if v.get("Name")}
+        qx, qy, qz, qw = (t.get(k, 0.0) for k in ("XOrientation", "YOrientation", "ZOrientation", "WOrientation"))
+        pts = []
+        for g in t["Geometry"]:
+            v = (g["XPoint"], g["YPoint"], g["ZPoint"])
+            # rotate by the trigger's quaternion, then move to its position
+            ix = qw * v[0] + qy * v[2] - qz * v[1]
+            iy = qw * v[1] + qz * v[0] - qx * v[2]
+            iz = qw * v[2] + qx * v[1] - qy * v[0]
+            iw = -qx * v[0] - qy * v[1] - qz * v[2]
+            rx = ix * qw + iw * -qx + iy * -qz - iz * -qy
+            ry = iy * qw + iw * -qy + iz * -qx - ix * -qz
+            rz = iz * qw + iw * -qz + ix * -qy - iy * -qx
+            pts.append(ue_point(t["XPosition"] + rx, t["YPosition"] + ry, t["ZPosition"] + rz))
+        xs, ys, zs = zip(*pts)
+        script = str(utt.get("EventScript") or "")
+        tags.append(t.get("Tag") or "")
+        boxes.extend([min(xs), min(ys), round(min(zs) - TRIGGER_BELOW, 1),
+                      max(xs), max(ys), round(min(zs) + TRIGGER_HEIGHT, 1)])
+        keys.append(f"enter:{script}" if script and script != TALK_TRIGGER else "")
+        speaker = str(local.get("TRIG_TALK_SPEAKER") or "") if script == TALK_TRIGGER else ""
+        talk.extend([speaker if speaker.upper() != "NONE" else "",
+                     _flag_key(local, "TRIG_TALK_ACTIVE_FOR_PLOT", "TRIG_TALK_ACTIVE_FOR_FLAG"),
+                     _flag_key(local, "TRIG_TALK_INACTIVE_FOR_PLOT", "TRIG_TALK_INACTIVE_FOR_FLAG"),
+                     _flag_key(local, "TRIG_TALK_INACTIVE_FOR_PLOT2", "TRIG_TALK_INACTIVE_FOR_FLAG2"),
+                     _flag_key(local, "TRIG_TALK_SET_PLOT", "TRIG_TALK_SET_FLAG"),
+                     _flag_key(local, "TRIG_TALK_SET_PLOT2", "TRIG_TALK_SET_FLAG2")]
+                    if script == TALK_TRIGGER else [""] * 6)
+        repeat.append(int(local.get("TRIG_TALK_REPEAT") or 0) if script == TALK_TRIGGER else 0)
+    return {"TriggerTags": tags, "TriggerBox": boxes, "TriggerKey": keys, "TriggerTalk": talk,
+            "TriggerRepeat": repeat}
+
+
 def creature_templates(json_dir: str | Path) -> dict[str, dict]:
     """Every .utc dump under a pull folder, by template name (lower case)."""
     found = {}
@@ -295,7 +359,8 @@ def cut_doorways(solids: list[float], doors: list[tuple[list[float], float]]) ->
 
 def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start: str = "",
          solids: dict | None = None, door_models: dict[str, tuple[float, float, float]] | None = None,
-         creature_stats=None, player: dict | None = None, ambient_tables: dict | None = None) -> dict:
+         creature_stats=None, player: dict | None = None, ambient_tables: dict | None = None,
+         trigger_templates: dict[str, dict] | None = None, extra_creatures: list[tuple[str, str]] = ()) -> dict:
     """The runtime area file. `solids` (kit.solids, from the layout's rooms) replaces
     the navigation grid's walls with the level kit's walls, props and blockers.
     `creature_stats` (utc -> stats.stats() dict) and `player` add the game's combat
@@ -310,8 +375,19 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     npc_team, npc_scale, npc_hostile, npc_rank = [], [], [], []
     npc_health, npc_attack, npc_defense, npc_damage, npc_dscale = [], [], [], [], []
     npc_ambient, npc_ambient_prefix = [], []
-    others = 0
-    for c in are_root.get("CreatureList") or []:
+    creatures = list(are_root.get("CreatureList") or [])
+    waypoints = {w.get("Tag"): w for w in are_root.get("WaypointList") or []}
+    for template, wp in extra_creatures:  # party members the game brings along into this area
+        w = waypoints.get(wp)
+        utc = templates.get(template.lower())
+        if w is None or utc is None:
+            warnings.append(f"added creature {template}@{wp}: template or waypoint not found")
+            continue
+        creatures.append({**{k: w[k] for k in ("XPosition", "YPosition", "ZPosition", "XOrientation",
+                                                 "YOrientation", "ZOrientation", "WOrientation")},
+                          "TemplateResRef": template, "Tag": utc.get("Tag") or template, "Active": 1,
+                          "TeamId": NO_TEAM})
+    for c in creatures:
         utc = templates.get(str(c.get("TemplateResRef", "")).lower())
         if utc is None:
             warnings.append(f"creature {c.get('Tag')}: template {c.get('TemplateResRef')} not found")
@@ -319,9 +395,6 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         conversation = utc.get("DialogResRef") or ""
         team = int(c.get("TeamId", NO_TEAM))
         amb = ambient.settings(ambient.variables(utc, c), c.get("Tag") or "")
-        if not conversation and team == NO_TEAM and not (ambient_tables and amb["State"] & ambient.ENABLED):
-            others += 1
-            continue
         npc_ambient.extend([amb["State"], amb["Move"], amb["Pattern"], amb["Freq"]])
         npc_ambient_prefix.append(amb["Prefix"])
         look = utc.get("Appearance Data") if isinstance(utc.get("Appearance Data"), dict) else {}
@@ -443,13 +516,15 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "DoorSize": door_size_wh,
         "DoorActive": door_active,
         "Solids": solid_boxes,
+        **triggers(are_root, trigger_templates or {}),
         "Labels": labels,
         "LabelPos": label_pos,
         "Summary": {"Floors": sum(1 for k in boxes[6::7] if k == 0), "Walls": sum(1 for k in boxes[6::7] if k == 1),
                     "TalkingCreatures": sum(1 for c in npc_convs if c), "TeamOnly": sum(1 for c, t in zip(npc_convs, npc_team) if not c and t != NO_TEAM),
                     "Ambient": sum(1 for f in npc_ambient[0::4] if int(f) & ambient.ENABLED) if ambient_tables else 0,
                     "Teams": len({t for t in npc_team if t != NO_TEAM}),
-                    "Inactive": npc_active.count(0), "OtherCreatures": others,
+                    "Inactive": npc_active.count(0),
+                    "OtherCreatures": sum(1 for c, t in zip(npc_convs, npc_team) if not c and t == NO_TEAM),
                     "Waypoints": len(wp_tags), "Doors": len(door_tags),
                     "Solids": len(solid_boxes) // 13, "DoorwaysCut": cut,
                     "HangingPropsDropped": dropped, "DoorFrames": fitted},

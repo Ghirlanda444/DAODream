@@ -45,8 +45,11 @@ from pathlib import Path
 
 FORMAT = "DAODream.PlotActions 1"
 JUMP, TALK, ACTIVE, SETFLAG, AUTOSAVE, WALK, DOOR, PARTY, AMBIENT = 1, 2, 3, 4, 5, 6, 7, 8, 9
+HOSTILE, EXIT, KILL, TRANSITION = 10, 11, 12, 13
 _KIND_NAMES = {JUMP: "jump", TALK: "talk", ACTIVE: "active", SETFLAG: "setflag", AUTOSAVE: "autosave", WALK: "walk",
-               DOOR: "door", PARTY: "party", AMBIENT: "ambient"}
+               DOOR: "door", PARTY: "party", AMBIENT: "ambient", HOSTILE: "hostile", EXIT: "exit", KILL: "kill",
+               TRANSITION: "transition"}
+_GROUPS = {"GROUP_HOSTILE": 1, "GROUP_HOSTILE_ON_GROUND": 1, "GROUP_NEUTRAL": 0, "GROUP_FRIENDLY": 0, "GROUP_PC": 0}
 _PARTY_CALLS = {"UT_HireFollower": 1, "SetFollowerRecruited": 1, "SetFollowerInParty": 1, "AddNonPartyFollower": 1,
                 "UT_FireFollower": 0, "Party_SetFollowerInCamp": 0}
 # What a door does for each placeable action / door state the scripts use.
@@ -57,6 +60,11 @@ _DOOR_STATES = {"PLC_STATE_DOOR_UNLOCKED": "close", "PLC_STATE_DOOR_LOCKED": "lo
 
 _COMMENTS = re.compile(r"//[^\n]*|/\*.*?\*/", re.S)
 _CONST = re.compile(r"const\s+(string|int)\s+(\w+)\s*=\s*(\"[^\"]*\"|-?\d+)\s*;")
+_GETTERS = r"(?:UT_GetNearestCreatureByTag|UT_GetNearestObjectByTag|GetObjectByTag|Party_GetFollowerByTag)"
+_ASSIGN = re.compile(r"^(?:object\s+)?(\w+)\s*=\s*" + _GETTERS +
+                     r"\s*\(\s*(?:\w+(?:\(\s*\))?\s*,\s*)?(\w+|\"[^\"]*\")")
+_HELPER = re.compile(r"\bvoid\s+(\w+)\s*\(\s*\)\s*\{")
+_DEBUG_ELSE = re.compile(r"if\s*\(\s*(?:nDebug\s*==\s*FALSE|!\s*nDebug)\s*\)\s*\{")
 _OBJECT = re.compile(r"object\s+(\w+)\s*=\s*(?:UT_GetNearestCreatureByTag|UT_GetNearestObjectByTag|GetObjectByTag"
                      r"|Party_GetFollowerByTag)"
                      r"\s*\(\s*(?:\w+(?:\(\s*\))?\s*,\s*)?(\w+|\"[^\"]*\")")
@@ -118,6 +126,7 @@ def _resolver(text: str, plots_by_name: dict[str, dict], consts: dict):
     for var, ref in _OBJECT.findall(text):
         objects[var] = ref.strip('"') if ref.startswith('"') else consts.get(ref, ref)
     locations = {var: objects[obj] for var, obj in _LOCATION.findall(text) if obj in objects}
+    helpers = {m.group(1): _block(text, m.end() - 1) for m in _HELPER.finditer(text)}
     commands = dict(_COMMAND.findall(text))
 
     def value(token: str):
@@ -168,7 +177,15 @@ def _resolver(text: str, plots_by_name: dict[str, dict], consts: dict):
             return ("skip", f"{fn}: animation pattern {args[4]}")
         return {"kind": AMBIENT, "target": target, "arg": "", "value": pattern or -1}
 
-    def action(stmt: str):
+    def action(stmt: str, depth: int = 0):
+        a = _ASSIGN.match(stmt)
+        if a:  # (re)assigning an object variable: later statements see the new object
+            ref = a.group(2)
+            objects[a.group(1)] = ref.strip('"') if ref.startswith('"') else consts.get(ref, ref)
+            return None
+        c = _CALL.match(stmt)
+        if c and c.group(1) in helpers and not c.group(2).strip() and depth < 4:
+            return [action(s, depth + 1) for s in _statements(helpers[c.group(1)])]  # inline a local helper
         d = _DECLARATION.match(stmt)
         if d and (d.group(2) in objects or d.group(2) in locations or d.group(2) in commands):
             return None  # resolved where it is used
@@ -223,6 +240,26 @@ def _resolver(text: str, plots_by_name: dict[str, dict], consts: dict):
             return {"kind": PARTY, "target": obj(args[0]), "arg": "", "value": _PARTY_CALLS[fn]}
         if fn in ("Ambient_Start", "Ambient_StartTeam", "Ambient_StartTag", "Ambient_Stop"):
             return ambient_action(fn, args)
+        if fn in ("UT_CombatStart", "SetGroupId", "KillCreature", "UT_ExitDestroy") and args \
+                and obj(args[0]) is None:
+            return ("skip", f"{fn}({args[0]}): object only known at runtime")
+        if fn == "UT_CombatStart":
+            return {"kind": HOSTILE, "target": obj(args[0]), "arg": "", "value": 1}
+        if fn == "SetGroupId" and len(args) >= 2 and args[1] in _GROUPS:
+            return {"kind": HOSTILE, "target": obj(args[0]), "arg": "", "value": _GROUPS[args[1]]}
+        if fn == "UT_TeamGoesHostile" and args and isinstance(value(args[0]), int):
+            return {"kind": HOSTILE, "target": f"team:{value(args[0])}", "arg": "", "value": 1}
+        if fn == "KillCreature":
+            return {"kind": KILL, "target": obj(args[0]), "arg": "", "value": 1}
+        if fn == "UT_ExitDestroy":
+            wp = value(args[2]) if len(args) > 2 else "generic_exit"
+            return {"kind": EXIT, "target": obj(args[0]), "arg": str(wp),
+                    "value": int(len(args) > 1 and value(args[1]) == 1)}
+        if fn == "UT_DoAreaTransition" and len(args) >= 2:
+            area, wp = value(args[0]), value(args[1])
+            if not (isinstance(area, str) and isinstance(wp, str)) or area == args[0] or wp == args[1]:
+                return ("skip", f"{fn}({args[0]}, {args[1]}): unknown area or waypoint")
+            return {"kind": TRANSITION, "target": wp, "arg": area, "value": 1}
         if fn == "UT_QuickMoveObject" and len(args) >= 2 and args[0] in objects:
             return {"kind": WALK, "target": objects[args[0]], "arg": str(value(args[1])),
                     "value": int(len(args) > 2 and value(args[2]) == 1)}
@@ -235,21 +272,43 @@ def _statements(body: str) -> list[str]:
     return [s for s in (s.strip() for s in body.replace("{", ";").replace("}", ";").split(";")) if s]
 
 
+def _collect(a, label: str, acts: list[dict], skipped: list[str]) -> None:
+    """Add one action() result: an action, nothing, a skip, or a list of them (an inlined helper)."""
+    if isinstance(a, list):
+        for x in a:
+            _collect(x, label, acts, skipped)
+    elif isinstance(a, tuple):
+        skipped.append(f"{label}: {a[1]}")
+    elif a is not None:
+        acts.append(a)
+
+
 def _run(action, statements: list[str], label: str, skipped: list[str]) -> list[dict]:
-    acts = []
+    acts: list[dict] = []
     for stmt in statements:
-        a = action(stmt)
-        if isinstance(a, tuple):
-            skipped.append(f"{label}: {a[1]}")
-        elif a is not None:
-            acts.append(a)
+        _collect(action(stmt), label, acts, skipped)
     return acts
 
 
-def translate_events(script: str, plots_by_name: dict[str, dict], consts: dict) -> dict:
-    """{"cases": {"death:<tag>" / "teamdead:<id>": [action dicts]}, "skipped": [...]} for a
-    creature or area script."""
-    text = _COMMENTS.sub("", script)
+def _drop_debug(text: str) -> str:
+    """Keep the game's path of `if (nDebug == FALSE) {...} else {...}`: drop the else."""
+    out, pos = [], 0
+    for m in _DEBUG_ELSE.finditer(text):
+        if m.start() < pos:
+            continue
+        end = m.end() - 1 + len(_block(text, m.end() - 1)) + 2  # past the closing brace
+        e = re.match(r"\s*else\s*\{", text[end:])
+        if e:
+            out.append(text[pos:end])
+            pos = end + e.end() - 1 + len(_block(text, end + e.end() - 1)) + 2
+    out.append(text[pos:])
+    return "".join(out)
+
+
+def translate_events(script: str, plots_by_name: dict[str, dict], consts: dict, name: str = "") -> dict:
+    """{"cases": {"death:<tag>" / "teamdead:<id>" / "load:<name>" / "enter:<name>": [action dicts]},
+    "skipped": [...]} for a creature, area or trigger script called `name`."""
+    text = _drop_debug(_COMMENTS.sub("", script))
     action, value = _resolver(text, plots_by_name, consts)
     cases: dict[str, list] = {}
     skipped: list[str] = []
@@ -269,12 +328,27 @@ def translate_events(script: str, plots_by_name: dict[str, dict], consts: dict) 
                 skipped.append(f"team {label}: unknown team")
                 continue
             cases[f"teamdead:{team}"] = _run(action, statements, f"teamdead:{team}", skipped)
+    # The area's set-up once everything has loaded, and a trigger being walked into.
+    for key, events in ((f"load:{name}", ("EVENT_TYPE_AREALOAD_PRELOADEXIT", "EVENT_TYPE_AREALOAD_POSTLOADEXIT")),
+                        (f"enter:{name}", ("EVENT_TYPE_ENTER",))):
+        for event in events:
+            m = re.search(rf"case\s+{event}\s*:", text)
+            if not m:
+                continue
+            statements = _statements(_block(text, m.end()))
+            branches = [s for s in statements if re.match(r"(if|else|switch|while|for)\b", s)
+                        and not re.match(r"if\s*\(\s*\w*(Once|Debug)\w*\s*==\s*FALSE\s*\)", s)]
+            if key.startswith("load:") and branches:
+                # what it does depends on the game's state; run unconditionally it would misplace people
+                skipped.append(f"{key}: {event} branches on game state ({branches[0]}), left out")
+                continue
+            cases[key] = cases.get(key, []) + _run(action, statements, key, skipped)
     return {"cases": cases, "skipped": skipped}
 
 
 def translate(script: str, plot: dict, plots_by_name: dict[str, dict], consts: dict) -> dict:
     """{"cases": {flag name: [action dicts]}, "skipped": [...]} for one plot script."""
-    text = _COMMENTS.sub("", script)
+    text = _drop_debug(_COMMENTS.sub("", script))
     action, _ = _resolver(text, plots_by_name, consts)
     flag_ids = {name: fid for fid, name in plot["flags"].items()}
     skipped: list[str] = []
@@ -290,15 +364,7 @@ def translate(script: str, plot: dict, plots_by_name: dict[str, dict], consts: d
 
     own: dict[str, list] = {}
     for label, statements, _ in cases:
-        acts = []
-        for s in statements:
-            a = action(s)
-            if a is None:
-                continue
-            if isinstance(a, tuple):
-                skipped.append(f"{label}: {a[1]}")
-            else:
-                acts.append(a)
+        acts = _run(action, statements, label, skipped)
         if any(s.startswith(("if", "else", "while", "for")) for s in statements):
             skipped.append(f"{label}: has conditional logic, ported as unconditional")
         own[label] = acts
@@ -316,12 +382,122 @@ def translate(script: str, plot: dict, plots_by_name: dict[str, dict], consts: d
     return {"cases": result, "skipped": skipped}
 
 
+_GET_FLAG = re.compile(r"WR_GetPlotFlag\s*\(\s*(PLT_\w+)\s*,\s*(\w+)\s*(?:,\s*\w+\s*)?\)")
+_FLAG_VAR = re.compile(r"^int\s+(\w+)\s*=\s*(WR_GetPlotFlag\s*\(.*\))$")
+_BOOL_EXPR = re.compile(r"^[\w\s()!&|=]+$")
+
+
+def _clauses(expr: str, names: list[str]) -> list[list[tuple[int, bool]]] | None:
+    """The boolean expression over `names` as OR-of-AND clauses: [[(name index, negated)]],
+    from its truth table with terms differing in one variable merged; None if it isn't one."""
+    py = expr.replace("&&", " and ").replace("||", " or ")
+    py = re.sub(r"==\s*TRUE\b", "== 1", py)
+    py = re.sub(r"==\s*FALSE\b", "== 0", py)
+    py = re.sub(r"!=\s*TRUE\b", "== 0", py)
+    py = re.sub(r"!=\s*FALSE\b", "== 1", py)
+    py = re.sub(r"!(?!=)", " not ", py)
+    py = py.replace("TRUE", "1").replace("FALSE", "0")
+    if set(re.findall(r"[A-Za-z_]\w*", py)) - set(names) - {"and", "or", "not"}:
+        return None
+    rows = []
+    for bits in range(1 << len(names)):
+        env = {n: (bits >> i) & 1 for i, n in enumerate(names)}
+        try:
+            if eval(py, {"__builtins__": {}}, env):  # only names, digits and boolean operators remain
+                rows.append(tuple((bits >> i) & 1 for i in range(len(names))))
+        except Exception:
+            return None
+    terms = {tuple(r) for r in rows}
+    merged = True
+    while merged:  # Quine-McCluskey style: merge terms that differ in one known variable
+        merged, out, used = False, set(), set()
+        terms_list = sorted(terms, key=str)
+        for a in terms_list:
+            for b in terms_list:
+                diff = [i for i in range(len(a)) if a[i] != b[i]]
+                if len(diff) == 1 and None not in (a[diff[0]], b[diff[0]]):
+                    out.add(tuple(None if i == diff[0] else a[i] for i in range(len(a))))
+                    used.update((a, b))
+                    merged = True
+        terms = out | (terms - used)
+    return [[(i, v == 0) for i, v in enumerate(t) if v is not None] for t in sorted(terms, key=str)]
+
+
+def translate_defined(script: str, plot: dict, plots_by_name: dict[str, dict]) -> dict:
+    """A plot's defined flags (EVENT_TYPE_GET_PLOT cases) that are a boolean of other plot
+    flags: {flag name: [[("GUID:FLAG", negated), ...], ...]}, OR of ANDs. Cases that look at
+    anything else (injuries, items, local variables) are left out."""
+    text = _COMMENTS.sub("", script)
+    body = None
+    m = re.search(r"EVENT_TYPE_GET_PLOT", text)
+    if m:
+        body = text[m.end():]
+    else:  # if (nType == EVENT_TYPE_SET_PLOT) {...} else {GET handler}
+        s = re.search(r"if\s*\(\s*nType\s*==\s*EVENT_TYPE_SET_PLOT\s*\)\s*\{", text)
+        if s:
+            end = s.end() - 1 + len(_block(text, s.end() - 1)) + 2
+            e = re.match(r"\s*else\s*\{", text[end:])
+            body = "{" + _block(text, end + e.end() - 1) + "}" if e else None
+    switch = body and re.search(r"switch\s*\(\s*n(?:Bit)?Flag\s*\)", body)
+    if not switch:
+        return {}
+    text, m = body, re.match("", body)
+
+    def key(plt: str, flag: str):
+        target = plots_by_name.get(plt[4:].lower())
+        fid = {n: f for f, n in target["flags"].items()}.get(flag) if target else None
+        return None if fid is None else f"{target['guid']}:{fid}"
+
+    out = {}
+    for label, statements, _ in _cases(_block(text, m.end() + switch.end())):
+        names, keys, expr = [], [], None
+        ok = True
+        for s in statements:
+            v = _FLAG_VAR.match(s)
+            if v:
+                g = _GET_FLAG.fullmatch(v.group(2).strip())
+                k = g and key(g.group(1), g.group(2))
+                if not k:
+                    ok = False
+                    break
+                names.append(v.group(1))
+                keys.append(k)
+                continue
+            c = re.match(r"^if\s*\((.*)\)$", s, re.S)
+            r = re.match(r"^nResult\s*=\s*(.*)$", s, re.S)
+            if c and expr is None:
+                expr = c.group(1)
+            elif s in ("nResult = TRUE", "break"):
+                continue
+            elif r and expr is None:
+                expr = r.group(1)
+            else:
+                ok = False
+                break
+        if not ok or expr is None:
+            continue
+        for g in _GET_FLAG.finditer(expr):  # inline WR_GetPlotFlag(...) in the condition
+            k = key(g.group(1), g.group(2))
+            if not k:
+                ok = False
+                break
+            names.append(f"_f{len(names)}")
+            keys.append(k)
+            expr = expr.replace(g.group(0), names[-1], 1)
+        if not ok or not _BOOL_EXPR.match(expr) or len(names) > 6:
+            continue
+        clauses = _clauses(expr, names)
+        if clauses:
+            out[label] = [[(keys[i], neg) for i, neg in clause] for clause in clauses]
+    return out
+
+
 def _matches(name: str, only: str) -> bool:
     """`only` is one or more name patterns separated by commas, e.g. "bhn*,gen00pt_party"."""
     return any(fnmatch.fnmatch(name.lower(), pattern.strip().lower()) for pattern in only.split(","))
 
 
-def export(src_dir: str | Path, plots: dict[str, dict], only: str = "*") -> dict:
+def export(src_dir: str | Path, plots: dict[str, dict], only: str = "*", true_flags: list[str] | None = None) -> dict:
     """The runtime file: flat arrays keyed by "GUID:FLAG" (plus "death:<tag>" and
     "teamdead:<id>" from creature and area scripts whose name matches `only`), and a
     readable report."""
@@ -359,9 +535,10 @@ def export(src_dir: str | Path, plots: dict[str, dict], only: str = "*") -> dict
         if not _matches(path.stem, only):
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
-        if "EVENT_TYPE_DEATH" not in text and "EVENT_TYPE_TEAM_DESTROYED" not in text:
+        if not any(e in text for e in ("EVENT_TYPE_DEATH", "EVENT_TYPE_TEAM_DESTROYED", "EVENT_TYPE_ENTER",
+                                        "EVENT_TYPE_AREALOAD_PRELOADEXIT", "EVENT_TYPE_AREALOAD_POSTLOADEXIT")):
             continue
-        t = translate_events(text, by_name, consts)
+        t = translate_events(text, by_name, consts, path.stem)
         if not t["cases"]:
             continue
         for key, acts in t["cases"].items():
@@ -380,5 +557,31 @@ def export(src_dir: str | Path, plots: dict[str, dict], only: str = "*") -> dict
                             for a in acts] for key, acts in t["cases"].items()},
             "Skipped": t["skipped"],
         }
+    # Defined flags from every plot (conversations everywhere test them): one entry per clause.
+    def_key, def_start, def_count, term_key, term_not = [], [], [], [], []
+    defined = {}
+    for guid, plot in sorted(plots.items(), key=lambda kv: kv[1]["name"]):
+        path = Path(src_dir) / f"{plot.get('script') or ''}.nss"
+        if not plot.get("script") or not path.exists():
+            continue
+        found = translate_defined(path.read_text(encoding="utf-8", errors="replace"), plot, by_name)
+        flag_ids = {name: fid for fid, name in plot["flags"].items()}
+        for label, clauses in found.items():
+            if label not in flag_ids:
+                continue
+            defined[f"{plot['name']}.{label}"] = [" & ".join(("!" if n else "") + k for k, n in c) for c in clauses]
+            for clause in clauses:
+                def_key.append(f"{guid}:{flag_ids[label]}")
+                def_start.append(len(term_key))
+                def_count.append(len(clause))
+                for k, n in clause:
+                    term_key.append(k)
+                    term_not.append(int(n))
+    for k in true_flags or []:  # always true: a clause with no terms
+        def_key.append(k)
+        def_start.append(len(term_key))
+        def_count.append(0)
     return {"Format": FORMAT, "Keys": keys, "Start": starts, "Count": counts, "Kind": kinds, "Target": targets,
-            "Arg": args, "Value": values, "Plots": report, "Events": events}
+            "Arg": args, "Value": values,
+            "DefKey": def_key, "DefStart": def_start, "DefCount": def_count, "TermKey": term_key, "TermNot": term_not,
+            "Plots": report, "Events": events, "Defined": defined}

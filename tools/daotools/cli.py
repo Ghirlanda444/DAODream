@@ -412,13 +412,14 @@ def cmd_unreal_area(args) -> int:
         print(f"player: {player['Health']} health, damage {player['Damage']}", file=sys.stderr)
     out = area.area(are_root, layout_root, area.creature_templates(args.pull), start=args.start or "",
                     solids=solids, door_models=door_models, creature_stats=creature_stats, player=player,
-                    ambient_tables=ambient_tables)
+                    ambient_tables=ambient_tables, trigger_templates=area.trigger_templates(args.pull),
+                    extra_creatures=[tuple(x.split("@", 1)) for x in args.add_creature or []])
     s = out["Summary"]
     print(f"{out['Area']}: {s['Floors']} floor boxes, {s['Walls']} grid walls, {s['Solids']} kit solids "
           f"({s['DoorwaysCut']} doorways cut, {s['DoorFrames']} door frames, "
           f"{s['HangingPropsDropped']} hanging props dropped), {s['TalkingCreatures']} talking "
           f"creatures and {s['TeamOnly']} more in {s['Teams']} teams ({s['Inactive']} hidden at first, "
-          f"{s['OtherCreatures']} others left out, {s['Ambient']} with ambient behaviour), "
+          f"{s['OtherCreatures']} others, {s['Ambient']} with ambient behaviour), "
           f"{s['Waypoints']} waypoints, {s['Doors']} doors, {len(out['Labels'])} room labels", file=sys.stderr)
     for w in out["Warnings"]:
         print(f"warning: {w}", file=sys.stderr)
@@ -427,7 +428,8 @@ def cmd_unreal_area(args) -> int:
 
 
 def cmd_unreal_plots(args) -> int:
-    out = plotlogic.export(args.src, plo.load_dir(args.plots), only=args.only)
+    plots = plo.load_dir(args.plots)
+    out = plotlogic.export(args.src, plots, only=args.only, true_flags=_true_flags(args.true_flag, plots))
     for name, p in out["Plots"].items():
         print(f"{name}: {sum(1 for a in p['Cases'].values() if a)} flags with actions, "
               f"{len(p['Skipped'])} skipped", file=sys.stderr)
@@ -549,6 +551,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--game", help="game folder: pull the kit pieces the rooms use into --kit first")
     s.add_argument("--items", default="extracted/items/json", help="item templates (.uti.json, from pull "
                                                                     "'gen_im_wep*'), for the creatures' weapons")
+    s.add_argument("--add-creature", action="append", metavar="TEMPLATE@WAYPOINT",
+                   help="spawn a creature the game brings along (a party member) at a waypoint; repeatable")
     s.add_argument("--area-level", type=int, default=1, help="the level the area scales creatures to (default 1)")
     s.add_argument("--placeable-types", help="placeable_types.gda (else read from --game), to size doors from "
                                              "their models")
@@ -558,6 +562,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--src", required=True, help="script source folder from 'toolset scripts'")
     s.add_argument("--plots", required=True, help="folder of extracted .plo files")
     s.add_argument("--only", default="*", help="plot/script name patterns, comma separated, e.g. 'bhn*,gen00pt_party' (default: all)")
+    s.add_argument("--true-flag", action="append", help="a flag that is always true (name or GUID:FLAG), e.g. "
+                                                        "GEN_GENDER_MALE, as for 'unreal conv'; repeatable")
     s.add_argument("--out")
     s.set_defaults(func=cmd_unreal_plots)
 

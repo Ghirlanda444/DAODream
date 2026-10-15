@@ -413,14 +413,14 @@ class AreaTests(unittest.TestCase):
                      "bhn_rat_giant": {"DialogResRef": "", "Race": 5, "Rank": 1, "GroupId": 1,
                                        "LocName": {"strref": 3, "text": "Giant Rat"}}}
         out = area.area(are, {"3020": {"3110": self.nav}}, templates, start="start")
-        # Talkers and team members; the rat without a team or conversation is left out.
+        # Every creature, the rat without a team or conversation too (plots may move or kill it).
         self.assertEqual((out["NpcTags"], out["NpcNames"], out["NpcConversations"], out["NpcFemale"]),
-                         (["bryce", "late", "larder_rat"], ["Bryce", "Bryce", "Giant Rat"],
-                          ["bhn_father", "bhn_father", ""], [0, 0, 0]))
+                         (["bryce", "rat", "late", "larder_rat"], ["Bryce", "", "Bryce", "Giant Rat"],
+                          ["bhn_father", "", "bhn_father", ""], [0, 0, 0, 0]))
         self.assertEqual(out["NpcPose"][:4], [1050.0, -2050.0, 0.0, -90.0])
-        self.assertEqual(out["NpcActive"], [1, 0, 0])  # inactive ones are kept, hidden until a plot shows them
-        self.assertEqual((out["NpcTeam"], out["NpcScale"]), ([-1, -1, 1], [1.0, 1.0, 0.35]))
-        self.assertEqual((out["NpcHostile"], out["NpcRank"]), ([0, 0, 1], [0, 0, 1]))
+        self.assertEqual(out["NpcActive"][2:], [0, 0])  # inactive ones are kept, hidden until a plot shows them
+        self.assertEqual((out["NpcTeam"][2:], out["NpcScale"][2:]), ([-1, 1], [1.0, 0.35]))
+        self.assertEqual((out["NpcHostile"][2:], out["NpcRank"][2:]), ([0, 1], [0, 1]))
         self.assertEqual((out["Summary"]["TalkingCreatures"], out["Summary"]["TeamOnly"]), (2, 1))
         self.assertEqual((out["WaypointTags"], out["WaypointPose"]), (["start"], [1100.0, -2100.0, 0.0, -90.0]))
         self.assertEqual(out["Summary"]["OtherCreatures"], 1)
@@ -587,6 +587,112 @@ class AmbientTests(unittest.TestCase):
         self.assertEqual({k: [(a["kind"], a["target"], a["value"]) for a in v] for k, v in t["cases"].items()},
                          {"MAID_BUSY": [(9, "my_cr_maid", 15)],
                           "MAID_RESTS": [(9, "my_cr_maid", 0), (9, "team:4", -1)]})
+
+
+class NightLogicTests(unittest.TestCase):
+    # Made-up scripts in the shape of the game's, not game text.
+    PLOTS = {"my_main": {"guid": "AAAA", "name": "my_main", "flags": {0: "BATTLE", 1: "PRELUDE"}}}
+
+    def test_events_helpers_and_new_kinds(self):
+        script = """
+            void Wake()
+            {
+                object oMum = UT_GetNearestCreatureByTag(oPC, MY_CR_MUM);
+                WR_SetObjectActive(oMum, TRUE);
+            }
+            void main()
+            {
+                switch (nEventType)
+                {
+                    case EVENT_TYPE_AREALOAD_POSTLOADEXIT:
+                    {
+                        if (nAreaOnce == FALSE)
+                        {
+                            object oBody = GetObjectByTag("cook");
+                            KillCreature(oBody);
+                            oBody = GetObjectByTag("scribe");
+                            KillCreature(oBody);
+                            if (nDebug == FALSE) { UT_DoAreaTransition(MY_AR_NIGHT, MY_WP_BED); }
+                            else { KillCreature(oBody); }
+                        }
+                        break;
+                    }
+                    case EVENT_TYPE_ENTER:
+                    {
+                        Wake();
+                        UT_TeamGoesHostile(MY_TEAM);
+                        UT_ExitDestroy(oBody, TRUE, "exit_wp");
+                        break;
+                    }
+                }
+            }
+        """
+        consts = {"MY_CR_MUM": "mum", "MY_AR_NIGHT": "night_area", "MY_WP_BED": "bed_wp", "MY_TEAM": 7}
+        t = plotlogic.translate_events(script, self.PLOTS, consts, "my_area")
+        acts = {k: [(a["kind"], a["target"], a["arg"], a["value"]) for a in v] for k, v in t["cases"].items()}
+        self.assertEqual(acts["load:my_area"], [(12, "cook", "", 1), (12, "scribe", "", 1),
+                                                (13, "bed_wp", "night_area", 1)])
+        self.assertEqual(acts["enter:my_area"], [(3, "mum", "", 1), (10, "team:7", "", 1),
+                                                 (11, "scribe", "exit_wp", 1)])
+
+    def test_defined_flags(self):
+        script = """
+            void main()
+            {
+                if (nType == EVENT_TYPE_SET_PLOT) { switch (nFlag) { } }
+                else
+                {
+                    switch (nFlag)
+                    {
+                        case NIGHT_NOT_PRELUDE:
+                        {
+                            int nA = WR_GetPlotFlag(PLT_MY_MAIN, BATTLE);
+                            int nB = WR_GetPlotFlag(PLT_MY_MAIN, PRELUDE);
+                            if ((nA == TRUE) && (nB == FALSE)) { nResult = TRUE; }
+                            break;
+                        }
+                        case EITHER:
+                        {
+                            if (WR_GetPlotFlag(PLT_MY_MAIN, BATTLE) || WR_GetPlotFlag(PLT_MY_MAIN, PRELUDE))
+                            { nResult = TRUE; }
+                            break;
+                        }
+                        case HURT:
+                        {
+                            if (GetInjuries(oPC) > 0) { nResult = TRUE; }
+                            break;
+                        }
+                    }
+                }
+            }
+        """
+        plot = {"guid": "BBBB", "name": "my_defined", "flags": {256: "NIGHT_NOT_PRELUDE", 257: "EITHER", 258: "HURT"}}
+        d = plotlogic.translate_defined(script, plot, self.PLOTS)
+        self.assertEqual(d["NIGHT_NOT_PRELUDE"], [[("AAAA:0", False), ("AAAA:1", True)]])
+        self.assertEqual(sorted(map(sorted, d["EITHER"])), [[("AAAA:0", False)], [("AAAA:1", False)]])
+        self.assertNotIn("HURT", d)
+
+    def test_triggers(self):
+        are = {"TriggerList": [
+            {"Tag": "t_talk", "TemplateResRef": "t_talk", "XPosition": 1.0, "YPosition": 2.0, "ZPosition": 0.0,
+             "XOrientation": 0, "YOrientation": 0, "ZOrientation": 0, "WOrientation": 1,
+             "Geometry": [{"XPoint": -1.0, "YPoint": -1.0, "ZPoint": 0.0}, {"XPoint": 2.0, "YPoint": 1.0, "ZPoint": 0.0}]},
+            {"Tag": "t_script", "TemplateResRef": "t_script", "XPosition": 0.0, "YPosition": 0.0, "ZPosition": 0.0,
+             "XOrientation": 0, "YOrientation": 0, "ZOrientation": 0, "WOrientation": 1,
+             "Geometry": [{"XPoint": 0.0, "YPoint": 0.0, "ZPoint": 0.0}, {"XPoint": 1.0, "YPoint": 1.0, "ZPoint": 0.0}]},
+            {"Tag": "", "Type": 3, "XPosition": 0.0}]}
+        templates = {"t_talk": {"EventScript": "gen00tr_talk", "VarTable": [
+                         {"Name": "TRIG_TALK_SPEAKER", "Value": "mum"},
+                         {"Name": "TRIG_TALK_ACTIVE_FOR_PLOT", "Value": "AAAA"},
+                         {"Name": "TRIG_TALK_ACTIVE_FOR_FLAG", "Value": 0},
+                         {"Name": "TRIG_TALK_SET_PLOT", "Value": "NONE"},
+                         {"Name": "TRIG_TALK_SET_FLAG", "Value": -1}]},
+                     "t_script": {"EventScript": "my_trigger"}}
+        t = area.triggers(are, templates)
+        self.assertEqual(t["TriggerTags"], ["t_talk", "t_script"])
+        self.assertEqual(t["TriggerBox"][:6], [0.0, -300.0, -50.0, 300.0, -100.0, 300.0])
+        self.assertEqual(t["TriggerKey"], ["", "enter:my_trigger"])
+        self.assertEqual(t["TriggerTalk"][:6], ["mum", "AAAA:0", "", "", "", ""])
 
 
 class ToolsetTests(unittest.TestCase):
