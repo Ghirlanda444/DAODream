@@ -410,7 +410,8 @@ class AreaTests(unittest.TestCase):
         templates = {"bhn_father": {"DialogResRef": "BHN_Father", "LocName": {"strref": 2, "text": "Bryce"},
                                     "Appearance Data": {"Gender": 1}},
                      "bhn_rat": {"DialogResRef": ""},
-                     "bhn_rat_giant": {"DialogResRef": "", "Race": 5, "LocName": {"strref": 3, "text": "Giant Rat"}}}
+                     "bhn_rat_giant": {"DialogResRef": "", "Race": 5, "Rank": 1, "GroupId": 1,
+                                       "LocName": {"strref": 3, "text": "Giant Rat"}}}
         out = area.area(are, {"3020": {"3110": self.nav}}, templates, start="start")
         # Talkers and team members; the rat without a team or conversation is left out.
         self.assertEqual((out["NpcTags"], out["NpcNames"], out["NpcConversations"], out["NpcFemale"]),
@@ -419,6 +420,7 @@ class AreaTests(unittest.TestCase):
         self.assertEqual(out["NpcPose"][:4], [1050.0, -2050.0, 0.0, -90.0])
         self.assertEqual(out["NpcActive"], [1, 0, 0])  # inactive ones are kept, hidden until a plot shows them
         self.assertEqual((out["NpcTeam"], out["NpcScale"]), ([-1, -1, 1], [1.0, 1.0, 0.35]))
+        self.assertEqual((out["NpcHostile"], out["NpcRank"]), ([0, 0, 1], [0, 0, 1]))
         self.assertEqual((out["Summary"]["TalkingCreatures"], out["Summary"]["TeamOnly"]), (2, 1))
         self.assertEqual((out["WaypointTags"], out["WaypointPose"]), (["start"], [1100.0, -2100.0, 0.0, -90.0]))
         self.assertEqual(out["Summary"]["OtherCreatures"], 1)
@@ -560,6 +562,67 @@ class PlotLogicTests(unittest.TestCase):
         self.assertEqual((out["Value"][4], out["Value"][10]), (0, 0))
         self.assertEqual((out["Target"][7:9], out["Arg"][8]), (["team:7", "team:7"], "my_wp_gate"))
         self.assertEqual(out["Arg"][4:7], ["my_wp_gate", "my_wp_gate", "my_wp_far"])
+
+
+class EventLogicTests(unittest.TestCase):
+    # Made-up creature and area scripts in the shape of the game's, not game text.
+    CREATURE = """
+        void main()
+        {
+            switch (nEventType)
+            {
+                case EVENT_TYPE_DEATH:
+                {
+                    object oNext = UT_GetNearestCreatureByTag(oPC, MY_CR_WOLF_2);
+                    string sTag = GetTag(OBJECT_SELF);
+                    if (sTag == MY_CR_WOLF_1)
+                    {
+                        WR_SetObjectActive(oNext, TRUE);
+                    }
+                    else if (sTag == MY_CR_WOLF_2)
+                    {
+                        WR_SetObjectActive(arPack[i], TRUE);
+                    }
+                    break;
+                }
+            }
+        }
+    """
+    AREA = """
+        void main()
+        {
+            object oGate = GetObjectByTag("my_door_gate");
+            switch (nEventType)
+            {
+                case EVENT_TYPE_TEAM_DESTROYED:
+                {
+                    int nTeamID = GetEventInteger(ev, 0);
+                    switch (nTeamID)
+                    {
+                        case MY_TEAM_WOLVES:
+                        {
+                            SetPlaceableActionResult(oGate, PLACEABLE_ACTION_UNLOCK, TRUE);
+                            PlaySomeMusic();
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    """
+
+    def test_death_and_team_destroyed(self):
+        consts = {"MY_CR_WOLF_1": "my_cr_wolf_1", "MY_CR_WOLF_2": "my_cr_wolf_2", "MY_TEAM_WOLVES": 4}
+        death = plotlogic.translate_events(self.CREATURE, {}, consts)
+        self.assertEqual(death["cases"], {
+            "death:my_cr_wolf_1": [{"kind": 3, "target": "my_cr_wolf_2", "arg": "", "value": 1}],
+            "death:my_cr_wolf_2": []})
+        self.assertEqual(death["skipped"], ["death:my_cr_wolf_2: WR_SetObjectActive(arPack[i]): "
+                                            "object only known at runtime"])
+        team = plotlogic.translate_events(self.AREA, {}, consts)
+        self.assertEqual(team["cases"], {"teamdead:4": [{"kind": 7, "target": "my_door_gate", "arg": "unlock",
+                                                         "value": 1}]})
+        self.assertEqual(team["skipped"], ["teamdead:4: PlaySomeMusic"])
 
 
 class CLITests(unittest.TestCase):

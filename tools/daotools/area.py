@@ -29,6 +29,8 @@ FORMAT = "DAODream.Area 1"
 WALL_HEIGHT = 3.0  # m above the highest neighbouring floor
 FLOOR_THICKNESS = 0.2  # m
 RACE_DWARF, RACE_ANIMAL = 1, 5  # RACE_* in the game's constants; 3 is human
+RANK_CRITTER = 1  # CREATURE_RANK_*
+GROUP_HOSTILE, GROUP_HOSTILE_ON_GROUND = 1, 36  # GROUP_*
 NO_TEAM = -1
 
 # Navigation grid fields.
@@ -154,7 +156,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     """The runtime area file."""
     warnings: list[str] = []
     npc_tags, npc_names, npc_convs, npc_female, npc_pose, npc_active = [], [], [], [], [], []
-    npc_team, npc_scale = [], []
+    npc_team, npc_scale, npc_hostile, npc_rank = [], [], [], []
     others = 0
     for c in are_root.get("CreatureList") or []:
         utc = templates.get(str(c.get("TemplateResRef", "")).lower())
@@ -173,9 +175,13 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         npc_female.append(1 if look.get("Gender") == 2 else 0)
         npc_active.append(1 if c.get("Active") else 0)  # inactive ones wait for a plot to show them
         npc_team.append(team)
-        # Greybox stand-ins: a mannequin, smaller for dwarves and animals (giant rats).
-        race = utc.get("Race")
-        npc_scale.append(0.35 if race == RACE_ANIMAL else 0.8 if race == RACE_DWARF else 1.0)
+        # Greybox stand-ins: a mannequin, smaller for dwarves and animals (critters such as
+        # giant rats smallest, other animals such as the mabari bigger).
+        race, rank = utc.get("Race"), int(utc.get("Rank") or 0)
+        npc_scale.append((0.35 if rank == RANK_CRITTER else 0.6) if race == RACE_ANIMAL
+                         else 0.8 if race == RACE_DWARF else 1.0)
+        npc_hostile.append(1 if utc.get("GroupId") in (GROUP_HOSTILE, GROUP_HOSTILE_ON_GROUND) else 0)
+        npc_rank.append(rank)
         npc_pose.extend([*ue_point(c["XPosition"], c["YPosition"], c["ZPosition"]),
                          ue_yaw(c["XOrientation"], c["YOrientation"], c["ZOrientation"], c["WOrientation"])])
 
@@ -222,6 +228,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcActive": npc_active,
         "NpcTeam": npc_team,
         "NpcScale": npc_scale,
+        "NpcHostile": npc_hostile,
+        "NpcRank": npc_rank,
         "WaypointTags": wp_tags,
         "WaypointPose": wp_pose,
         "DoorTags": door_tags,

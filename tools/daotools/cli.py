@@ -390,6 +390,10 @@ def cmd_unreal_plots(args) -> int:
               f"{len(p['Skipped'])} skipped", file=sys.stderr)
         for skip in p["Skipped"]:
             print(f"  skipped {skip}", file=sys.stderr)
+    for name, e in out["Events"].items():
+        print(f"{name}: {len(e['Cases'])} death/team events, {len(e['Skipped'])} skipped", file=sys.stderr)
+        for skip in e["Skipped"]:
+            print(f"  skipped {skip}", file=sys.stderr)
     _write(_json(out), args.out)
     return 0
 

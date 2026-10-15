@@ -1,0 +1,72 @@
+# Combat prototype: the larder fight
+
+The first fight of the Human Noble origin, playable in
+`/Game/Cousland/Maps/L_CastleCousland`: the mabari in the larder, three waves of
+giant rats, and what the castle does once they are dead. It is a prototype of
+the loop (hostiles chase and bite, the player strikes, deaths drive the plot),
+not of Dragon Age's rules: the numbers below are placeholders until stats and
+abilities come from the game's data tables (the next Phase 3 item).
+
+## How the fight is put together
+
+All of it is the game's own logic, translated:
+
+1. Talking to the mabari (`gen00fl_dog`, conversation `dog00cr_main`) in the
+   larder plays Gilmore's lines and sets `BHN_COOK_RAT_FIGHT_BEGINS`.
+2. The cook's plot script (`bhn100pt_cook`) handles that flag: the pantry door
+   locks and team 1 (`BHN_TEAM_RATS`, six giant rats) appears. It also sets
+   the mabari's party and codex flags; there is no party yet.
+3. Each rat's death script (`bhn100cr_rat_giant`) brings in its replacement:
+   rats 1-6 activate 7-12, rats 7-12 activate 13-18. Rats 7-18 are team 25.
+4. When team 25 is destroyed, the area script (`bhn100ar_castle_cousland`)
+   unlocks the pantry and upstairs doors, sets `BHN_COOK_RATS_KILLED` and has
+   Gilmore talk.
+
+Steps 3 and 4 come from `daotools unreal plots`, which now also translates
+creature death branches (key `death:<tag>`) and area team-destroyed cases (key
+`teamdead:<id>`) into the same action table as the plot scripts (see
+`docs/SCRIPTS.md`).
+
+## Getting the mabari
+
+The larder dog uses a generic template outside the `bhn*` resources, so it is
+pulled on its own; its conversation and voice go next to the others:
+
+```powershell
+py -m daotools pull "<game>" "gen00fl_dog*" --out extracted/dog
+py -m daotools pull "<game>" "dog00cr_main*" --out extracted/dog
+py -m daotools fsb extract extracted/dog/raw/loose/dog00cr_main.fsb --out extracted/ue/vo/dog00cr_main
+py -m daotools unreal conv extracted/dog/json/al_bhn01al_castle_cousland/dog00cr_main.dlg.conv.json `
+  --names extracted/human_noble/json --plots extracted/plots/raw --true-flag GEN_GENDER_MALE `
+  --vo extracted/dog/raw/loose/dog00cr_main.fsb --out extracted/ue/conversations/dog00cr_main.json
+```
+
+`daotools unreal area ... --pull extracted` then finds its template too.
+
+## In Unreal
+
+- `daotools unreal area` exports, per creature, whether it is hostile
+  (`GroupId` 1 or 36, `GROUP_HOSTILE*`) and its rank (`CREATURE_RANK_*`).
+- `BP_DlgNPC` (every spawned creature): `SetupCombat` gives hostiles health by
+  rank (critters 12, others 40) and shows it over their head. In `CombatTick`
+  a visible hostile within 15 m turns to the player, jogs to 1.1 m at 3 m/s and
+  bites for 2 every 2 s. `TakeHit` and `Die` hide the creature, drop its
+  `team:<id>` tag and tell the plot manager.
+- `BP_PlotManager`: the player's health (200, shown top left), the attack on F
+  or the left mouse button (`/Game/Cousland/Combat/IA_Attack`, mapped in
+  `IMC_Dialogue`): 6 damage to the nearest live hostile within 2.3 m, at most
+  every 0.6 s. Every creature bids its distance (`Bid` → `Offer`) and the
+  nearest is hit. On a death it runs `death:<tag>`, and `teamdead:<id>` when no
+  creature with that team tag is left. Fighting pauses during conversations.
+  At 0 health the player is "knocked down" and healed (there is no game over
+  yet).
+
+Played through: talking to the mabari starts the fight, the six rats come, 18
+rats die over three waves (about 40 swings), and the castle reacts as above.
+
+## Not there yet
+
+Stats, attributes and abilities from the data tables; real-time with pause and
+tactics; the mabari fighting at your side (it needs a party); attack animations
+and hit reactions (the player has none, creatures only switch between idle and
+jog); collision while chasing (creatures can pass through walls); a game over.

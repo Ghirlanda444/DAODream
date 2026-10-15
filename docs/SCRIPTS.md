@@ -130,6 +130,17 @@ pantry door; the rest are night-castle doors) and all 12 team calls. The rest
 is still skipped: ambient animations, party hire/fire, making a door non-plot
 (`SetPlot`), items, combat and area transitions.
 
+### Death and team events
+
+Besides plot scripts, `daotools unreal plots` reads creature and area scripts
+whose names match `--only`. A creature script's `EVENT_TYPE_DEATH` branches
+`if (sTag == CONST) { ... }` become the key `death:<tag>`, and an area
+script's `EVENT_TYPE_TEAM_DESTROYED` cases (`switch (nTeamID)`) the key
+`teamdead:<id>`, with the same action kinds. `BP_PlotManager` runs them when a
+creature dies or the last member of a team does (`docs/COMBAT.md`). Objects
+known only at runtime (array elements in loops, used by the night castle's
+Howe soldiers) are skipped, not guessed.
+
 ### Teams
 
 Creatures in an area carry a `TeamId` (-1 for none); scripts show, hide and

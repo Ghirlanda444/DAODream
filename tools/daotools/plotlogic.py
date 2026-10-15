@@ -19,6 +19,11 @@ Teams: UT_TeamAppears(TEAM, bool) and UT_TeamMove(TEAM, WAYPOINT, bRun) become
 `active` and `walk` with the target "team:<id>"; Unreal tags every spawned
 creature with its team (area.py exports TeamId).
 
+Events: a creature script's EVENT_TYPE_DEATH branches `if (sTag == CONST)` become
+the key "death:<tag>", and an area script's EVENT_TYPE_TEAM_DESTROYED cases
+(`switch (nTeamID)`) the key "teamdead:<id>", in the same table; Unreal runs
+them when that creature dies or the last member of that team does.
+
 Case fall-through (a case without `break`) is followed, as the game does.
 Anything else in a case is listed under "Skipped" so coverage is visible.
 Creatures are resolved from `object oX = UT_GetNearestCreatureByTag(..., CONST)`
@@ -99,16 +104,14 @@ def _cases(switch_body: str) -> list[tuple[str, list[str], bool]]:
     return cases
 
 
-def translate(script: str, plot: dict, plots_by_name: dict[str, dict], consts: dict) -> dict:
-    """{"cases": {flag name: [action dicts]}, "skipped": [...]} for one plot script."""
-    text = _COMMENTS.sub("", script)
+def _resolver(text: str, plots_by_name: dict[str, dict], consts: dict):
+    """action(statement) -> action dict, None (nothing to do) or ("skip", why), for one script
+    (comments already stripped)."""
     objects = {}
     for var, ref in _OBJECT.findall(text):
         objects[var] = ref.strip('"') if ref.startswith('"') else consts.get(ref, ref)
     locations = {var: objects[obj] for var, obj in _LOCATION.findall(text) if obj in objects}
     commands = dict(_COMMAND.findall(text))
-    flag_ids = {name: fid for fid, name in plot["flags"].items()}
-    skipped: list[str] = []
 
     def value(token: str):
         token = token.strip()
@@ -129,6 +132,13 @@ def translate(script: str, plot: dict, plots_by_name: dict[str, dict], consts: d
             return None
         return where, int(len(args) > 1 and value(args[1]) == 1)
 
+    def obj(token: str):
+        """The tag an object argument names, or None when it is only known at runtime."""
+        token = token.strip()
+        if token in objects:
+            return objects[token]
+        return token.strip('"') if token.startswith('"') else None
+
     def action(stmt: str):
         d = _DECLARATION.match(stmt)
         if d and (d.group(2) in objects or d.group(2) in locations or d.group(2) in commands):
@@ -139,12 +149,14 @@ def translate(script: str, plot: dict, plots_by_name: dict[str, dict], consts: d
         fn, args = m.group(1), _args(m.group(2))
         if fn in _IGNORED:
             return None
+        if fn in ("UT_LocalJump", "UT_Talk", "WR_SetObjectActive") and args and obj(args[0]) is None:
+            return ("skip", f"{fn}({args[0]}): object only known at runtime")
         if fn == "UT_LocalJump" and len(args) >= 2:
-            return {"kind": JUMP, "target": objects.get(args[0], args[0]), "arg": str(value(args[1])), "value": 1}
+            return {"kind": JUMP, "target": obj(args[0]), "arg": str(value(args[1])), "value": 1}
         if fn == "UT_Talk" and args:
-            return {"kind": TALK, "target": objects.get(args[0], args[0]), "arg": "", "value": 1}
+            return {"kind": TALK, "target": obj(args[0]), "arg": "", "value": 1}
         if fn == "WR_SetObjectActive" and len(args) >= 2:
-            return {"kind": ACTIVE, "target": objects.get(args[0], args[0]), "arg": "", "value": int(value(args[1]) == 1)}
+            return {"kind": ACTIVE, "target": obj(args[0]), "arg": "", "value": int(value(args[1]) == 1)}
         if fn == "WR_SetPlotFlag" and len(args) >= 3 and args[0].startswith("PLT_"):
             target = plots_by_name.get(args[0][4:].lower())
             fid = {n: f for f, n in target["flags"].items()}.get(args[1]) if target else None
@@ -182,6 +194,57 @@ def translate(script: str, plot: dict, plots_by_name: dict[str, dict], consts: d
             return {"kind": WALK, "target": objects[args[0]], "arg": str(value(args[1])),
                     "value": int(len(args) > 2 and value(args[2]) == 1)}
         return ("skip", fn)
+
+    return action, value
+
+
+def _statements(body: str) -> list[str]:
+    return [s for s in (s.strip() for s in body.replace("{", ";").replace("}", ";").split(";")) if s]
+
+
+def _run(action, statements: list[str], label: str, skipped: list[str]) -> list[dict]:
+    acts = []
+    for stmt in statements:
+        a = action(stmt)
+        if isinstance(a, tuple):
+            skipped.append(f"{label}: {a[1]}")
+        elif a is not None:
+            acts.append(a)
+    return acts
+
+
+def translate_events(script: str, plots_by_name: dict[str, dict], consts: dict) -> dict:
+    """{"cases": {"death:<tag>" / "teamdead:<id>": [action dicts]}, "skipped": [...]} for a
+    creature or area script."""
+    text = _COMMENTS.sub("", script)
+    action, value = _resolver(text, plots_by_name, consts)
+    cases: dict[str, list] = {}
+    skipped: list[str] = []
+    m = re.search(r"case\s+EVENT_TYPE_DEATH\s*:", text)
+    if m:
+        body = _block(text, m.end())
+        for branch in re.finditer(r"if\s*\(\s*sTag\s*==\s*(\w+)\s*\)", body):
+            tag = value(branch.group(1))
+            label = f"death:{tag}"
+            cases[label] = cases.get(label, []) + _run(action, _statements(_block(body, branch.end())), label, skipped)
+    m = re.search(r"case\s+EVENT_TYPE_TEAM_DESTROYED\s*:", text)
+    switch = m and re.search(r"switch\s*\(\s*nTeamID\s*\)", text[m.end():])
+    if switch:
+        for label, statements, _ in _cases(_block(text, m.end() + switch.end())):
+            team = value(label)
+            if not isinstance(team, int):
+                skipped.append(f"team {label}: unknown team")
+                continue
+            cases[f"teamdead:{team}"] = _run(action, statements, f"teamdead:{team}", skipped)
+    return {"cases": cases, "skipped": skipped}
+
+
+def translate(script: str, plot: dict, plots_by_name: dict[str, dict], consts: dict) -> dict:
+    """{"cases": {flag name: [action dicts]}, "skipped": [...]} for one plot script."""
+    text = _COMMENTS.sub("", script)
+    action, _ = _resolver(text, plots_by_name, consts)
+    flag_ids = {name: fid for fid, name in plot["flags"].items()}
+    skipped: list[str] = []
 
     m = re.search(r"EVENT_TYPE_SET_PLOT", text)
     if not m:
@@ -221,7 +284,9 @@ def translate(script: str, plot: dict, plots_by_name: dict[str, dict], consts: d
 
 
 def export(src_dir: str | Path, plots: dict[str, dict], only: str = "*") -> dict:
-    """The runtime file: flat arrays keyed by "GUID:FLAG", plus a readable report."""
+    """The runtime file: flat arrays keyed by "GUID:FLAG" (plus "death:<tag>" and
+    "teamdead:<id>" from creature and area scripts whose name matches `only`), and a
+    readable report."""
     consts = load_constants(src_dir)
     by_name = {p["name"].lower(): p for p in plots.values()}
     keys, starts, counts = [], [], []
@@ -251,5 +316,31 @@ def export(src_dir: str | Path, plots: dict[str, dict], only: str = "*") -> dict
                               for a in acts] for label, acts in t["cases"].items()},
             "Skipped": t["skipped"],
         }
+    events = {}
+    for path in sorted(Path(src_dir).glob("*.nss")):
+        if not fnmatch.fnmatch(path.stem.lower(), only.lower()):
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if "EVENT_TYPE_DEATH" not in text and "EVENT_TYPE_TEAM_DESTROYED" not in text:
+            continue
+        t = translate_events(text, by_name, consts)
+        if not t["cases"]:
+            continue
+        for key, acts in t["cases"].items():
+            if not acts:
+                continue
+            keys.append(key)
+            starts.append(len(kinds))
+            counts.append(len(acts))
+            for a in acts:
+                kinds.append(a["kind"])
+                targets.append(a["target"])
+                args.append(a["arg"])
+                values.append(a["value"])
+        events[path.stem] = {
+            "Cases": {key: [f"{_KIND_NAMES[a['kind']]} {a['target']} {a['arg']} {a['value']}".strip()
+                            for a in acts] for key, acts in t["cases"].items()},
+            "Skipped": t["skipped"],
+        }
     return {"Format": FORMAT, "Keys": keys, "Start": starts, "Count": counts, "Kind": kinds, "Target": targets,
-            "Arg": args, "Value": values, "Plots": report}
+            "Arg": args, "Value": values, "Plots": report, "Events": events}
