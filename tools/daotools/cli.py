@@ -10,6 +10,7 @@ Examples:
   daotools gda dump <file.gda> [--names columns.txt] --out table.json
   daotools cnv export <file.cnv> --tlk core_en-us.tlk --out conv.json
   daotools plo list <folder of .plo files> --out plots.json
+  daotools toolset scripts --pattern "bhn*" --out extracted/scripts/src
   daotools fsb list <bank.fsb>
   daotools fsb extract <bank.fsb> --out <folder>
   daotools unreal conv <name.dlg.conv.json> --names <pull json dir> --plots <plo dir> --vo <bank.fsb>
@@ -27,7 +28,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import area, cnv, fsb, gda, mfdecode, origin, plo, unreal
+from . import area, cnv, fsb, gda, mfdecode, origin, plo, toolset, unreal
 from .erf import ERF, ERFError, is_erf
 from .fields import NAMES
 from .gff3 import GFF3, GFF3Error, is_gff3
@@ -359,6 +360,13 @@ def cmd_unreal_origin(args) -> int:
     return 0
 
 
+def cmd_toolset_scripts(args) -> int:
+    index = toolset.export(args.out, args.pattern)
+    print(f"wrote {len(index)} scripts ({sum(s['bytes'] for s in index.values()) // 1024} KB) to {args.out}",
+          file=sys.stderr)
+    return 0
+
+
 def cmd_unreal_area(args) -> int:
     are_root = json.loads(Path(args.file).read_text(encoding="utf-8"))["root"]
     layout_root = to_jsonable(GFF4.open(args.layout).root, NAMES)
@@ -489,6 +497,13 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--mp3", action="store_true", help="write plain .mp3 files instead")
     s.set_defaults(func=cmd_fsb_extract)
 
+    ts = sub.add_parser("toolset", help="the official toolset's database").add_subparsers(
+        dest="toolset_command", required=True)
+    s = ts.add_parser("scripts", help="copy script source (.nss) out of the toolset database")
+    s.add_argument("--pattern", default="*", help="script name pattern, e.g. 'bhn*' (default: all)")
+    s.add_argument("--out", required=True, help="e.g. extracted/scripts/src")
+    s.set_defaults(func=cmd_toolset_scripts)
+
     pl = sub.add_parser("plo", help="plot files").add_subparsers(dest="plo_command", required=True)
     s = pl.add_parser("list", help="every plot under a folder: GUID, name, script and flag names")
     s.add_argument("folder")
@@ -504,7 +519,8 @@ def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return args.func(args)
-    except (ERFError, GFF3Error, GFF4Error, fsb.FSBError, mfdecode.DecodeError, OSError, ValueError) as e:
+    except (ERFError, GFF3Error, GFF4Error, fsb.FSBError, mfdecode.DecodeError, toolset.ToolsetError, OSError,
+            ValueError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
 

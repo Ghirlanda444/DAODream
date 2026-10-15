@@ -45,8 +45,9 @@ Each phase ends with something you can see running.
       the guests. All 35 talking characters already stand in place and talk
       (with voice) in L_CastleCousland
 - [ ] Plot logic: what the 16 plot scripts do when a flag is set (parents
-      moving upstairs, doors, the night). Surveyed in `docs/SCRIPTS.md`; needs
-      the script source (official toolset) or a disassembler
+      moving upstairs, doors, the night). The source of all 2,079 scripts comes
+      out of the official toolset (`daotools toolset scripts`, `docs/SCRIPTS.md`);
+      porting to Unreal is next
 
 ## Phase 3: First fight
 

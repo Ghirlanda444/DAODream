@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from daotools import area, cnv, fields as F, fsb, mfdecode, plo, unreal
+from daotools import area, cnv, fields as F, fsb, mfdecode, plo, toolset, unreal
 from daotools.cli import main
 from daotools.erf import ERF, ERFError, is_erf
 from daotools.gda import GDA, column_hash
@@ -405,6 +405,21 @@ class AreaTests(unittest.TestCase):
                          ([1100.0, -2100.0, 0.0, -90.0], ["Main Hall"], [1100.0, -2100.0, 0.0]))
         self.assertEqual(out["Summary"]["Floors"], 2)
         self.assertEqual(out["Warnings"], [])
+
+
+class ToolsetTests(unittest.TestCase):
+    def test_parse_dump(self):
+        m = toolset.MARK
+        dump = (f"{m}bhn_plot|\\Plots\\|12\nvoid main()\n{{\n    // old\n}}\n"
+                f"{m}bhn_plot|\\Plots\\|40\nvoid main()\n{{\n}}\n"
+                f"{m}core_h||3\nconst int X = 1;\n")
+        scripts = toolset.parse(dump)
+        self.assertEqual(sorted(scripts), ["bhn_plot", "core_h"])
+        self.assertEqual((scripts["bhn_plot"]["version"], scripts["bhn_plot"]["folder"]), (40, "\\Plots\\"))
+        self.assertEqual(scripts["bhn_plot"]["text"], "void main()\n{\n}\n")
+        self.assertEqual(scripts["core_h"]["text"], "const int X = 1;\n")
+        self.assertIn("LIKE 'bhn%'", toolset.query("bhn*"))
+        self.assertIn("LIKE 'o''brien'", toolset.query("o'brien"))  # quotes are escaped
 
 
 class PlotTests(unittest.TestCase):
