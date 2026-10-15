@@ -19,6 +19,8 @@ import json
 import re
 from pathlib import Path
 
+from . import plo
+
 FORMAT = "DAODream.Conversation 1"
 
 # DAO marks stage directions with <desc> and stress with <emp>.
@@ -69,8 +71,12 @@ def speaker_names(tags, owner: str, search_dir: str | Path | None) -> dict[str, 
 
 
 def conversation(conv: dict, *, owner: str | None = None, names_dir: str | Path | None = None,
-                 true_flags: list[str] | None = None) -> dict:
-    """Turn a `cnv.export` result into the runtime format."""
+                 true_flags: list[str] | None = None, plots: dict[str, dict] | None = None) -> dict:
+    """Turn a `cnv.export` result into the runtime format.
+
+    With `plots` (from `plo.load_dir`), FlagNames maps every flag key the
+    conversation uses to its plot flag name, for reading and debugging.
+    """
     owner = owner or conv.get("conversation") or ""
     warnings: list[str] = []
     lines = []
@@ -100,6 +106,15 @@ def conversation(conv: dict, *, owner: str | None = None, names_dir: str | Path 
             "ActionScript": act_script,
         })
     tags = {l["Speaker"] for l in lines if l["Speaker"] and l["Speaker"] not in ("OWNER", "PLAYER")}
+    flag_names: dict[str, str] = {}
+    if plots is not None:
+        keys = {k for l in lines for k in (l["CondKey"], l["ActionKey"]) if k} | set(true_flags or [])
+        for key in sorted(keys):
+            name = plo.flag_name(plots, key)
+            if name:
+                flag_names[key] = name
+            else:
+                warnings.append(f"plot flag {key}: not found in the plot files")
     vo_bank = conv.get("vo_bank")
     return {
         "Format": FORMAT,
@@ -109,6 +124,7 @@ def conversation(conv: dict, *, owner: str | None = None, names_dir: str | Path 
         "Starts": list(conv.get("starts", [])),
         "SpeakerNames": speaker_names(tags, owner, names_dir),
         "TrueFlags": list(true_flags or []),
+        "FlagNames": flag_names,
         "Lines": lines,
         "Warnings": warnings,
     }

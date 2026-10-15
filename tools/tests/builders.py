@@ -271,6 +271,20 @@ def build_cnv(lines: list[dict], starts: list[int], children_as_structs: bool = 
     })
 
 
+# --- plots ----------------------------------------------------------------------
+
+def build_plo(name: str, guid: str, flags: dict[int, str], script: str = "") -> bytes:
+    """A plot file as the retail ones are laid out: one PLOT struct in a list."""
+    flag = Tmpl("FLAG", [(F.PLOT_FLAG_ID, T_SINT32), (F.PLOT_FLAG_NAME, "string")])
+    plot = Tmpl("PLOT", [(3, "string"), (F.PLOT_GUID, "string"), (F.PLOT_SCRIPT, "string"),
+                         (F.PLOT_FLAGS, ("structlist", flag))])
+    root = Tmpl("PLTS", [(F.PLOT_LIST, ("structlist", plot))])
+    return GFF4Writer("PLTS", "V1.0", [root, plot, flag]).build({
+        F.PLOT_LIST: [{3: name, F.PLOT_GUID: guid, F.PLOT_SCRIPT: script,
+                       F.PLOT_FLAGS: [{F.PLOT_FLAG_ID: k, F.PLOT_FLAG_NAME: v} for k, v in flags.items()]}],
+    })
+
+
 # --- GFF3 ---------------------------------------------------------------------
 
 def build_gff3(file_type: str, root: dict) -> bytes:

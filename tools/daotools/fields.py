@@ -59,6 +59,11 @@ PLOT_FLAG_REWARD = 13003
 PLOT_FLAG_JOURNAL = 13004
 PLOT_FLAG_ENDS_PLOT = 13005
 PLOT_FLAG_MULTI_REWARD = 13006
+# Observed on the retail plots: the plot's GUID, its script, and the list of
+# PLOT structs at the root of a "PLTS" file.
+PLOT_GUID = 13007
+PLOT_SCRIPT = 13009
+PLOT_LIST = 13016
 
 # Talk tables (.tlk, GFF type "TLK ")
 TALK_BUCKET_LIST = 19000

@@ -95,19 +95,45 @@ like all game data; Unreal reads it from there when you press Play.
 
 ```powershell
 py -m daotools unreal conv extracted/human_noble/json/al_bhn01al_castle_cousland/bhn100cr_father.dlg.conv.json `
-  --names extracted/human_noble/json --true-flag <GUID>:260 --true-flag <GUID>:258 `
+  --names extracted/human_noble/json --plots extracted/plots/raw `
+  --true-flag GEN_GENDER_MALE --true-flag GEN_CLASS_WARRIOR `
   --out extracted/ue/conversations/bhn100cr_father.json
 ```
 
+With `--plots`, `--true-flag` takes flag names, and the output gains
+`FlagNames`: every "GUID:FLAG" key the conversation uses, with its name.
+
 What the opening scene needs, from `bhn100cr_father`:
 
-- Starting entries are tried in order. The first four are gated on plot flags
-  set later in the origin; the fifth has no condition, so with no flags set the
-  conversation opens on Bryce and Howe in the hall.
-- Plot flags 256 and up are computed by the game rather than stored. One
-  player-character plot gates the gendered lines: flag 260 picks "my son" over
-  "my daughter" (player is male), and 258 picks the "prowess as a warrior"
-  lines (player is a warrior). Its GUID is the condition on line 65 of
-  `bhn100cr_father`. Until `.plo` files are read, these flags are passed in
-  with `--true-flag`.
+- Starting entries are tried in order. Four are gated on plot flags; the last
+  has no condition, so with no flags set the conversation opens on Bryce and
+  Howe in the hall. Bryce's first line sets `BHN_TALKED_TO_FATHER`, which gates
+  start 38 ("Shouldn't you be off to your brother?"), so talking to him again
+  never replays the opening.
+- Plot flags 256 and up are computed by the plot's script rather than stored.
+  The player-character plot `gen00pt_class_race_gend` gates the gendered lines:
+  `GEN_GENDER_MALE` (260) picks "my son" over "my daughter", and
+  `GEN_CLASS_WARRIOR` (258) picks the "prowess as a warrior" lines. These are
+  passed in with `--true-flag`.
 - A plot test of 0 means "flag is not set"; no other test value occurs here.
+
+## Plots (`.plo`)
+
+GFF4 `PLTS V1.0`, one plot per file, in `designerplots.erf`: 597 in
+`modules/single player/data/`, 301 in `packages/core/data/` (898 plots,
+8,708 flags). Extract them with:
+
+```powershell
+py -m daotools erf extract "<game>/modules/single player/data/designerplots.erf" --out extracted/plots/raw/singleplayer --pattern "*.plo"
+py -m daotools erf extract "<game>/packages/core/data/designerplots.erf" --out extracted/plots/raw/core --pattern "*.plo"
+py -m daotools plo list extracted/plots/raw --out extracted/plots/plots.json
+```
+
+- The root holds a list (field 13016) with one `PLOT` struct: name (field 3,
+  always the file name without `plt_`), GUID (13007), script (13009) and the
+  flag list (13000) of `FLAG` structs with ID and name.
+- Defined flags (256 and up) are listed like stored ones; the script computes
+  them.
+- Every plot GUID in `bhn100cr_father` resolves. The Human Noble plots are
+  `plt_bhn*` in the single player archive; the player-character and codex
+  plots it also uses are in core.

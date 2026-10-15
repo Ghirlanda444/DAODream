@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from daotools import cnv, fields as F, unreal
+from daotools import cnv, fields as F, plo, unreal
 from daotools.cli import main
 from daotools.erf import ERF, ERFError, is_erf
 from daotools.gda import GDA, column_hash
@@ -12,7 +12,8 @@ from daotools.gff4 import (GFF4, T_FLOAT32, T_SINT16, T_UINT8, T_UINT32, T_UINT6
                            to_jsonable)
 from daotools.tlk import TalkTable, TalkTables
 
-from builders import GFF4Writer, Tmpl, build_cnv, build_erf, build_gff3, build_tlk_v02, build_tlk_v05
+from builders import (GFF4Writer, Tmpl, build_cnv, build_erf, build_gff3, build_plo, build_tlk_v02,
+                      build_tlk_v05)
 from daotools.gff3 import GFF3, is_gff3
 
 
@@ -269,9 +270,58 @@ class UnrealConversationTests(unittest.TestCase):
         self.assertEqual((missing["Text"], missing["Children"], missing["Speaker"]), ("", [], ""))
         self.assertEqual(out["Warnings"], ["line 3 condition: unknown plot test 7, read as 'flag is set'",
                                            "line 4: missing"])
+        self.assertEqual(out["FlagNames"], {})
         # Unreal maps JSON onto structs: every line has every key, and no nulls.
         self.assertTrue(all(l.keys() == first.keys() for l in out["Lines"]))
         self.assertNotIn("null", json.dumps(out))
+
+    def test_flag_names(self):
+        plots = {"AAAA": {"guid": "AAAA", "name": "talked_to", "script": "", "flags": {4: "TALKED_TO_FATHER"}},
+                 "BBBB": {"guid": "BBBB", "name": "class_race_gend", "script": "",
+                          "flags": {2: "QUEST_DONE", 260: "GEN_GENDER_MALE"}}}
+        out = unreal.conversation(self.conv, true_flags=["BBBB:260"], plots=plots)
+        self.assertEqual(out["FlagNames"], {"AAAA:4": "TALKED_TO_FATHER", "BBBB:2": "QUEST_DONE",
+                                            "BBBB:260": "GEN_GENDER_MALE"})
+        self.assertIn("plot flag CCCC:1: not found in the plot files", out["Warnings"])
+
+
+class PlotTests(unittest.TestCase):
+    def test_read_and_lookup(self):
+        gff = GFF4(build_plo("bhn000pt_talked_to", "4b60deda", {4: "BHN_TALKED_TO_FATHER", 256: "DEFINED"},
+                             script="bhn000pt_talked_to"))
+        self.assertTrue(plo.is_plot(gff))
+        [p] = plo.read(gff)
+        self.assertEqual(p, {"guid": "4B60DEDA", "name": "bhn000pt_talked_to", "script": "bhn000pt_talked_to",
+                             "flags": {4: "BHN_TALKED_TO_FATHER", 256: "DEFINED"}})
+        plots = {p["guid"]: p}
+        self.assertEqual(plo.flag_name(plots, "4b60deda:4"), "BHN_TALKED_TO_FATHER")
+        self.assertEqual(plo.flag_name(plots, "4B60DEDA:5"), "")
+        self.assertEqual(plo.flag_key(plots, "DEFINED"), "4B60DEDA:256")
+        with self.assertRaises(ValueError):
+            plo.flag_key(plots, "NOPE")
+
+    def test_not_a_plot(self):
+        with self.assertRaises(plo.PLOError):
+            plo.read(GFF4(build_tlk_v02({1: "x"})))
+
+    def test_cli_names_true_flags(self):
+        conv = {"conversation": "c", "starts": [0], "lines": [
+            {"index": 0, "kind": "npc", "text": "Hi", "speaker": "OWNER", "children": [],
+             "condition": {"plot": "BBBB", "flag": 260}}]}
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "plt_gen.plo").write_bytes(build_plo("gen", "BBBB", {260: "GEN_GENDER_MALE"}))
+            (Path(d) / "c.dlg.conv.json").write_text(json.dumps(conv), encoding="utf-8")
+            out = Path(d) / "out.json"
+            self.assertEqual(main(["unreal", "conv", str(Path(d) / "c.dlg.conv.json"), "--plots", d,
+                                   "--true-flag", "GEN_GENDER_MALE", "--out", str(out)]), 0)
+            got = json.loads(out.read_text(encoding="utf-8"))
+            self.assertEqual(got["TrueFlags"], ["BBBB:260"])
+            self.assertEqual(got["FlagNames"], {"BBBB:260": "GEN_GENDER_MALE"})
+            self.assertEqual(main(["unreal", "conv", str(Path(d) / "c.dlg.conv.json"),
+                                   "--true-flag", "GEN_GENDER_MALE", "--out", str(out)]), 1)
+            self.assertEqual(main(["plo", "list", d, "--out", str(Path(d) / "plots.json")]), 0)
+            listed = json.loads((Path(d) / "plots.json").read_text(encoding="utf-8"))
+            self.assertEqual(listed["BBBB"]["flags"], {"260": "GEN_GENDER_MALE"})
 
 
 class CLITests(unittest.TestCase):

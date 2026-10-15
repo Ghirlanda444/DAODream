@@ -9,7 +9,8 @@ Examples:
   daotools tlk dump <file.tlk> --out strings.json
   daotools gda dump <file.gda> [--names columns.txt] --out table.json
   daotools cnv export <file.cnv> --tlk core_en-us.tlk --out conv.json
-  daotools unreal conv <name.dlg.conv.json> --names <pull json dir> --out runtime.json
+  daotools plo list <folder of .plo files> --out plots.json
+  daotools unreal conv <name.dlg.conv.json> --names <pull json dir> --plots <plo dir> --out runtime.json
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import cnv, gda, unreal
+from . import cnv, gda, plo, unreal
 from .erf import ERF, ERFError, is_erf
 from .fields import NAMES
 from .gff3 import GFF3, GFF3Error, is_gff3
@@ -287,9 +288,27 @@ def cmd_cnv_export(args) -> int:
     return 0
 
 
+def cmd_plo_list(args) -> int:
+    plots = plo.load_dir(args.folder)
+    print(f"{len(plots)} plots, {sum(len(p['flags']) for p in plots.values())} flags", file=sys.stderr)
+    _write(_json({guid: {"name": p["name"], "script": p["script"],
+                         "flags": {str(k): v for k, v in sorted(p["flags"].items())}}
+                  for guid, p in sorted(plots.items(), key=lambda kv: kv[1]["name"])}), args.out)
+    return 0
+
+
 def cmd_unreal_conv(args) -> int:
     conv = json.loads(Path(args.file).read_text(encoding="utf-8"))
-    out = unreal.conversation(conv, owner=args.owner, names_dir=args.names, true_flags=args.true_flag)
+    plots = plo.load_dir(args.plots) if args.plots else None
+    true_flags = []
+    for flag in args.true_flag or []:
+        if ":" not in flag:
+            if plots is None:
+                raise ValueError(f"--true-flag {flag}: flag names need --plots")
+            flag = plo.flag_key(plots, flag)
+        true_flags.append(flag)
+    out = unreal.conversation(conv, owner=args.owner, names_dir=args.names, true_flags=true_flags,
+                              plots=plots)
     for w in out["Warnings"]:
         print(f"warning: {w}", file=sys.stderr)
     _write(_json(out), args.out)
@@ -365,10 +384,17 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--owner", help="tag of the creature that owns the conversation "
                                    "(default: the conversation name)")
     s.add_argument("--names", help="folder searched for <tag>.utc.json to name the speakers")
-    s.add_argument("--true-flag", action="append", metavar="GUID:FLAG",
-                   help="plot flag that starts out set, e.g. a player-character flag; repeatable")
+    s.add_argument("--true-flag", action="append", metavar="GUID:FLAG|NAME",
+                   help="plot flag that starts out set, e.g. GEN_GENDER_MALE (names need --plots); repeatable")
+    s.add_argument("--plots", help="folder of extracted .plo files, to name the flags (FlagNames)")
     s.add_argument("--out")
     s.set_defaults(func=cmd_unreal_conv)
+
+    pl = sub.add_parser("plo", help="plot files").add_subparsers(dest="plo_command", required=True)
+    s = pl.add_parser("list", help="every plot under a folder: GUID, name, script and flag names")
+    s.add_argument("folder")
+    s.add_argument("--out")
+    s.set_defaults(func=cmd_plo_list)
     return p
 
 
