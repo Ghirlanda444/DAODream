@@ -11,6 +11,9 @@ the Human Noble origin. Roadmap: `docs/ROADMAP.md`.
   `git status` for anything that came out of the install.
 - Exception: `daotools scan` reports (file names and counts only) may be
   summarised in `docs/` to record the archive layout.
+- Never commit third-party character assets either (MetaHumans, Fab packs): they
+  live in git-ignored `Content/MetaHumans/` and `Content/ThirdParty/`, because
+  the repo is public (`docs/CHARACTERS.md`).
 
 ## Tools
 
