@@ -12,7 +12,7 @@ installed), and a Claude subscription for Claude Code.
 Unreal assets are large binary files. Git LFS stores them efficiently.
 
 ```powershell
-cd $HOME\Documents\DAODream
+cd E:\DAODream
 git lfs install
 git pull
 ```
@@ -66,7 +66,7 @@ Close and reopen PowerShell, then run `claude` once and sign in.
 ## 5. Install Epic's plugin and start Claude in the project
 
 ```powershell
-cd $HOME\Documents\DAODream\Unreal\Cousland
+cd E:\DAODream\Unreal\Cousland
 claude
 ```
 
@@ -103,7 +103,7 @@ If it names real things from your level, the link works.
 Close the editor first (so files aren't locked), then:
 
 ```powershell
-cd $HOME\Documents\DAODream
+cd E:\DAODream
 git add -A
 git commit -m "Create Cousland Unreal project"
 ```
