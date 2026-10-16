@@ -106,5 +106,6 @@ The cinematics themselves (cutscenes are shown as captions or voiced
 conversations without a camera), changing clothes and the chests (`Siege_UnequipPlayer`), immortal NPCs, fear effects, the dining and
 chapel triggers (their scripts exist but no trigger in the area uses them),
 Howe's soldiers hacking at doors (`AMBIENT_COMMAND`), and hostiles fighting
-anyone but the player and party. The soldiers hit hard: without armour the
+anyone but the player and party (the castle's guards fight them, see
+`docs/COMBAT.md`, Allies, but nobody hits the guards back). The soldiers hit hard: without armour the
 player loses about 5 per hit.

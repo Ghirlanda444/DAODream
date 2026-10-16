@@ -88,6 +88,13 @@ py -m daotools unreal conv extracted/dog/json/al_bhn01al_castle_cousland/dog00cr
   fighting again; before, the walk and the fight pulled the same character
   each frame and Eleanor jogged on the spot instead of fighting. Party members stand still during conversations;
   you can still talk to them.
+- Allies: friendly creatures that carry a weapon and chest armour (the
+  castle's guards and knights, Gilmore; not servants or nobles, and never
+  Howe's men, some of whom start out neutral) are exported with `NpcAlly`
+  (`area.armed_ally`). Without joining the party they fight like party
+  members (`AllyTick`, the same target bids and `PartyFight`), so only
+  hostiles within 15 m of the player, and they stand where the fight ended.
+  Checked in Play: the chapel's two guards kill Howe's four chapel soldiers.
 
 Played through (with the placeholder numbers that came before the stats):
 Gilmore joins and follows, the mabari's conversation starts the fight and the

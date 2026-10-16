@@ -531,6 +531,16 @@ class KitTests(unittest.TestCase):
         out, moved = area.tuck_lights(lamp + low + upstairs, ceiling)
         self.assertEqual((moved, out[2], out[9], out[16]), (1, 520.0, 300.0, 1500.0))
 
+    def test_armed_ally(self):
+        def utc(*refs, group=3):
+            return {"GroupId": group, "Equip_ItemList": [{"TemplateResRef": r} for r in refs]}
+        self.assertTrue(area.armed_ally(utc("gen_im_arm_cht_med_chn", "gen_im_wep_mel_lsw_lsw")))   # a guard
+        self.assertFalse(area.armed_ally(utc("gen_im_cth_com_c00", "gen_im_wep_mel_dag_dag")))     # armed servant
+        self.assertFalse(area.armed_ally(utc("gen_im_cth_nob_af0")))                               # a noble
+        self.assertFalse(area.armed_ally(utc("gen_im_arm_cht_med_chn", "gen_im_wep_mel_lsw_lsw", group=1)))
+        self.assertFalse(area.armed_ally({}))
+        self.assertFalse(area.armed_ally(utc("gen_im_arm_cht_lgt_rlr", "gen_im_wep_mel_lsw_lsw"), "bhn200cr_howe_mother1"))
+
     def test_fill_lights(self):
         torch = [250.0, 250.0, 250.0, 600.0, 1.6, 0.9, 0.2]
         lit = [0.0, 0.0, 0.0, 500.0, 500.0, 0.0, 0]             # 5 x 5 m under the torch

@@ -172,6 +172,18 @@ def door_size(template: str) -> tuple[float, float]:
     return (160.0, 260.0) if "_sm_" in name or "pantry" in name else (300.0, 360.0)
 
 
+def armed_ally(utc: dict, template: str = "") -> bool:
+    """Whether a creature fights on the player's side: not hostile, with a weapon and
+    chest armour equipped (the castle's guards and knights; servants and nobles wear
+    clothes, the panicked servant only has a dagger). Howe's men (templates named
+    *howe*) are excluded: some start out neutral and turn on you later."""
+    if utc.get("GroupId") in (GROUP_HOSTILE, GROUP_HOSTILE_ON_GROUND) or "howe" in template.lower():
+        return False
+    refs = [str(e.get("TemplateResRef") or "").lower() for e in utc.get("Equip_ItemList") or []
+            if isinstance(e, dict)]
+    return any(r.startswith("gen_im_wep_") for r in refs) and any(r.startswith("gen_im_arm_cht") for r in refs)
+
+
 def _text(value) -> str:
     if isinstance(value, dict):
         return value.get("text") or ""
@@ -553,7 +565,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     door's origin is its hinge and the panel runs along its local X."""
     warnings: list[str] = []
     npc_tags, npc_names, npc_convs, npc_female, npc_pose, npc_active = [], [], [], [], [], []
-    npc_team, npc_scale, npc_hostile, npc_rank, npc_dead = [], [], [], [], []
+    npc_team, npc_scale, npc_hostile, npc_rank, npc_dead, npc_ally = [], [], [], [], [], []
     npc_health, npc_attack, npc_defense, npc_damage, npc_dscale = [], [], [], [], []
     npc_ambient, npc_ambient_prefix = [], []
     creatures = list(are_root.get("CreatureList") or [])
@@ -594,6 +606,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         npc_scale.append((0.35 if rank == RANK_CRITTER else 0.6) if race == RACE_ANIMAL
                          else 0.8 if race == RACE_DWARF else 1.0)
         npc_hostile.append(1 if utc.get("GroupId") in (GROUP_HOSTILE, GROUP_HOSTILE_ON_GROUND) else 0)
+        npc_ally.append(1 if armed_ally(utc, str(c.get("TemplateResRef", ""))) else 0)
         npc_rank.append(rank)
         if creature_stats is not None:  # stats.stats() for this template (see the CLI)
             st = creature_stats(utc)
@@ -681,6 +694,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcTeam": npc_team,
         "NpcScale": npc_scale,
         "NpcHostile": npc_hostile,
+        # 1: fights hostiles near the player without joining the party (armed_ally).
+        "NpcAlly": npc_ally,
         "NpcRank": npc_rank,
         "NpcHealth": npc_health,
         "NpcAttack": npc_attack,
