@@ -150,6 +150,15 @@ What the opening scene needs, from `bhn100cr_father`:
   `GEN_CLASS_WARRIOR` (258) picks the "prowess as a warrior" lines. These are
   passed in with `--true-flag`.
 - A plot test of 0 means "flag is not set"; no other test value occurs here.
+- Each line has the toolset's "show once" setting (`conv_line_visibility`,
+  exported as `Show`): 0 always, 1 once per conversation (investigate
+  questions you have already asked), 2 once per game (Eleanor's remark on each
+  room at night). `BPC_DialogueRunner` skips a used-up line as if its
+  condition failed: per game through a flag `once:<conversation>:<line>` in
+  `BP_PlotManager` (kept across the area transition), per conversation in a
+  list cleared when the conversation ends. Without it Eleanor's room remarks,
+  which all share one entry and are picked by "first line whose room flag is
+  set", replayed the Oren line in every room after Fergus'.
 
 ## Voice-over (`.fsb`)
 

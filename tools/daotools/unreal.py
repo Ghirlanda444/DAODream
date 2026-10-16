@@ -12,6 +12,9 @@ Runtime rules (see docs/GAME_DATA.md for how they were derived):
   Script conditions cannot run yet and are treated as holding.
 - An action sets its flag, or clears it with ActionNot (plot test 0 on an
   action, as on a condition). Script actions are ignored for now.
+- Show is the toolset's "show once" setting (conv_line_visibility): 0 always,
+  1 once per conversation, 2 once per game. A line already shown that way is
+  skipped like one whose condition fails.
 """
 
 from __future__ import annotations
@@ -96,6 +99,10 @@ def conversation(conv: dict, *, owner: str | None = None, names_dir: str | Path 
         cond_key, cond_not, cond_script = _plot_slot(line.get("condition"), warnings, f"line {i} condition")
         act_key, act_not, act_script = _plot_slot(line.get("action"), warnings, f"line {i} action")
         text = display_text(line.get("text"))
+        show = (line.get("extra") or {}).get("conv_line_visibility", 0)
+        if show not in (0, 1, 2):
+            warnings.append(f"line {i}: unknown visibility {show}, shown always")
+            show = 0
         vo = ""
         if vo_samples is not None:
             sample = fsb.vo_sample(line.get("strref"))
@@ -117,6 +124,7 @@ def conversation(conv: dict, *, owner: str | None = None, names_dir: str | Path 
             "ActionNot": act_not,
             "ActionScript": act_script,
             "Vo": vo,
+            "Show": show,
         })
     tags = {l["Speaker"] for l in lines if l["Speaker"] and l["Speaker"] not in ("OWNER", "PLAYER")}
     flag_names: dict[str, str] = {}

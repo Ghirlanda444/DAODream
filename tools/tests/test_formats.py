@@ -242,12 +242,13 @@ class UnrealConversationTests(unittest.TestCase):
              "speaker": "OWNER", "children": [1, 2], "stage": "bhn_stage",
              "action": {"plot": "AAAA", "flag": 4}},
             {"index": 1, "kind": "player", "text": "", "speaker": "PLAYER", "children": [],
-             "condition": {"plot": "BBBB", "flag": 260}},
+             "condition": {"plot": "BBBB", "flag": 260}, "extra": {"conv_line_visibility": 1}},
             {"index": 2, "kind": "player", "text": "Not now.", "speaker": "PLAYER", "children": [0],
              "condition": {"plot": "BBBB", "flag": 2, "test": 0},
              "action": {"script": "bhn_plot", "parameter": 1}},
             {"index": 3, "kind": "npc", "text": "Indeed.", "speaker": "bhn_howe", "children": [],
-             "condition": {"plot": "CCCC", "flag": 1, "test": 7}, "action": {"plot": "AAAA", "flag": 4, "test": 0}},
+             "condition": {"plot": "CCCC", "flag": 1, "test": 7}, "action": {"plot": "AAAA", "flag": 4, "test": 0},
+             "extra": {"conv_line_visibility": 2}},
             {"index": 4, "missing": True},
         ],
     }
@@ -270,6 +271,8 @@ class UnrealConversationTests(unittest.TestCase):
         self.assertEqual((reply["CondKey"], reply["CondNot"], reply["ActionScript"]), ("BBBB:2", True, "bhn_plot"))
         self.assertEqual((missing["Text"], missing["Children"], missing["Speaker"]), ("", [], ""))
         self.assertEqual((first["ActionNot"], howe["ActionKey"], howe["ActionNot"]), (False, "AAAA:4", True))
+        # Show once: per conversation (1), per game (2), always (0, also when absent).
+        self.assertEqual([l["Show"] for l in out["Lines"]], [0, 1, 0, 2, 0])
         self.assertEqual(out["Warnings"], ["line 3 condition: unknown plot test 7, read as 'flag is set'",
                                            "line 4: missing"])
         self.assertEqual(out["FlagNames"], {})

@@ -108,7 +108,7 @@ def caption_conversation(name: str) -> dict:
                     "Children": [i + 1] if i + 1 < n else []})
     for line in out:
         line.update({"Stage": "", "CondKey": "", "CondNot": False, "CondScript": "",
-                     "ActionKey": "", "ActionNot": False, "ActionScript": "", "Vo": ""})
+                     "ActionKey": "", "ActionNot": False, "ActionScript": "", "Vo": "", "Show": 0})
     return {
         "Format": FORMAT,
         "Conversation": name,
