@@ -121,6 +121,8 @@ py -m daotools unreal plots --src extracted/scripts/src --plots extracted/plots/
 | 11 exit | `UT_ExitDestroy(creature, run, waypoint)` | walk or run to the waypoint, then vanish |
 | 12 kill | `KillCreature(creature)` | lie dead where it stands (a held frame of a death animation), no longer talks |
 | 13 transition | `UT_DoAreaTransition(area, waypoint)` | save the flags and open that area's level (`L_CastleCousland`, `L_CastleNight`) |
+| 14 if | `if (WR_GetPlotFlag(PLT_X, FLAG) == TRUE/FALSE)`, `if (nVar)` with `int nVar = WR_GetPlotFlag(...)`, `!...` | skip the next actions (its then-branch) unless the flag is as tested |
+| 15 skip | the `else` of such an `if` | skip the else-branch after the then-branch ran |
 | 9 ambient | `Ambient_Start(creature, ..., pattern)`, `Ambient_StartTeam`, `Ambient_StartTag` / `Ambient_Stop(creature)` | switch its ambient behaviour to that animation pattern, or stop it (`docs/AMBIENT.md`) |
 
 Creatures are found by tag (`object oX = UT_GetNearestCreatureByTag(...)` plus

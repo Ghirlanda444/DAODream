@@ -765,6 +765,48 @@ class NightLogicTests(unittest.TestCase):
         self.assertEqual(t["TriggerTalk"][:6], ["mum", "AAAA:0", "", "", "", ""])
 
 
+class ConditionTests(unittest.TestCase):
+    # Made-up trigger script in the shape of the game's, not game text.
+    PLOTS = {"my_father": {"guid": "FFFF", "name": "my_father", "flags": {6: "READY", 7: "ENTERED"}}}
+
+    def test_flag_tests_become_conditions(self):
+        script = """
+            void main()
+            {
+                switch (nEventType)
+                {
+                    case EVENT_TYPE_ENTER:
+                    {
+                        if (WR_GetPlotFlag(PLT_MY_FATHER, READY) == TRUE)
+                        {
+                            if (IsFollower(oCreature) == TRUE)
+                            {
+                                WR_SetPlotFlag(PLT_MY_FATHER, ENTERED, TRUE, TRUE);
+                                UT_Talk(oDad, oPC);
+                            }
+                        }
+                        else
+                            UT_Talk(oGuard, oPC);
+                        int nDone = WR_GetPlotFlag(PLT_MY_FATHER, ENTERED);
+                        if (!nDone) UT_Talk(oDad, oPC);
+                        break;
+                    }
+                }
+            }
+        """
+        consts = {}
+        text = script.replace("oDad", '"dad"').replace("oGuard", '"guard"')
+        t = plotlogic.translate_events(text, self.PLOTS, consts, "my_trigger")
+        acts = [(a["kind"], a["target"], a["arg"], a["value"]) for a in t["cases"]["enter:my_trigger"]]
+        self.assertEqual(acts, [
+            (14, "1", "FFFF:6", 3),        # unless READY: skip the two actions and the skip
+            (4, "", "FFFF:7", 1), (2, "dad", "", 1),
+            (15, "", "", 1),                # READY: skip the else
+            (2, "guard", "", 1),
+            (14, "0", "FFFF:7", 1),         # only while ENTERED is not set
+            (2, "dad", "", 1)])
+
+
 class ToolsetTests(unittest.TestCase):
     def test_parse_dump(self):
         m = toolset.MARK

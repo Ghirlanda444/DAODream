@@ -45,10 +45,10 @@ from pathlib import Path
 
 FORMAT = "DAODream.PlotActions 1"
 JUMP, TALK, ACTIVE, SETFLAG, AUTOSAVE, WALK, DOOR, PARTY, AMBIENT = 1, 2, 3, 4, 5, 6, 7, 8, 9
-HOSTILE, EXIT, KILL, TRANSITION = 10, 11, 12, 13
+HOSTILE, EXIT, KILL, TRANSITION, COND, SKIP = 10, 11, 12, 13, 14, 15
 _KIND_NAMES = {JUMP: "jump", TALK: "talk", ACTIVE: "active", SETFLAG: "setflag", AUTOSAVE: "autosave", WALK: "walk",
                DOOR: "door", PARTY: "party", AMBIENT: "ambient", HOSTILE: "hostile", EXIT: "exit", KILL: "kill",
-               TRANSITION: "transition"}
+               TRANSITION: "transition", COND: "if", SKIP: "skip"}
 _GROUPS = {"GROUP_HOSTILE": 1, "GROUP_HOSTILE_ON_GROUND": 1, "GROUP_NEUTRAL": 0, "GROUP_FRIENDLY": 0, "GROUP_PC": 0}
 _PARTY_CALLS = {"UT_HireFollower": 1, "SetFollowerRecruited": 1, "SetFollowerInParty": 1, "AddNonPartyFollower": 1,
                 "UT_FireFollower": 0, "Party_SetFollowerInCamp": 0}
@@ -108,15 +108,96 @@ def _args(s: str) -> list[str]:
     return out
 
 
-def _cases(switch_body: str) -> list[tuple[str, list[str], bool]]:
-    """(label, statements, ends with break) in source order."""
+def _cases(switch_body: str) -> list[tuple[str, list[str], bool, str]]:
+    """(label, statements, ends with break, raw body) in source order."""
     parts = re.split(r"\bcase\s+(\w+)\s*:", switch_body)
     cases = []
     for label, body in zip(parts[1::2], parts[2::2]):
         statements = [s.strip() for s in body.replace("{", ";").replace("}", ";").split(";")]
         statements = [s for s in statements if s]
-        cases.append((label, statements, "break" in statements))
+        cases.append((label, statements, "break" in statements, body))
     return cases
+
+
+def _paren_end(text: str, i: int) -> int:
+    """Index of the ')' matching the '(' at i."""
+    depth = 0
+    for k in range(i, len(text)):
+        depth += {"(": 1, ")": -1}.get(text[k], 0)
+        if depth == 0:
+            return k
+    return len(text) - 1
+
+
+def _extent(text: str, j: int) -> int:
+    """End (exclusive) of the statement or construct starting at j: a block, an
+    if/else chain, a loop, or a plain statement up to its ';'."""
+    n = len(text)
+    while j < n and text[j].isspace():
+        j += 1
+    if j < n and text[j] == "{":
+        return j + len(_block(text, j)) + 2
+    m = re.match(r"(if|while|for|switch)\s*\(", text[j:])
+    if m:
+        e = _extent(text, _paren_end(text, j + m.end() - 1) + 1)
+        if m.group(1) == "if":
+            k = e
+            while k < n and text[k].isspace():
+                k += 1
+            if re.match(r"else\b", text[k:]):
+                e = _extent(text, k + 4)
+        return e
+    depth = 0
+    for k in range(j, n):
+        ch = text[k]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        elif ch == ";" and depth == 0:
+            return k + 1
+        elif ch == "}" and depth == 0:
+            return k
+    return n
+
+
+def _items(text: str) -> list:
+    """Statements in order, with `if` kept as ("if", condition, then items, else items);
+    other blocks and loops are opened up (their bodies run once, as before)."""
+    items, i, n = [], 0, len(text)
+    while True:
+        while i < n and (text[i].isspace() or text[i] in ";}"):
+            i += 1
+        if i >= n:
+            return items
+        e = _extent(text, i)
+        c = text[i:e].strip()
+        i = max(e, i + 1)
+        if c.startswith("{"):
+            items.extend(_items(_block(c, 0)))
+            continue
+        m = re.match(r"(if|while|for|switch)\s*\(", c)
+        if m:
+            close = _paren_end(c, m.end() - 1)
+            body_end = _extent(c, close + 1)
+            body = c[close + 1:body_end]
+            if m.group(1) == "if":
+                rest = c[body_end:].strip()
+                els = _items(rest[4:]) if re.match(r"else\b", rest) else []
+                items.append(("if", c[m.end():close], _items(body), els))
+            else:
+                items.extend(_items(body))
+            continue
+        c = re.sub(r"^(case\s+\w+|default)\s*:\s*", "", c.rstrip(";").strip())
+        if c:
+            items.append(c)
+
+
+def _unwrap(c: str) -> str:
+    c = c.strip()
+    while c.startswith("(") and _paren_end(c, 0) == len(c) - 1:
+        c = c[1:-1].strip()
+    return c
 
 
 def _resolver(text: str, plots_by_name: dict[str, dict], consts: dict):
@@ -265,6 +346,25 @@ def _resolver(text: str, plots_by_name: dict[str, dict], consts: dict):
                     "value": int(len(args) > 2 and value(args[2]) == 1)}
         return ("skip", fn)
 
+    flag_vars = {m.group(1): m.group(2)
+                 for m in re.finditer(r"\bint\s+(\w+)\s*=\s*(WR_GetPlotFlag\s*\([^;]*\))\s*;", text)}
+
+    def cond(c: str):
+        """("GUID:FLAG", 1/0) when a condition only tests one plot flag, else None."""
+        c = _unwrap(c)
+        expected = True
+        if c.startswith("!") and not c.startswith("!="):
+            expected, c = False, _unwrap(c[1:])
+        m = re.fullmatch(r"(.+?)\s*(==|!=)\s*(TRUE|FALSE)", c, re.S)
+        if m:
+            c = _unwrap(m.group(1))
+            expected = expected == ((m.group(3) == "TRUE") == (m.group(2) == "=="))
+        g = _GET_FLAG.fullmatch(flag_vars.get(c, c).strip())
+        target = plots_by_name.get(g.group(1)[4:].lower()) if g else None
+        fid = {n: f for f, n in target["flags"].items()}.get(g.group(2)) if target else None
+        return None if fid is None else (f"{target['guid']}:{fid}", int(expected))
+
+    action.cond = cond
     return action, value
 
 
@@ -288,6 +388,38 @@ def _run(action, statements: list[str], label: str, skipped: list[str]) -> list[
     for stmt in statements:
         _collect(action(stmt), label, acts, skipped)
     return acts
+
+
+def _emit(action, items: list, label: str, skipped: list[str]) -> list[dict]:
+    """Actions for structured items. An `if` on one plot flag becomes an `if` action that
+    skips the then-actions when the flag is not as tested (and a `skip` over the else);
+    other conditions are not known here, so both branches run, as before."""
+    acts: list[dict] = []
+    for it in items:
+        if isinstance(it, str):
+            _collect(action(it), label, acts, skipped)
+            continue
+        _, condition, then_items, else_items = it
+        ta = _emit(action, then_items, label, skipped)
+        ea = _emit(action, else_items, label, skipped)
+        c = action.cond(condition)
+        if c is None:
+            acts += ta + ea
+            continue
+        key, expected = c
+        if ea:
+            acts.append({"kind": COND, "target": str(expected), "arg": key, "value": len(ta) + 1})
+            acts += ta
+            acts.append({"kind": SKIP, "target": "", "arg": "", "value": len(ea)})
+            acts += ea
+        elif ta:
+            acts.append({"kind": COND, "target": str(expected), "arg": key, "value": len(ta)})
+            acts += ta
+    return acts
+
+
+def _run_text(action, text: str, label: str, skipped: list[str]) -> list[dict]:
+    return _emit(action, _items(text), label, skipped)
 
 
 def _drop_debug(text: str) -> str:
@@ -318,16 +450,16 @@ def translate_events(script: str, plots_by_name: dict[str, dict], consts: dict, 
         for branch in re.finditer(r"if\s*\(\s*sTag\s*==\s*(\w+)\s*\)", body):
             tag = value(branch.group(1))
             label = f"death:{tag}"
-            cases[label] = cases.get(label, []) + _run(action, _statements(_block(body, branch.end())), label, skipped)
+            cases[label] = cases.get(label, []) + _run_text(action, _block(body, branch.end()), label, skipped)
     m = re.search(r"case\s+EVENT_TYPE_TEAM_DESTROYED\s*:", text)
     switch = m and re.search(r"switch\s*\(\s*nTeamID\s*\)", text[m.end():])
     if switch:
-        for label, statements, _ in _cases(_block(text, m.end() + switch.end())):
+        for label, statements, _, raw in _cases(_block(text, m.end() + switch.end())):
             team = value(label)
             if not isinstance(team, int):
                 skipped.append(f"team {label}: unknown team")
                 continue
-            cases[f"teamdead:{team}"] = _run(action, statements, f"teamdead:{team}", skipped)
+            cases[f"teamdead:{team}"] = _run_text(action, raw, f"teamdead:{team}", skipped)
     # The area's set-up once everything has loaded, and a trigger being walked into.
     for key, events in ((f"load:{name}", ("EVENT_TYPE_AREALOAD_PRELOADEXIT", "EVENT_TYPE_AREALOAD_POSTLOADEXIT")),
                         (f"enter:{name}", ("EVENT_TYPE_ENTER",))):
@@ -337,12 +469,14 @@ def translate_events(script: str, plots_by_name: dict[str, dict], consts: dict, 
                 continue
             statements = _statements(_block(text, m.end()))
             branches = [s for s in statements if re.match(r"(if|else|switch|while|for)\b", s)
-                        and not re.match(r"if\s*\(\s*\w*(Once|Debug)\w*\s*==\s*FALSE\s*\)", s)]
+                        and not re.match(r"if\s*\(\s*\w*(Once|Debug)\w*\s*==\s*FALSE\s*\)", s)
+                        and not (s.startswith("if") and "(" in s
+                                 and action.cond(s[s.index("(") + 1:s.rindex(")")]))]
             if key.startswith("load:") and branches:
                 # what it does depends on the game's state; run unconditionally it would misplace people
                 skipped.append(f"{key}: {event} branches on game state ({branches[0]}), left out")
                 continue
-            cases[key] = cases.get(key, []) + _run(action, statements, key, skipped)
+            cases[key] = cases.get(key, []) + _run_text(action, _block(text, m.end()), key, skipped)
     return {"cases": cases, "skipped": skipped}
 
 
@@ -363,13 +497,13 @@ def translate(script: str, plot: dict, plots_by_name: dict[str, dict], consts: d
     cases = _cases(body)
 
     own: dict[str, list] = {}
-    for label, statements, _ in cases:
-        acts = _run(action, statements, label, skipped)
+    for label, statements, _, raw in cases:
+        acts = _run_text(action, raw, label, skipped)
         if any(s.startswith(("if", "else", "while", "for")) for s in statements):
-            skipped.append(f"{label}: has conditional logic, ported as unconditional")
+            skipped.append(f"{label}: has conditional logic (plot-flag tests kept, others run unconditionally)")
         own[label] = acts
     result = {}
-    for i, (label, _, has_break) in enumerate(cases):
+    for i, (label, _, has_break, _raw) in enumerate(cases):
         acts = list(own[label])
         j = i
         while not cases[j][2] and j + 1 < len(cases):  # fall through until a break
@@ -449,7 +583,7 @@ def translate_defined(script: str, plot: dict, plots_by_name: dict[str, dict]) -
         return None if fid is None else f"{target['guid']}:{fid}"
 
     out = {}
-    for label, statements, _ in _cases(_block(text, m.end() + switch.end())):
+    for label, statements, _, _raw in _cases(_block(text, m.end() + switch.end())):
         names, keys, expr = [], [], None
         ok = True
         for s in statements:
