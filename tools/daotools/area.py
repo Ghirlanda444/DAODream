@@ -513,7 +513,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     door's origin is its hinge and the panel runs along its local X."""
     warnings: list[str] = []
     npc_tags, npc_names, npc_convs, npc_female, npc_pose, npc_active = [], [], [], [], [], []
-    npc_team, npc_scale, npc_hostile, npc_rank = [], [], [], []
+    npc_team, npc_scale, npc_hostile, npc_rank, npc_dead = [], [], [], [], []
     npc_health, npc_attack, npc_defense, npc_damage, npc_dscale = [], [], [], [], []
     npc_ambient, npc_ambient_prefix = [], []
     creatures = list(are_root.get("CreatureList") or [])
@@ -545,6 +545,9 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         npc_female.append(1 if look.get("Gender") == 2 else 0)
         npc_active.append(1 if c.get("Active") else 0)  # inactive ones wait for a plot to show them
         npc_team.append(team)
+        # Bodies: the game kills a creature whose template or instance sets CREATURE_SPAWN_DEAD.
+        spawn_dead = {v.get("Name"): v.get("Value") for src in (utc, c) for v in src.get("VarTable") or []}
+        npc_dead.append(1 if spawn_dead.get("CREATURE_SPAWN_DEAD") == 1 else 0)
         # Greybox stand-ins: a mannequin, smaller for dwarves and animals (critters such as
         # giant rats smallest, other animals such as the mabari bigger).
         race, rank = utc.get("Race"), int(utc.get("Rank") or 0)
@@ -632,6 +635,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcFemale": npc_female,
         "NpcPose": npc_pose,
         "NpcActive": npc_active,
+        "NpcDead": npc_dead,
         "NpcTeam": npc_team,
         "NpcScale": npc_scale,
         "NpcHostile": npc_hostile,
@@ -669,7 +673,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
                     "TalkingCreatures": sum(1 for c in npc_convs if c), "TeamOnly": sum(1 for c, t in zip(npc_convs, npc_team) if not c and t != NO_TEAM),
                     "Ambient": sum(1 for f in npc_ambient[0::4] if int(f) & ambient.ENABLED) if ambient_tables else 0,
                     "Teams": len({t for t in npc_team if t != NO_TEAM}),
-                    "Inactive": npc_active.count(0),
+                    "Inactive": npc_active.count(0), "Dead": sum(npc_dead),
                     "OtherCreatures": sum(1 for c, t in zip(npc_convs, npc_team) if not c and t == NO_TEAM),
                     "Waypoints": len(wp_tags), "Doors": len(door_tags),
                     "Solids": len(solid_boxes) // 13, "DoorwaysCut": cut,

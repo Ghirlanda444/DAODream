@@ -7,10 +7,13 @@ cases are a short list of helper calls. This turns each case into actions:
   1 jump      UT_LocalJump(oCreature, WAYPOINT)        target tag, waypoint tag
   2 talk      UT_Talk(oCreature, ...)                  target tag
   3 active    WR_SetObjectActive(oObject, TRUE/FALSE)  target tag, 1/0
-  4 setflag   WR_SetPlotFlag(PLT_NAME, FLAG, TRUE/FALSE)   "GUID:FLAG", 1/0
+  4 setflag   WR_SetPlotFlag(PLT_NAME, FLAG, TRUE/FALSE)   "GUID:FLAG", 1/0; target "force"
+              when the call asks for the plot's script (4th argument TRUE): its actions
+              run again even if the flag is already set
   5 autosave  DoAutoSave()
   6 walk      AddCommand/WR_AddCommand(oCreature, CommandMoveToObject(oWP, bRun))   target tag,
-              CommandMoveToLocation(GetLocation(oWP), bRun), UT_QuickMoveObject    waypoint tag, run 1/0
+              CommandMoveToLocation(GetLocation(oWP), bRun), UT_QuickMoveObject,   waypoint tag, run 1/0
+              UT_QuickMove(TAG, WAYPOINT, bRun)
   8 party     UT_HireFollower, SetFollowerRecruited, SetFollowerInParty,       target tag, 1 join
               AddNonPartyFollower / UT_FireFollower, Party_SetFollowerInCamp     0 leave
   7 door      SetPlaceableActionResult(oDoor, PLACEABLE_ACTION_X, TRUE)        target tag, verb:
@@ -26,7 +29,10 @@ creature with its team (area.py exports TeamId).
 Events: a creature script's EVENT_TYPE_DEATH branches `if (sTag == CONST)` become
 the key "death:<tag>", and an area script's EVENT_TYPE_TEAM_DESTROYED cases
 (`switch (nTeamID)`) the key "teamdead:<id>", in the same table; Unreal runs
-them when that creature dies or the last member of that team does.
+them when that creature dies or the last member of that team does. A door's
+script (EVENT_TYPE_USE) gives "open:<tag>" for each `if (sTag == X)` in its
+DoorOpened helper, run when the player opens that door, and "unlock:<tag>" for
+each one under PLACEABLE_ACTION_UNLOCK, run when the player tries it locked.
 
 Case fall-through (a case without `break`) is followed, as the game does.
 Anything else in a case is listed under "Skipped" so coverage is visible.
@@ -289,7 +295,8 @@ def _resolver(text: str, plots_by_name: dict[str, dict], consts: dict):
             fid = {n: f for f, n in target["flags"].items()}.get(args[1]) if target else None
             if fid is None:
                 return ("skip", f"{fn}({args[0]}, {args[1]}): unknown plot or flag")
-            return {"kind": SETFLAG, "target": "", "arg": f"{target['guid']}:{fid}", "value": int(value(args[2]) == 1)}
+            force = "force" if len(args) > 3 and value(args[3]) == 1 else ""
+            return {"kind": SETFLAG, "target": force, "arg": f"{target['guid']}:{fid}", "value": int(value(args[2]) == 1)}
         if fn == "DoAutoSave":
             return {"kind": AUTOSAVE, "target": "", "arg": "", "value": 1}
         if fn in ("AddCommand", "WR_AddCommand") and len(args) >= 2 and args[0] in objects:
@@ -341,6 +348,9 @@ def _resolver(text: str, plots_by_name: dict[str, dict], consts: dict):
             if not (isinstance(area, str) and isinstance(wp, str)) or area == args[0] or wp == args[1]:
                 return ("skip", f"{fn}({args[0]}, {args[1]}): unknown area or waypoint")
             return {"kind": TRANSITION, "target": wp, "arg": area, "value": 1}
+        if fn == "UT_QuickMove" and len(args) >= 2 and isinstance(value(args[0]), str) and value(args[0]) != args[0]:
+            return {"kind": WALK, "target": value(args[0]), "arg": str(value(args[1])),
+                    "value": int(len(args) > 2 and value(args[2]) == 1)}
         if fn == "UT_QuickMoveObject" and len(args) >= 2 and args[0] in objects:
             return {"kind": WALK, "target": objects[args[0]], "arg": str(value(args[1])),
                     "value": int(len(args) > 2 and value(args[2]) == 1)}
@@ -477,6 +487,22 @@ def translate_events(script: str, plots_by_name: dict[str, dict], consts: dict, 
                 skipped.append(f"{key}: {event} branches on game state ({branches[0]}), left out")
                 continue
             cases[key] = cases.get(key, []) + _run_text(action, _block(text, m.end()), key, skipped)
+    # A door's script: what opening it, or trying it while locked, does, by the door's tag.
+    def tag_branches(items):
+        for it in items:
+            if isinstance(it, tuple):
+                t = re.fullmatch(r"\s*sTag\s*==\s*(\w+|\"[^\"]*\")\s*", it[1])
+                if t:
+                    yield value(t.group(1)), it[2]
+                yield from tag_branches(it[3])
+    for verb, pattern in (("open", r"\bvoid\s+DoorOpened\s*\([^)]*\)\s*\{"),
+                          ("unlock", r"case\s+PLACEABLE_ACTION_UNLOCK\s*:")):
+        m = re.search(pattern, text)
+        if not m or "EVENT_TYPE_USE" not in text:
+            continue
+        for tag, then_items in tag_branches(_items(_block(text, m.start()))):
+            key = f"{verb}:{tag}"
+            cases[key] = cases.get(key, []) + _emit(action, then_items, key, skipped)
     return {"cases": cases, "skipped": skipped}
 
 
@@ -669,14 +695,14 @@ def export(src_dir: str | Path, plots: dict[str, dict], only: str = "*", true_fl
         if not _matches(path.stem, only):
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
-        if not any(e in text for e in ("EVENT_TYPE_DEATH", "EVENT_TYPE_TEAM_DESTROYED", "EVENT_TYPE_ENTER",
+        if not any(e in text for e in ("EVENT_TYPE_DEATH", "EVENT_TYPE_TEAM_DESTROYED", "EVENT_TYPE_ENTER", "EVENT_TYPE_USE",
                                         "EVENT_TYPE_AREALOAD_PRELOADEXIT", "EVENT_TYPE_AREALOAD_POSTLOADEXIT")):
             continue
         t = translate_events(text, by_name, consts, path.stem)
         if not t["cases"]:
             continue
         for key, acts in t["cases"].items():
-            if not acts:
+            if not acts or key in keys:  # several door scripts share events; Unreal runs the first
                 continue
             keys.append(key)
             starts.append(len(kinds))

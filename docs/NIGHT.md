@@ -23,7 +23,12 @@ floor boxes, 7,596 kit solids (328 kit ceilings and 4,801 lids among them),
 them, most of them Howe's soldiers in 22 teams), 50 waypoints, 26 doors and
 15 triggers. Every creature is spawned now, also those with no conversation,
 team or ambient behaviour (the warning servant, the bodies): plots move and
-kill them.
+kill them. The game's bodies (`bhn200cr_guard_dead`, `bhn200cr_servant_*_dead`)
+are templates with `CREATURE_SPAWN_DEAD` set; the export lists them in
+`NpcDead` and the loader kills them once spawned (`KillDead`). A killed
+creature goes limp: its capsule stops colliding, its mesh becomes a ragdoll
+(the mannequin's death clips are only the start of a fall) with a push at the
+chest so it topples, and its name is hidden.
 
 `L_CastleNight` is a copy of `L_CastleCousland` whose `BP_AreaLoader` loads
 the night area, lit by a dim blue moon (directional light 0.6 at 35 degrees,
@@ -57,13 +62,18 @@ Checked in Play:
    defined flag now computed), then a servant bursts in
    (`BHN_DOG_WARNING_SERVANT_ENTERS`) and is killed as two of Howe's men appear
    and attack (`BHN_DOG_WARNING_SERVANT_DIES`: team 16, `KillCreature`); the
-   dog joins your party.
+   dog joins your party (also when arriving from the day, where "dog
+   recruited" is already set: the script forces it to run again).
 3. The two soldiers dead (team 16 destroyed): Mother comes out and talks
    ("Darling! I heard fighting outside...").
 4. Walking upstairs into `bhn200tr_howe_upstairs`: the two soldiers at
    Mother's door turn hostile (`UT_TeamGoesHostile`) and one shouts.
 
-Further on, the triggers and team events bring out Howe's men in the east
+Opening the bedroom hall door (unlocked when Mother tells you to go
+downstairs) brings out Howe's men by Landra's room; when they are dead, the
+bedroom hall exit and Landra's door unlock (`teamdead:9`). Opening the dining
+hall, chapel and main hall doors starts those fights (`open:<tag>`, see
+`docs/SCRIPTS.md`). Further on, the triggers and team events bring out Howe's men in the east
 hall, the kitchen, the main hall and the chapel, servants flee
 (`UT_ExitDestroy`), and Mother remarks on the rooms you pass (talk triggers).
 

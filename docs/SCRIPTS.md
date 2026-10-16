@@ -112,7 +112,7 @@ py -m daotools unreal plots --src extracted/scripts/src --plots extracted/plots/
 | 1 jump | `UT_LocalJump(creature, waypoint)` | teleport the creature to the waypoint's pose |
 | 2 talk | `UT_Talk(creature, ...)` | start its conversation, after the current one ends; a speaker more than 6 m away first jogs over to 1.5 m from the player (the game placed extra copies of Gilmore at each doorway for this) |
 | 3 active | `WR_SetObjectActive(object, bool)` | show or hide it (hidden: no collision, cannot talk) |
-| 4 setflag | `WR_SetPlotFlag(PLT_X, FLAG, bool)` | set another flag, running that flag's actions too |
+| 4 setflag | `WR_SetPlotFlag(PLT_X, FLAG, bool)` | set another flag, running that flag's actions the first time it becomes true; when the call asks for the plot's script (4th argument `TRUE`, target `force`) its actions run again even if it is already set, as in the game (the night's "dog recruited" was already true from the day) |
 | 5 autosave | `DoAutoSave()` | logged only; there are no saves yet |
 | 6 walk | `AddCommand`/`WR_AddCommand(creature, CommandMoveToObject/Location(...))`, `UT_QuickMoveObject` | walk (or jog, when the script runs) to the waypoint, then face its direction |
 | 8 party | `UT_HireFollower`, `SetFollowerRecruited`, `SetFollowerInParty`, `AddNonPartyFollower` / `UT_FireFollower`, `Party_SetFollowerInCamp` | join or leave the party: follow the player and fight beside them (`docs/COMBAT.md`) |
@@ -157,6 +157,15 @@ people Howe's men have killed lie where they fell). A load handler
 that branches on game state (anything but its "once" and debug checks) is left
 out whole, since run unconditionally it would misplace people. A trigger
 script's `EVENT_TYPE_ENTER` case becomes `enter:<script>` (see Triggers below).
+A door's script (`bhn000ip_door_large_break`) gives `open:<tag>` for each
+`if (sTag == X)` in its `DoorOpened` helper, which `BP_Door` runs when the
+player opens that door (opening the bedroom hall releases Howe's men by
+Landra's room, whose deaths unlock the way down; the dining hall, chapel and
+main hall doors release their fights; the servants' doors start their scenes),
+and `unlock:<tag>` for each one under `PLACEABLE_ACTION_UNLOCK`, run when the
+player tries that door while it is locked (the treasury door starts Mother's
+talk). Several door scripts share these events; the first one is kept.
+`UT_QuickMove(TAG, WAYPOINT, bRun)` is a walk.
 Calls to helper functions defined in the same script (`HoweWarriorStartMother()`)
 are expanded in place, objects re-assigned from one tag to the next
 (`oSoldier = GetObjectByTag(...)`) are followed statement by statement, and of
@@ -231,7 +240,11 @@ size comes from the door's model when `unreal area` gets `--game` (see
 all others 3 x 3.6 m. The panel spans across the door's facing
 direction; closed, it sits in the wall line between the greybox walls.
 Within 2.5 m the player sees "E: open", "E: close" or "Locked", and E opens or
-closes it unless a character is close enough to talk (then E talks). Plot
+closes it. When a door and people you can talk to are all in reach, E goes to
+the closest one; party members count as 2.5 m further away than they are, so
+a door or a stranger wins over the companion at your side, and you talk to a
+companion only when nothing else is near. A locked door runs its `unlock:`
+event instead of opening. Plot
 actions find doors by tag; several ordinary doors share one tag
 (`bhn100ip_dr_lg_pt`), but every door a plot script names has its own.
 

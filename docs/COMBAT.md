@@ -74,7 +74,10 @@ py -m daotools unreal conv extracted/dog/json/al_bhn01al_castle_cousland/dog00cr
   stops 3 m away, reappears 2 m behind the player when more than 25 m off (the
   game puts a hired follower at your side), and every 0.5 s asks the plot
   manager for the nearest live hostile within 12 m of itself (`AssignTarget`,
-  the same distance bids as the player's attack). It goes to that target and
+  the same distance bids as the player's attack; a hostile another party member
+  is already fighting bids 3 m further away, so the dog and Gilmore pick
+  different rats when there is a choice). Party members within 1.1 m of each
+  other step apart (`Separate`). It goes to that target and
   attacks every 1.5 s with its own stats. Party members stand still during conversations;
   you can still talk to them.
 

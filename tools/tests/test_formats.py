@@ -416,7 +416,7 @@ class AreaTests(unittest.TestCase):
                     "ZOrientation": 0, "WOrientation": 1}]}
         templates = {"bhn_father": {"DialogResRef": "BHN_Father", "LocName": {"strref": 2, "text": "Bryce"},
                                     "Appearance Data": {"Gender": 1}},
-                     "bhn_rat": {"DialogResRef": ""},
+                     "bhn_rat": {"DialogResRef": "", "VarTable": [{"Name": "CREATURE_SPAWN_DEAD", "Value": 1}]},
                      "bhn_rat_giant": {"DialogResRef": "", "Race": 5, "Rank": 1, "GroupId": 1,
                                        "LocName": {"strref": 3, "text": "Giant Rat"}}}
         out = area.area(are, {"3020": {"3110": self.nav}}, templates, start="start")
@@ -426,6 +426,7 @@ class AreaTests(unittest.TestCase):
                           ["bhn_father", "", "bhn_father", ""], [0, 0, 0, 0]))
         self.assertEqual(out["NpcPose"][:4], [1050.0, -2050.0, 0.0, -90.0])
         self.assertEqual(out["NpcActive"][2:], [0, 0])  # inactive ones are kept, hidden until a plot shows them
+        self.assertEqual(out["NpcDead"], [0, 1, 0, 0])  # a body: its template spawns it dead
         self.assertEqual((out["NpcTeam"][2:], out["NpcScale"][2:]), ([-1, 1], [1.0, 0.35]))
         self.assertEqual((out["NpcHostile"][2:], out["NpcRank"][2:]), ([0, 1], [0, 1]))
         self.assertEqual((out["Summary"]["TalkingCreatures"], out["Summary"]["TeamOnly"]), (2, 1))
@@ -800,11 +801,68 @@ class ConditionTests(unittest.TestCase):
         acts = [(a["kind"], a["target"], a["arg"], a["value"]) for a in t["cases"]["enter:my_trigger"]]
         self.assertEqual(acts, [
             (14, "1", "FFFF:6", 3),        # unless READY: skip the two actions and the skip
-            (4, "", "FFFF:7", 1), (2, "dad", "", 1),
+            (4, "force", "FFFF:7", 1),     # 4th argument TRUE: run its script again
+            (2, "dad", "", 1),
             (15, "", "", 1),                # READY: skip the else
             (2, "guard", "", 1),
             (14, "0", "FFFF:7", 1),         # only while ENTERED is not set
             (2, "dad", "", 1)])
+
+
+class DoorEventTests(unittest.TestCase):
+    # Made-up door script in the shape of the game's, not game text.
+    PLOTS = {"my_mother": {"guid": "EEEE", "name": "my_mother", "flags": {3: "TOLD", 5: "BANTER"}}}
+
+    def test_opening_and_unlocking(self):
+        script = """
+            void DoorOpened(string sTag)
+            {
+                if (sTag == "hall_door")
+                {
+                    UT_TeamAppears(TEAM_HALL);
+                }
+                if (sTag == SERVANT_DOOR)
+                {
+                    object oCook = UT_GetNearestCreatureByTag(oPC, "cook");
+                    UT_QuickMove("maid", "wp_maid", TRUE);
+                    UT_Talk(oCook, oPC);
+                }
+            }
+            void main()
+            {
+                switch (GetEventType(ev))
+                {
+                    case EVENT_TYPE_USE:
+                    {
+                        switch (GetPlaceableAction(OBJECT_SELF))
+                        {
+                            case PLACEABLE_ACTION_UNLOCK:
+                            {
+                                if (sTag == "stairs") { }
+                                else if (sTag == "vault")
+                                {
+                                    if (!WR_GetPlotFlag(PLT_MY_MOTHER, TOLD))
+                                        WR_SetPlotFlag(PLT_MY_MOTHER, BANTER, TRUE);
+                                }
+                                break;
+                            }
+                            case PLACEABLE_ACTION_OPEN:
+                            {
+                                DoorOpened(sTag);
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        """
+        t = plotlogic.translate_events(script, self.PLOTS, {"SERVANT_DOOR": "servant_door", "TEAM_HALL": 9}, "my_door")
+        acts = {k: [(a["kind"], a["target"], a["arg"], a["value"]) for a in v] for k, v in t["cases"].items()}
+        self.assertEqual(acts["open:hall_door"], [(3, "team:9", "", 1)])
+        self.assertEqual(acts["open:servant_door"], [(6, "maid", "wp_maid", 1), (2, "cook", "", 1)])
+        self.assertEqual(acts["unlock:vault"], [(14, "0", "EEEE:3", 1), (4, "", "EEEE:5", 1)])
+        self.assertEqual(acts["unlock:stairs"], [])
 
 
 class ToolsetTests(unittest.TestCase):
