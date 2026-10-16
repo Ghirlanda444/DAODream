@@ -38,6 +38,10 @@ DoorOpened helper, run when the player opens that door, and "unlock:<tag>" for
 each one under PLACEABLE_ACTION_UNLOCK, run when the player tries it locked. A door
 script with no tag test whose use branches on the door's area gives
 "open:<script>@<area>", which Unreal runs the first time that door opens there.
+A trigger script ("enter:<script>") that destroys other triggers it finds by tag
+(the day castle's start and jump-Gilmore triggers, one per doorway) ends with
+setting the flag "done:enter:<script>": Unreal then skips every trigger with
+that event, as the game has removed them.
 
 Case fall-through (a case without `break`) is followed, as the game does.
 Anything else in a case is listed under "Skipped" so coverage is visible.
@@ -527,7 +531,10 @@ def translate_events(script: str, plots_by_name: dict[str, dict], consts: dict, 
                 # what it does depends on the game's state; run unconditionally it would misplace people
                 skipped.append(f"{key}: {event} branches on game state ({branches[0]}), left out")
                 continue
-            cases[key] = cases.get(key, []) + _run_text(action, _block(text, m.end()), key, skipped)
+            block = _block(text, m.end())
+            cases[key] = cases.get(key, []) + _run_text(action, block, key, skipped)
+            if key.startswith("enter:") and _destroys_triggers(block):
+                cases[key].append({"kind": SETFLAG, "target": "", "arg": f"done:{key}", "value": 1})
     # A door's script: what opening it, or trying it while locked, does, by the door's tag.
     def tag_branches(items):
         for it in items:
@@ -570,6 +577,13 @@ def translate_events(script: str, plots_by_name: dict[str, dict], consts: dict, 
             key = f"{verb}:{tag}"
             cases[key] = cases.get(key, []) + _emit(action, then_items, key, skipped)
     return {"cases": cases, "skipped": skipped}
+
+
+def _destroys_triggers(block: str) -> bool:
+    """Whether a trigger's enter handler destroys other objects it looked up by tag
+    (`WR_DestroyObject(x)` or `x[i]` with `x = [UT_]GetNearestObjectByTag(...)`)."""
+    found = {m.group(1) for m in re.finditer(r"\b(\w+)\s*=\s*(?:UT_)?GetNearestObjectByTag\s*\(", block)}
+    return any(m.group(1) in found for m in re.finditer(r"WR_DestroyObject\s*\(\s*(\w+)", block))
 
 
 _AREA_TEST = re.compile(r"GetTag\s*\(\s*GetArea\s*\(\s*OBJECT_SELF\s*\)\s*\)\s*==\s*(\w+|\"[^\"]*\")")

@@ -254,7 +254,15 @@ two), the flags it sets (`TRIG_TALK_SET_*`, two) and whether it repeats.
 each; four times a second it checks whether the player is inside, and on
 stepping in runs the event once, or for a talk trigger checks the flags, sets
 its flags and has the speaker talk. Sound and reverb zones (no template) are
-skipped. The day castle has 22 (Fergus, the cook and the gambling guard
+skipped. A trigger script that removes the other triggers it finds by tag (the
+day castle's two doorway pairs: `bhn100tr_jump_gilmore` moves Gilmore to
+`bhn100wp_gilmore_south` and removes the other jump trigger, `bhn100tr_start`
+has him talk and removes every start trigger) ends with the flag
+`done:enter:<script>`, and `BP_Trigger` skips any trigger whose event has it.
+Before, the second doorway moved Gilmore back to the south waypoint and had him
+talk again, even with him in your party. Both the game's jump branches send
+him to the south waypoint (so from the north doorway he jogs about 27 m to
+you); that is the game's script, kept as is. The day castle has 22 (Fergus, the cook and the gambling guard
 calling out as you pass, the night transition), the night castle 15 (Mother
 remarking on each room, Howe's men waiting upstairs, in the kitchen and the
 east hall).

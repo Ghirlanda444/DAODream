@@ -810,6 +810,33 @@ class ConditionTests(unittest.TestCase):
             (2, "guard", "", 1),
             (14, "0", "FFFF:7", 1),         # only while ENTERED is not set
             (2, "dad", "", 1)])
+        # No other trigger destroyed: nothing marks the event done.
+        self.assertNotIn("done:", json.dumps(t["cases"]))
+
+    def test_trigger_removes_its_siblings(self):
+        # Made-up trigger script in the shape of the game's doorway triggers, not game text.
+        script = """
+            void main()
+            {
+                switch (nEventType)
+                {
+                    case EVENT_TYPE_ENTER:
+                    {
+                        object oCreature = GetEventCreator(ev);
+                        UT_Talk(oKnight, oCreature);
+                        object[] arOthers = GetNearestObjectByTag(oCreature, GetTag(OBJECT_SELF), OBJECT_TYPE_ALL, 10);
+                        int i;
+                        for (i = 0; i < GetArraySize(arOthers); i++)
+                            WR_DestroyObject(arOthers[i]);
+                        WR_DestroyObject(OBJECT_SELF);
+                        break;
+                    }
+                }
+            }
+        """
+        t = plotlogic.translate_events(script.replace("oKnight", '"knight"'), self.PLOTS, {}, "my_door_trigger")
+        acts = [(a["kind"], a["target"], a["arg"], a["value"]) for a in t["cases"]["enter:my_door_trigger"]]
+        self.assertEqual(acts, [(2, "knight", "", 1), (4, "", "done:enter:my_door_trigger", 1)])
 
 
 class DoorEventTests(unittest.TestCase):
