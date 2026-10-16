@@ -110,7 +110,7 @@ py -m daotools unreal plots --src extracted/scripts/src --plots extracted/plots/
 | Kind | Script call | Unreal |
 | --- | --- | --- |
 | 1 jump | `UT_LocalJump(creature, waypoint)` | teleport the creature to the waypoint's pose |
-| 2 talk | `UT_Talk(creature, ...)` | start its conversation, after the current one ends |
+| 2 talk | `UT_Talk(creature, ...)` | start its conversation, after the current one ends; a speaker more than 6 m away first jogs over to 1.5 m from the player (the game placed extra copies of Gilmore at each doorway for this) |
 | 3 active | `WR_SetObjectActive(object, bool)` | show or hide it (hidden: no collision, cannot talk) |
 | 4 setflag | `WR_SetPlotFlag(PLT_X, FLAG, bool)` | set another flag, running that flag's actions too |
 | 5 autosave | `DoAutoSave()` | logged only; there are no saves yet |
