@@ -17,7 +17,7 @@ py -m daotools unreal area extracted/human_noble/json/al_bhn02al_castle_after_si
 
 Howe's war dogs use generic templates (`dog_mabari_*`), pulled on their own.
 The mabari is a party member the game brings from the day, not part of the
-night area, so `--add-creature` puts him in your bedroom. The export has 967
+night area, so `--add-creature` puts him in your bedroom. The export has 1,377
 floor boxes, 7,596 kit solids (328 kit ceilings and 4,801 lids among them),
 130 lights, 95 creatures (71 hidden until the scripts call
 them, most of them Howe's soldiers in 22 teams), 50 waypoints, 26 doors and

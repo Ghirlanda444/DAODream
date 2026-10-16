@@ -373,7 +373,7 @@ class AreaTests(unittest.TestCase):
            "3114": [5, 5, -1, -1, 5, 5, 15, -1, -1, -1, -1, -1]}
 
     def test_floor_plan(self):
-        boxes = area.floor_plan(self.nav)
+        boxes = area.floor_plan(self.nav, fill=0)
         rows = [boxes[i:i + 7] for i in range(0, len(boxes), 7)]
         floors = sorted(r for r in rows if r[6] == 0)
         # The 2 x 2 floor merges into one box; Y is flipped, so y 20..22 m becomes -2200..-2000 cm.
@@ -382,6 +382,13 @@ class AreaTests(unittest.TestCase):
         walls = [r for r in rows if r[6] == 1]
         self.assertTrue(walls)
         self.assertTrue(all(r[5] >= 300.0 for r in walls))  # 3 m above the floor beside them
+
+    def test_floor_fills_blocked_cells(self):
+        # One ring: the blocked cells beside the floor get the lowest neighbouring height,
+        # so the corner cell (3, 2), two steps away, stays open.
+        filled = area._filled_floor(self.nav, fill=1)
+        self.assertEqual(filled, [0, 0, 0, None, 0, 0, 16, 16, 0, 0, 16, None])
+        self.assertEqual(area._filled_floor(self.nav)[11], 16)  # the default reaches it
 
     def test_yaw_and_area(self):
         # Game yaw 0 faces +Y; Bryce's -80 degrees faces +X, which is -10 degrees in Unreal.
@@ -429,7 +436,7 @@ class AreaTests(unittest.TestCase):
                          (["bhn_door_cellar"], [1200.0, -2000.0, 0.0, -90.0], [1], [160.0, 260.0], [1]))
         self.assertEqual((out["Start"], out["Labels"], out["LabelPos"]),
                          ([1100.0, -2100.0, 0.0, -90.0], ["Main Hall"], [1100.0, -2100.0, 0.0]))
-        self.assertEqual(out["Summary"]["Floors"], 2)
+        self.assertEqual(out["Summary"]["Floors"], 3)  # blocked cells filled in: three rectangles at 0 m and 1 m
         self.assertEqual(out["Warnings"], [])
 
 

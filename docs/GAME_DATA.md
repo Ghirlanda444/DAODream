@@ -323,7 +323,13 @@ replace them; `--game` first pulls the kit pieces' `.phy` and `.mmh` into
 a wall (one guard sits on a bench, one waypoint is in a plant), and the
 castle seen from above shows its rooms and corridors.
 
-Castle Cousland: 1,003 floor boxes, 1,164 wall, 969 prop, 201 blocker and
+With `--rooms`, blocked navigation cells near the floor (under walls,
+furniture and door frames) also get floor, at their lowest walkable
+neighbour's height, up to 3 m (6 cells) from walkable floor
+(`area._filled_floor`): where the kit has no solid there (a dropped prop, a cut
+doorway, an open passage) there was a hole the player fell through.
+
+Castle Cousland: 1,402 floor boxes, 1,164 wall, 969 prop, 201 blocker and
 284 ceiling boxes from the kit (320 hanging props dropped, 28 door frames),
 4,679 lids, 85 lights (9 moved under a ceiling), 36 talking
 characters

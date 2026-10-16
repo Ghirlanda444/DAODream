@@ -91,18 +91,48 @@ def _runs(width: int, height: int, key) -> list[tuple[int, int, int, int, object
     return rects
 
 
-def floor_plan(nav: dict) -> list[float]:
+FLOOR_FILL_CELLS = 6  # blocked cells within 3 m of the floor get floor under them too
+
+
+def _filled_floor(nav: dict, fill: int = FLOOR_FILL_CELLS) -> list:
+    """Floor height per cell (1/16 m), or None: walkable cells keep theirs, and blocked
+    cells up to FLOOR_FILL_CELLS from the floor take their lowest walkable neighbour's.
+    Blocked cells are under walls, furniture and door frames; when the level kit has no
+    solid there (a dropped prop, a cut doorway) the player would otherwise fall through."""
+    w, h = nav[NAV_WIDTH], nav[NAV_HEIGHT]
+    cls, fz = nav[NAV_CLASS], nav[NAV_FLOOR_Z]
+    filled = [fz[k] if cls[k] >= 0 else None for k in range(w * h)]
+    for _ in range(fill):
+        ring = {}
+        for j in range(h):
+            for i in range(w):
+                if filled[j * w + i] is not None:
+                    continue
+                near = [filled[b * w + a] for a, b in ((i - 1, j), (i + 1, j), (i, j - 1), (i, j + 1))
+                        if 0 <= a < w and 0 <= b < h and filled[b * w + a] is not None]
+                if near:
+                    ring[j * w + i] = min(near)
+        if not ring:
+            break
+        for k, z in ring.items():
+            filled[k] = z
+    return filled
+
+
+def floor_plan(nav: dict, fill: int = FLOOR_FILL_CELLS) -> list[float]:
     """Boxes as a flat list, 7 numbers each: x0, y0, z0, x1, y1, z1 (Unreal cm)
-    and kind (0 floor, 1 wall)."""
+    and kind (0 floor, 1 wall). Floors also cover blocked cells near the floor
+    (see _filled_floor)."""
     w, h, cell = nav[NAV_WIDTH], nav[NAV_HEIGHT], nav[NAV_CELL]
     ox, oy = nav[NAV_ORIGIN][0], nav[NAV_ORIGIN][1]
     cls, fz = nav[NAV_CLASS], nav[NAV_FLOOR_Z]
+    filled = _filled_floor(nav, fill)
 
     def walkable(i, j):
         return 0 <= i < w and 0 <= j < h and cls[j * w + i] >= 0
 
     def floor_key(i, j):
-        return fz[j * w + i] if walkable(i, j) else None
+        return filled[j * w + i] if 0 <= i < w and 0 <= j < h else None
 
     def wall_key(i, j):
         if walkable(i, j):
