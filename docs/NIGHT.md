@@ -12,7 +12,8 @@ py -m daotools pull "<game>" "dog_mabari_*" --out extracted/dog
 py -m daotools unreal area extracted/human_noble/json/al_bhn02al_castle_after_sie/bhn200ar_castle_after_siege.are.json `
   --layout "<game>/packages/core/env/hrt201n.arl" --pull extracted --start bhn200wp_pc_bedroom `
   --rooms extracted/layouts/hrt201n_pull/json --kit extracted/kit/json --game "<game>" `
-  --add-creature gen00fl_dog@bhn200wp_dog_bedroom --out extracted/ue/areas/bhn200ar_castle_after_siege.json
+  --add-creature gen00fl_dog@bhn200wp_dog_bedroom --fill-lights 0.25 `
+  --out extracted/ue/areas/bhn200ar_castle_after_siege.json
 ```
 
 Howe's war dogs use generic templates (`dog_mabari_*`), pulled on their own.
@@ -37,7 +38,16 @@ keeps the shadows readable. An unbound post-process volume (`NightGrade`)
 fixes the exposure at -1.5 EV, so the eye does not adapt the night into day,
 and takes some colour out. Under the roofs (`docs/ART.md`) the moon only
 reaches what is still open; the rooms are lit by the game's 130 night lights,
-mostly torches, at `LightScale` 20. Its loader's
+mostly torches, at `LightScale` 20. The game also lit its areas with baked
+ambient light, which we do not have: about half the walkable floor gets
+nothing from the 130 lamps, and corridors there were black. `--fill-lights
+0.25` adds 166 dim, cool fill lights (9 m radius, no shadows, 2.2 m up) on a
+5 m grid wherever the lamps do not reach the floor (`area.fill_lights`).
+Checked in Play: 27 sample spots with no lamp light went from a mean
+brightness of about 2-12 (of 255) to 30-90, the lit rooms barely changed.
+Lumen's sky light leaking and local exposure were tried first and lift the
+dark spots by only a few points, since at night there is almost no sky light
+to leak. Its loader's
 `StartFlags` (`BHN_MAIN_BATTLE_BEGUN`, `BHN_MOTHER_BATTLE_BEGUN`) are added
 quietly at load, so the level also plays when started on its own; arriving
 from the day castle they are already set.

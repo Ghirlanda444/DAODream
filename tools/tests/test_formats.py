@@ -531,6 +531,18 @@ class KitTests(unittest.TestCase):
         out, moved = area.tuck_lights(lamp + low + upstairs, ceiling)
         self.assertEqual((moved, out[2], out[9], out[16]), (1, 520.0, 300.0, 1500.0))
 
+    def test_fill_lights(self):
+        torch = [250.0, 250.0, 250.0, 600.0, 1.6, 0.9, 0.2]
+        lit = [0.0, 0.0, 0.0, 500.0, 500.0, 0.0, 0]             # 5 x 5 m under the torch
+        corridor = [3000.0, 0.0, 0.0, 4000.0, 300.0, 0.0, 0]    # 10 m of unlit corridor
+        wall = [3000.0, 300.0, 0.0, 4000.0, 320.0, 300.0, 1]    # not floor: ignored
+        fills = area.fill_lights(torch, lit + corridor + wall, 0.25)
+        self.assertEqual(len(fills) // 7, 1)                    # the first sample gets a fill, which reaches the second...
+        self.assertEqual(fills[:4], [3250.0, 150.0, 220.0, 900.0])
+        self.assertEqual(fills[4:], [0.15, 0.175, 0.25])        # ...cool, at the asked brightness
+        self.assertGreater(area.light_reach(fills, 3900.0, 150.0, 100.0), 0.0)
+        self.assertEqual(area.fill_lights(torch, lit, 0.25), [])
+
     def test_cut_doorway(self):
         wall = [0.0, 0.0, 250.0, 200.0, 20.0, 250.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0]
         out, cuts = area.cut_doorways(wall, [([50.0, 0.0, 0.0], 80.0)])

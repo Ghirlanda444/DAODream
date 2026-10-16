@@ -418,12 +418,13 @@ def cmd_unreal_area(args) -> int:
     out = area.area(are_root, layout_root, area.creature_templates(args.pull), start=args.start or "",
                     solids=solids, door_models=door_models, creature_stats=creature_stats, player=player,
                     ambient_tables=ambient_tables, trigger_templates=area.trigger_templates(args.pull),
-                    extra_creatures=[tuple(x.split("@", 1)) for x in args.add_creature or []], lights=lights)
+                    extra_creatures=[tuple(x.split("@", 1)) for x in args.add_creature or []], lights=lights,
+                    fill=args.fill_lights)
     s = out["Summary"]
     print(f"{out['Area']}: {s['Floors']} floor boxes, {s['Walls']} grid walls, {s['Solids']} kit solids "
           f"({s['DoorwaysCut']} doorways cut, {s['DoorFrames']} door frames, "
           f"{s['HangingPropsDropped']} hanging props dropped, {s['Ceilings']} ceilings, {s['Lids']} of them lids), "
-          f"{s['Lights']} lights ({s['LightsTucked']} moved under a ceiling), "
+          f"{s['Lights']} lights ({s['FillLights']} of them fills, {s['LightsTucked']} moved under a ceiling), "
           f"{s['TalkingCreatures']} talking "
           f"creatures and {s['TeamOnly']} more in {s['Teams']} teams ({s['Inactive']} hidden at first, "
           f"{s['OtherCreatures']} others, {s['Ambient']} with ambient behaviour), "
@@ -564,6 +565,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--add-creature", action="append", metavar="TEMPLATE@WAYPOINT",
                    help="spawn a creature the game brings along (a party member) at a waypoint; repeatable")
     s.add_argument("--area-level", type=int, default=1, help="the level the area scales creatures to (default 1)")
+    s.add_argument("--fill-lights", type=float, default=0.0, metavar="BRIGHTNESS",
+                   help="add dim, cool fill lights of this brightness (e.g. 0.25) where the rooms' lights do not "
+                        "reach the floor, standing in for the game's baked ambient light (night areas)")
     s.add_argument("--placeable-types", help="placeable_types.gda (else read from --game), to size doors from "
                                              "their models")
     s.add_argument("--out")

@@ -496,14 +496,54 @@ def tuck_lights(lights: list[float], solids: list[float], below: float = 30.0) -
     return out, moved
 
 
+FILL_COLOUR = (0.6, 0.7, 1.0)  # a cool, moonlit tint; scaled by the brightness asked for
+
+
+def light_reach(lights: list[float], x: float, y: float, z: float) -> float:
+    """How much of the lights (7 numbers each) reaches a point: per light, its
+    brightness (luminance of its colour) times an inverse-square-like falloff that
+    is 1 at the light and 0 at its radius."""
+    total = 0.0
+    for i in range(0, len(lights), 7):
+        lx, ly, lz, r, cr, cg, cb = lights[i:i + 7]
+        d2 = (x - lx) ** 2 + (y - ly) ** 2 + (z - lz) ** 2
+        if d2 < r * r:
+            total += (1 - d2 / (r * r)) ** 2 * (0.2126 * cr + 0.7152 * cg + 0.0722 * cb)
+    return total
+
+
+def fill_lights(lights: list[float], floors: list[float], brightness: float, *, spacing: float = 500.0,
+                height: float = 220.0, radius: float = 900.0, enough: float = 0.03) -> list[float]:
+    """Dim fill lights for the walkable floor the area's lights do not reach.
+    The game lit its areas with baked ambient light as well as its lamps; without it
+    corridors with no lamp are black at night. Every `spacing` cm on each floor box
+    (7 numbers each, kind 0), a point 1 m up that gets less than `enough` from the
+    lights (and the fills placed so far) gets a fill light `height` cm above the
+    floor, of `radius` cm, coloured FILL_COLOUR x `brightness`."""
+    fills: list[float] = []
+    colour = [round(c * brightness, 3) for c in FILL_COLOUR]
+    for i in range(0, len(floors), 7):
+        x0, y0, _, x1, y1, z, kind = floors[i:i + 7]
+        if kind != 0:
+            continue
+        nx, ny = max(1, round((x1 - x0) / spacing)), max(1, round((y1 - y0) / spacing))
+        for a in range(nx):
+            for b in range(ny):
+                x, y = x0 + (a + 0.5) * (x1 - x0) / nx, y0 + (b + 0.5) * (y1 - y0) / ny
+                if light_reach(lights, x, y, z + 100) + light_reach(fills, x, y, z + 100) < enough:
+                    fills += [round(x, 1), round(y, 1), round(z + height, 1), radius, *colour]
+    return fills
+
+
 def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start: str = "",
          solids: dict | None = None, door_models: dict[str, tuple[float, float, float]] | None = None,
          creature_stats=None, player: dict | None = None, ambient_tables: dict | None = None,
          trigger_templates: dict[str, dict] | None = None, extra_creatures: list[tuple[str, str]] = (),
-         lights: list[float] | None = None) -> dict:
+         lights: list[float] | None = None, fill: float = 0.0) -> dict:
     """The runtime area file. `solids` (kit.solids, from the layout's rooms) replaces
     the navigation grid's walls with the level kit's walls, props, blockers and
-    ceilings; `lights` (kit.lights) are the rooms' point lights.
+    ceilings; `lights` (kit.lights) are the rooms' point lights, and `fill` above 0
+    adds dim fill lights of that brightness where they do not reach (fill_lights).
     `creature_stats` (utc -> stats.stats() dict) and `player` add the game's combat
     numbers (see stats.py). `ambient_tables` (ambient.load_tables) adds what each
     creature does on its own (see ambient.py); creatures with ambient behaviour are
@@ -622,7 +662,9 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         solid_boxes += frames
         lid_boxes, lidded = lids(boxes, solid_boxes)
         solid_boxes += lid_boxes
-    lights, tucked = tuck_lights(lights or [], solid_boxes)
+    lights = list(lights or [])
+    filled = fill_lights(lights, boxes, fill) if fill > 0 else []
+    lights, tucked = tuck_lights(lights + filled, solid_boxes)
     return {
         "Format": FORMAT,
         "Area": are_root.get("Tag") or "",
@@ -679,6 +721,6 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
                     "Solids": len(solid_boxes) // 13, "DoorwaysCut": cut,
                     "HangingPropsDropped": dropped, "DoorFrames": fitted,
                     "Ceilings": sum(1 for k in solid_boxes[12::13] if k == 3), "Lids": lidded,
-                    "Lights": len(lights) // 7, "LightsTucked": tucked},
+                    "Lights": len(lights) // 7, "FillLights": len(filled) // 7, "LightsTucked": tucked},
         "Warnings": warnings,
     }
