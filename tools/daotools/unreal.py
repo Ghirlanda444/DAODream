@@ -54,13 +54,16 @@ def _plot_slot(ref: dict | None, warnings: list[str], where: str) -> tuple[str, 
     return key, test == 0, ref.get("script") or ""
 
 
-def speaker_names(tags, owner: str, search_dir: str | Path | None) -> dict[str, str]:
+def speaker_names(tags, owner: str, search_dir) -> dict[str, str]:
     """Display names for speaker tags, from <tag>.utc.json files written by
-    `daotools pull`. OWNER is the conversation owner's tag."""
+    `daotools pull` under one folder or a list of them (the first folder that
+    has a tag wins). OWNER is the conversation owner's tag."""
     names: dict[str, str] = {}
-    if not search_dir:
-        return names
-    files = {p.name.lower(): p for p in Path(search_dir).rglob("*.utc.json")}
+    dirs = [search_dir] if isinstance(search_dir, (str, Path)) else list(search_dir or [])
+    files: dict[str, Path] = {}
+    for d in dirs:
+        for p in Path(d).rglob("*.utc.json"):
+            files.setdefault(p.name.lower(), p)
     for tag in sorted(set(tags) | {owner}):
         path = files.get(f"{tag.lower()}.utc.json")
         if not path:
@@ -74,7 +77,7 @@ def speaker_names(tags, owner: str, search_dir: str | Path | None) -> dict[str, 
     return names
 
 
-def conversation(conv: dict, *, owner: str | None = None, names_dir: str | Path | None = None,
+def conversation(conv: dict, *, owner: str | None = None, names_dir=None,
                  true_flags: list[str] | None = None, plots: dict[str, dict] | None = None,
                  vo_samples: set[str] | None = None) -> dict:
     """Turn a `cnv.export` result into the runtime format.

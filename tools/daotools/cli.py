@@ -458,7 +458,14 @@ def cmd_unreal_conv(args) -> int:
     plots = plo.load_dir(args.plots) if args.plots else None
     vo_samples = fsb.FSB.open(args.vo).names() if args.vo else None
     true_flags = _true_flags(args.true_flag, plots)
-    out = unreal.conversation(conv, owner=args.owner, names_dir=args.names, true_flags=true_flags,
+    owner = args.owner
+    if not owner and args.names:
+        name = (conv.get("conversation") or "").lower()
+        users: list[str] = []
+        for d in args.names:
+            users += [t for t in origin.conversation_owners(d).get(name, []) if t not in users]
+        owner = origin.pick_owner(name, users)
+    out = unreal.conversation(conv, owner=owner, names_dir=args.names, true_flags=true_flags,
                               plots=plots, vo_samples=vo_samples)
     for w in out["Warnings"]:
         print(f"warning: {w}", file=sys.stderr)
@@ -532,9 +539,10 @@ def build_parser() -> argparse.ArgumentParser:
         dest="unreal_command", required=True)
     s = u.add_parser("conv", help="a .dlg.conv.json from pull, in the shape Unreal reads at runtime")
     s.add_argument("file")
-    s.add_argument("--owner", help="tag of the creature that owns the conversation "
-                                   "(default: the conversation name)")
-    s.add_argument("--names", help="folder searched for <tag>.utc.json to name the speakers")
+    s.add_argument("--owner", help="tag of the creature that owns the conversation (default: the "
+                                   "creature in --names whose DialogResRef is it, else its name)")
+    s.add_argument("--names", action="append",
+                   help="folder searched for <tag>.utc.json to name the speakers; repeatable")
     s.add_argument("--true-flag", action="append", metavar="GUID:FLAG|NAME",
                    help="plot flag that starts out set, e.g. GEN_GENDER_MALE (names need --plots); repeatable")
     s.add_argument("--plots", help="folder of extracted .plo files, to name the flags (FlagNames)")

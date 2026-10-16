@@ -131,6 +131,10 @@ py -m daotools fsb extract extracted/human_noble/raw/loose/bhn100cr_father.fsb `
   --out extracted/ue/vo/bhn100cr_father
 ```
 
+Without `--owner`, the owner is picked as above from the creatures under
+`--names`. Repeat `--names` when a speaker's template was pulled into another
+folder, or OWNER lines show the raw tag (the mabari, `docs/COMBAT.md`).
+
 With `--plots`, `--true-flag` takes flag names, and the output gains
 `FlagNames`: every "GUID:FLAG" key the conversation uses, with its name.
 With `--vo`, each line's `Vo` names its voice-over file; Unreal plays

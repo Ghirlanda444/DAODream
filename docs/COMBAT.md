@@ -43,7 +43,7 @@ py -m daotools pull "<game>" "gen00fl_dog*" --out extracted/dog
 py -m daotools pull "<game>" "dog00cr_main*" --out extracted/dog
 py -m daotools fsb extract extracted/dog/raw/loose/dog00cr_main.fsb --out extracted/ue/vo/dog00cr_main
 py -m daotools unreal conv extracted/dog/json/al_bhn01al_castle_cousland/dog00cr_main.dlg.conv.json `
-  --names extracted/human_noble/json --plots extracted/plots/raw --true-flag GEN_GENDER_MALE `
+  --names extracted/human_noble/json --names extracted/dog/json --plots extracted/plots/raw --true-flag GEN_GENDER_MALE `
   --vo extracted/dog/raw/loose/dog00cr_main.fsb --out extracted/ue/conversations/dog00cr_main.json
 ```
 

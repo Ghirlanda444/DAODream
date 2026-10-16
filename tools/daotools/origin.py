@@ -55,7 +55,7 @@ def conversation_owners(json_dir: str | Path) -> dict[str, list[str]]:
     return owners
 
 
-def _owner(name: str, tags: list[str]) -> str:
+def pick_owner(name: str, tags: list[str]) -> str:
     """The creature whose tag matches the conversation, else the first user."""
     for tag in tags:
         if tag.lower() == name:
@@ -80,7 +80,7 @@ def export(pull_dir: str | Path, out_dir: str | Path, *, plots: dict[str, dict] 
         bank_name = conv.get("vo_bank") if isinstance(conv.get("vo_bank"), str) else ""
         bank_path = banks.get(bank_name.lower()) if bank_name else None
         bank = fsb.FSB.open(bank_path) if bank_path else None
-        owner = _owner(name, owners.get(name, []))
+        owner = pick_owner(name, owners.get(name, []))
         rt = unreal.conversation(conv, owner=owner, names_dir=json_dir, true_flags=true_flags, plots=plots,
                                  vo_samples=bank.names() if bank else None)
         if bank_name and not bank:

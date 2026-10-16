@@ -1017,6 +1017,28 @@ class PlotTests(unittest.TestCase):
             listed = json.loads((Path(d) / "plots.json").read_text(encoding="utf-8"))
             self.assertEqual(listed["BBBB"]["flags"], {"260": "GEN_GENDER_MALE"})
 
+    def test_cli_owner_from_second_names_folder(self):
+        # The owner is the creature whose DialogResRef is the conversation, found
+        # in any --names folder (the mabari's template is pulled apart from bhn*).
+        conv = {"conversation": "pet_main", "starts": [0], "lines": [
+            {"index": 0, "kind": "npc", "text": "Woof", "speaker": "OWNER", "children": []},
+            {"index": 1, "kind": "npc", "text": "Hi", "speaker": "bhn_cook", "children": []}]}
+        with tempfile.TemporaryDirectory() as d:
+            for sub, tag, name, dialog in (("hn", "bhn_cook", "Cook", "bhn_cook"),
+                                           ("pet", "gen_pet", "Dog", "pet_main")):
+                (Path(d) / sub).mkdir()
+                (Path(d) / sub / f"{tag}.utc.json").write_text(json.dumps({"root": {
+                    "Tag": tag, "DialogResRef": dialog, "LocName": {"strref": 1, "text": name}}}),
+                    encoding="utf-8")
+            (Path(d) / "c.dlg.conv.json").write_text(json.dumps(conv), encoding="utf-8")
+            out = Path(d) / "out.json"
+            self.assertEqual(main(["unreal", "conv", str(Path(d) / "c.dlg.conv.json"),
+                                   "--names", str(Path(d) / "hn"), "--names", str(Path(d) / "pet"),
+                                   "--out", str(out)]), 0)
+            got = json.loads(out.read_text(encoding="utf-8"))
+            self.assertEqual(got["Owner"], "gen_pet")
+            self.assertEqual(got["SpeakerNames"], {"bhn_cook": "Cook", "gen_pet": "Dog", "OWNER": "Dog"})
+
 
 class PlotLogicTests(unittest.TestCase):
     # Made-up script in the shape of a plot script, not game text.
