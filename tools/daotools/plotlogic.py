@@ -751,6 +751,22 @@ def translate_defined(script: str, plot: dict, plots_by_name: dict[str, dict]) -
     return out
 
 
+def _dependency_order(entries: list[tuple[str, list]]) -> list[tuple[str, list]]:
+    """Defined-flag clauses (key, terms), stably reordered so a flag comes after every
+    defined flag its terms test. Cycles keep their original order."""
+    terms: dict[str, set[str]] = {}
+    for k, clause in entries:
+        terms.setdefault(k, set()).update(t for t, _ in clause)
+    depth: dict[str, int] = {}
+
+    def level(k: str, seen: frozenset = frozenset()) -> int:
+        if k not in depth:
+            deps = [t for t in terms.get(k, ()) if t in terms and t not in seen]
+            depth[k] = 1 + max((level(t, seen | {k}) for t in deps), default=-1)
+        return depth[k]
+    return sorted(entries, key=lambda e: level(e[0]))
+
+
 def _matches(name: str, only: str) -> bool:
     """`only` is one or more name patterns separated by commas, e.g. "bhn*,gen00pt_party"."""
     return any(fnmatch.fnmatch(name.lower(), pattern.strip().lower()) for pattern in only.split(","))
@@ -818,7 +834,10 @@ def export(src_dir: str | Path, plots: dict[str, dict], only: str = "*", true_fl
             "Skipped": t["skipped"],
         }
     # Defined flags from every plot (conversations everywhere test them): one entry per clause.
-    def_key, def_start, def_count, term_key, term_not = [], [], [], [], []
+    # Unreal clears and recomputes them in this order, so the always-true flags come first and
+    # every defined flag after the defined flags it tests (BHN_MAIN_BATTLE_BEGUN_AND_PC_MALE
+    # tests GEN_GENDER_MALE).
+    entries: list[tuple[str, list[tuple[str, bool]]]] = [(k, []) for k in true_flags or []]
     defined = {}
     for guid, plot in sorted(plots.items(), key=lambda kv: kv[1]["name"]):
         path = Path(src_dir) / f"{plot.get('script') or ''}.nss"
@@ -830,17 +849,15 @@ def export(src_dir: str | Path, plots: dict[str, dict], only: str = "*", true_fl
             if label not in flag_ids:
                 continue
             defined[f"{plot['name']}.{label}"] = [" & ".join(("!" if n else "") + k for k, n in c) for c in clauses]
-            for clause in clauses:
-                def_key.append(f"{guid}:{flag_ids[label]}")
-                def_start.append(len(term_key))
-                def_count.append(len(clause))
-                for k, n in clause:
-                    term_key.append(k)
-                    term_not.append(int(n))
-    for k in true_flags or []:  # always true: a clause with no terms
+            entries += [(f"{guid}:{flag_ids[label]}", clause) for clause in clauses]
+    def_key, def_start, def_count, term_key, term_not = [], [], [], [], []
+    for k, clause in _dependency_order(entries):  # a true flag is a clause with no terms
         def_key.append(k)
         def_start.append(len(term_key))
-        def_count.append(0)
+        def_count.append(len(clause))
+        for t, n in clause:
+            term_key.append(t)
+            term_not.append(int(n))
     return {"Format": FORMAT, "Keys": keys, "Start": starts, "Count": counts, "Kind": kinds, "Target": targets,
             "Arg": args, "Value": values,
             "DefKey": def_key, "DefStart": def_start, "DefCount": def_count, "TermKey": term_key, "TermNot": term_not,

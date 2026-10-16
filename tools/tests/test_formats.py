@@ -758,6 +758,17 @@ class NightLogicTests(unittest.TestCase):
         self.assertEqual(sorted(map(sorted, d["EITHER"])), [[("AAAA:0", False)], [("AAAA:1", False)]])
         self.assertNotIn("HURT", d)
 
+    def test_defined_flag_order(self):
+        # Unreal recomputes defined flags in order: what a flag tests must come before it.
+        entries = [("P:256", [("P:2", False), ("G:260", False)]),   # battle begun and male
+                   ("Q:257", [("P:256", False)]),                   # tests the one above
+                   ("R:258", [("P:1", True)]),
+                   ("G:260", [])]                                    # a true flag
+        order = [k for k, _ in plotlogic._dependency_order(entries)]
+        self.assertEqual(order, ["R:258", "G:260", "P:256", "Q:257"])
+        cycle = [("A:256", [("B:256", False)]), ("B:256", [("A:256", False)])]
+        self.assertEqual(len(plotlogic._dependency_order(cycle)), 2)
+
     def test_triggers(self):
         are = {"TriggerList": [
             {"Tag": "t_talk", "TemplateResRef": "t_talk", "XPosition": 1.0, "YPosition": 2.0, "ZPosition": 0.0,

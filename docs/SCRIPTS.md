@@ -280,6 +280,11 @@ all plots come out this way; the rest test injuries, items, gender or local
 variables and stay false. `--true-flag` adds flags that are always true
 (`GEN_GENDER_MALE`, as for the conversations). `BP_PlotManager` keeps them in
 its flag set: `RecomputeDefined` runs before every flag's actions and on load.
+It clears them and checks them once, in the file's order, so the export puts
+the always-true flags first and every defined flag after the defined flags it
+tests. Before, `GEN_GENDER_MALE` came last and the 15 flags that test it
+(Gilmore's night greeting `BHN_MAIN_BATTLE_BEGUN_AND_PC_MALE` among them)
+were always false, so Gilmore greeted you at night with his day line.
 
 ### Teams
 
