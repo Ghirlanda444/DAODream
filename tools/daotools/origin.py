@@ -64,9 +64,10 @@ def pick_owner(name: str, tags: list[str]) -> str:
 
 
 def export(pull_dir: str | Path, out_dir: str | Path, *, plots: dict[str, dict] | None = None,
-           true_flags: list[str] | None = None, voice: bool = True) -> dict:
+           true_flags: list[str] | None = None, voice: bool = True, names: list | None = None) -> dict:
     """Write <out>/conversations/<name>.json, <out>/vo/<bank>/*.wav and
-    <out>/conversations/index.json. Returns the index."""
+    <out>/conversations/index.json. Returns the index. `names`: more folders of
+    creature templates for speaker names (a speaker pulled on its own, the mabari)."""
     pull, out = Path(pull_dir), Path(out_dir)
     json_dir = pull / "json"
     picked, warnings = pick_conversations(json_dir)
@@ -81,7 +82,8 @@ def export(pull_dir: str | Path, out_dir: str | Path, *, plots: dict[str, dict] 
         bank_path = banks.get(bank_name.lower()) if bank_name else None
         bank = fsb.FSB.open(bank_path) if bank_path else None
         owner = pick_owner(name, owners.get(name, []))
-        rt = unreal.conversation(conv, owner=owner, names_dir=json_dir, true_flags=true_flags, plots=plots,
+        rt = unreal.conversation(conv, owner=owner, names_dir=[json_dir, *(names or [])], true_flags=true_flags,
+                                 plots=plots,
                                  vo_samples=bank.names() if bank else None)
         if bank_name and not bank:
             rt["Warnings"].append(f"voice bank {bank_name}.fsb not found")

@@ -349,7 +349,7 @@ def _true_flags(flags: list[str] | None, plots: dict | None) -> list[str]:
 def cmd_unreal_origin(args) -> int:
     plots = plo.load_dir(args.plots) if args.plots else None
     index = origin.export(args.pull, args.out, plots=plots, true_flags=_true_flags(args.true_flag, plots),
-                          voice=not args.no_vo)
+                          voice=not args.no_vo, names=args.names)
     convs = index["Conversations"]
     for name, c in convs.items():
         print(f"{name}: {c['Lines']} lines, {c['VoicedLines']}/{c['SpokenLines']} spoken lines voiced, "
@@ -555,6 +555,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--true-flag", action="append", metavar="GUID:FLAG|NAME",
                    help="plot flag that starts out set, e.g. GEN_GENDER_MALE; repeatable")
     s.add_argument("--no-vo", action="store_true", help="skip decoding the voice-over")
+    s.add_argument("--names", action="append", help="another folder of creature templates (.utc.json) for "
+                                                     "speaker names, e.g. extracted/dog/json; repeatable")
     s.add_argument("--out", required=True, help="e.g. extracted/ue")
     s.set_defaults(func=cmd_unreal_origin)
     s = u.add_parser("area", help="an area's walkable floor (from its layout's navigation grid) and "

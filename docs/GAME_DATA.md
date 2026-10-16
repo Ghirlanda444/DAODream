@@ -97,10 +97,12 @@ A whole origin in one command (16 s for Human Noble):
 
 ```powershell
 py -m daotools unreal origin extracted/human_noble --plots extracted/plots/raw `
-  --true-flag GEN_GENDER_MALE --true-flag GEN_CLASS_WARRIOR --out extracted/ue
+  --true-flag GEN_GENDER_MALE --true-flag GEN_CLASS_WARRIOR --names extracted/dog/json --out extracted/ue
 ```
 
-It writes `extracted/ue/conversations/<name>.json` for every conversation,
+`--names extracted/dog/json` names the mabari where he speaks in the origin's
+conversations (his template is pulled on its own). It writes
+`extracted/ue/conversations/<name>.json` for every conversation,
 the voice to `extracted/ue/vo/<VoBank>/<Vo>.wav`, and
 `extracted/ue/conversations/index.json` (owner, the creatures that use the
 conversation, line and voice counts, warnings). Rules:

@@ -340,7 +340,8 @@ class OriginTests(unittest.TestCase):
     def test_export_origin(self):
         def conv(text):
             return {"conversation": "bhn_guard", "vo_bank": "bhn_guard", "starts": [0], "lines": [
-                {"index": 0, "kind": "npc", "strref": 26080, "text": text, "speaker": "OWNER", "children": []}]}
+                {"index": 0, "kind": "npc", "strref": 26080, "text": text, "speaker": "OWNER", "children": [1]},
+                {"index": 1, "kind": "npc", "text": "(Bark)", "speaker": "a_dog", "children": []}]}
         with tempfile.TemporaryDirectory() as d:
             pull = Path(d) / "pull"
             for folder, text in (("al_area", "Halt."), ("designerdialogs", "Halt."), ("patch002", "Halt!")):
@@ -353,16 +354,22 @@ class OriginTests(unittest.TestCase):
                               "LocName": {"strref": 1, "text": "Guard"}}}), encoding="utf-8")
             (pull / "raw" / "loose").mkdir(parents=True)
             (pull / "raw" / "loose" / "bhn_guard.fsb").write_bytes(build_fsb([("26080_m.wav", b"\0" * 8, 0x100220)]))
+            dog = Path(d) / "dog"  # a speaker pulled on its own
+            dog.mkdir()
+            (dog / "a_dog.utc.json").write_text(json.dumps({"root": {"Tag": "a_dog", "LocName": {"text": "Dog"}}}),
+                                                encoding="utf-8")
             out = Path(d) / "ue"
-            self.assertEqual(main(["unreal", "origin", str(pull), "--no-vo", "--out", str(out)]), 0)
+            self.assertEqual(main(["unreal", "origin", str(pull), "--no-vo", "--names", str(dog),
+                                   "--out", str(out)]), 0)
             rt = json.loads((out / "conversations" / "bhn_guard.json").read_text(encoding="utf-8"))
             index = json.loads((out / "conversations" / "index.json").read_text(encoding="utf-8"))
         self.assertEqual(rt["Lines"][0]["Text"], "Halt!")  # the patch copy wins
         self.assertEqual((rt["Owner"], rt["SpeakerNames"]["OWNER"], rt["Lines"][0]["Vo"]),
                          ("bhn_guard_2", "Guard", "26080_m"))
+        self.assertEqual(rt["SpeakerNames"]["a_dog"], "Dog")
         entry = index["Conversations"]["bhn_guard"]
         self.assertEqual((entry["UsedBy"], entry["Source"], entry["SpokenLines"], entry["VoicedLines"]),
-                         (["bhn_guard_2", "bhn_guard_amb"], "patch002", 1, 1))
+                         (["bhn_guard_2", "bhn_guard_amb"], "patch002", 2, 1))
         self.assertEqual(index["Warnings"], ["bhn_guard: the 3 copies differ; using patch002"])
 
 
