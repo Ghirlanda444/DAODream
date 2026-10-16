@@ -66,14 +66,19 @@ py -m daotools unreal conv extracted/dog/json/al_bhn01al_castle_cousland/dog00cr
   nearest is hit. On a death it runs `death:<tag>`, and `teamdead:<id>` when no
   creature with that team tag is left. Fighting pauses during conversations.
   At 0 health the player is "knocked down" and healed (there is no game over
-  yet).
+  yet). Test switch: with `bOneShot` set (the default for now, to make
+  playtests quick) the player's attack kills any hostile in reach outright,
+  without the to-hit roll; `ke * ToggleOneShot` in the editor's console
+  switches it during Play.
 - The party: plot actions of kind 8 (`party`, from `UT_HireFollower`,
   `SetFollowerRecruited`, `SetFollowerInParty`, `AddNonPartyFollower` and their
   opposites `UT_FireFollower`, `Party_SetFollowerInCamp`) call
   `BP_DlgNPC.SetInParty`. A party member (`PartyTick`) follows the player and
   stops 3 m away, reappears 2 m behind the player when more than 25 m off (the
   game puts a hired follower at your side), and every 0.5 s asks the plot
-  manager for the nearest live hostile within 12 m of itself (`AssignTarget`,
+  manager for the nearest live hostile within 12 m of itself and 15 m of the
+  player (`AssignTarget`; without the second limit the dog went from one kill
+  to the next soldier near it and ended up across the castle;
   the same distance bids as the player's attack; a hostile another party member
   is already fighting bids 3 m further away, so the dog and Gilmore pick
   different rats when there is a choice). Party members within 1.1 m of each
