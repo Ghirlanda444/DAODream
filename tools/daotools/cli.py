@@ -16,7 +16,8 @@ Examples:
   daotools unreal conv <name.dlg.conv.json> --names <pull json dir> --plots <plo dir> --vo <bank.fsb>
                        --out runtime.json
   daotools unreal origin <pull dir> --plots <plo dir> --true-flag GEN_GENDER_MALE --out extracted/ue
-  daotools unreal plots --src extracted/scripts/src --plots <plo dir> --only "bhn*,gen00pt_party" --out extracted/ue/plots.json
+  daotools unreal plots --src extracted/scripts/src --plots <plo dir> --only "bhn*,gen00pt_party"
+                        --cutscenes <pull dir> --out extracted/ue/plots.json
 """
 
 from __future__ import annotations
@@ -29,7 +30,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import ambient, area, cnv, fsb, gda, kit, mfdecode, origin, plo, plotlogic, stats, toolset, unreal
+from . import ambient, area, cnv, cutscene, fsb, gda, kit, mfdecode, origin, plo, plotlogic, stats, toolset, unreal
 from .erf import ERF, ERFError, is_erf
 from .gda import GDA
 from .fields import NAMES
@@ -354,6 +355,9 @@ def cmd_unreal_origin(args) -> int:
         print(f"{name}: {c['Lines']} lines, {c['VoicedLines']}/{c['SpokenLines']} spoken lines voiced, "
               f"owner {c['Owner']}" + (f", {len(c['Warnings'])} warnings" if c["Warnings"] else ""),
               file=sys.stderr)
+    for name, c in index.get("Cutscenes", {}).items():
+        print(f"cutscene {name}: {c['Length']} s, plays " + (c["Conversation"] or "nothing (no lines, no caption)")
+              + (" (caption)" if c["Caption"] else ""), file=sys.stderr)
     for w in index["Warnings"]:
         print(f"warning: {w}", file=sys.stderr)
     print(f"{len(convs)} conversations, {sum(c['VoicedLines'] for c in convs.values())} of "
@@ -432,7 +436,9 @@ def cmd_unreal_area(args) -> int:
 
 def cmd_unreal_plots(args) -> int:
     plots = plo.load_dir(args.plots)
-    out = plotlogic.export(args.src, plots, only=args.only, true_flags=_true_flags(args.true_flag, plots))
+    cuts = cutscene.scan(args.cutscenes) if args.cutscenes else None
+    out = plotlogic.export(args.src, plots, only=args.only, true_flags=_true_flags(args.true_flag, plots),
+                           cutscenes=cuts)
     for name, p in out["Plots"].items():
         print(f"{name}: {sum(1 for a in p['Cases'].values() if a)} flags with actions, "
               f"{len(p['Skipped'])} skipped", file=sys.stderr)
@@ -568,6 +574,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--only", default="*", help="plot/script name patterns, comma separated, e.g. 'bhn*,gen00pt_party' (default: all)")
     s.add_argument("--true-flag", action="append", help="a flag that is always true (name or GUID:FLAG), e.g. "
                                                         "GEN_GENDER_MALE, as for 'unreal conv'; repeatable")
+    s.add_argument("--cutscenes", help="folder with the .cut files (a pull folder), so a loaded cutscene plays "
+                                       "the conversation its lines come from; without it only captions play")
     s.add_argument("--out")
     s.set_defaults(func=cmd_unreal_plots)
 

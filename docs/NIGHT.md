@@ -55,9 +55,15 @@ in the day castle is there in the night castle.
 
 Checked in Play:
 
-1. Load (`load:bhn200ar_castle_after_siege`): Oren, Oriana, Nan and Aldous
-   lie dead; the dog is taken out of the party.
-2. Talking to the mabari in your room: "(Angry barking and growling)" (his
+1. Load (`load:bhn200ar_castle_after_siege`): the game's opening cutscene
+   (`CUTSCENE_BHN_NIGHT_FALLS`) has no spoken line, so a caption card titled
+   "Night falls" says what has happened: Fergus has ridden south, Howe's
+   soldiers turn on the household in the dark while more storm the gates,
+   and the mabari wakes you (`docs/SCRIPTS.md`, Cutscenes). It advances by
+   itself (about 25 s); a click skips a line, Escape the rest. Oren,
+   Oriana, Nan and Aldous lie dead; the dog is taken out of the party.
+2. When the caption ends the mabari talks, as the cutscene's script asks
+   (before, you had to talk to him): "(Angry barking and growling)" (his
    night line, `DOG_DEFINED_AFTER_BATTLE_BEGUN_AND_PRELUDE_NOT_STARTED`, a
    defined flag now computed), then a servant bursts in
    (`BHN_DOG_WARNING_SERVANT_ENTERS`) and is killed as two of Howe's men appear
@@ -68,6 +74,13 @@ Checked in Play:
    ("Darling! I heard fighting outside...").
 4. Walking upstairs into `bhn200tr_howe_upstairs`: the two soldiers at
    Mother's door turn hostile (`UT_TeamGoesHostile`) and one shouts.
+5. Opening the larder (pantry) door, the first time: the finding-Bryce
+   cutscene plays as its voiced lines (Bryce, wounded, and Eleanor's cry),
+   then Bryce talks to you (`open:bhn000ip_door_pantry@bhn200ar_castle_after_siege`,
+   `docs/SCRIPTS.md`, Cutscenes). Duncan's conversation sets
+   `BHN_MAIN_CUTSCENE_FAMILY_FAREWELL`, and the farewell plays the same way
+   and ends the night (`BHN_MAIN_START_PRELUDE`); the scene from Bryce to
+   Duncan has not been played through yet.
 
 Opening the bedroom hall door (unlocked when Mother tells you to go
 downstairs) brings out Howe's men by Landra's room; when they are dead, the
@@ -79,8 +92,8 @@ hall, the kitchen, the main hall and the chapel, servants flee
 
 ## Not there yet
 
-The opening cutscene (`CUTSCENE_BHN_NIGHT_FALLS`), changing clothes and the
-chests (`Siege_UnequipPlayer`), immortal NPCs, fear effects, the dining and
+The cinematics themselves (cutscenes are shown as captions or voiced
+conversations without a camera), changing clothes and the chests (`Siege_UnequipPlayer`), immortal NPCs, fear effects, the dining and
 chapel triggers (their scripts exist but no trigger in the area uses them),
 Howe's soldiers hacking at doors (`AMBIENT_COMMAND`), and hostiles fighting
 anyone but the player and party. The soldiers hit hard: without armour the

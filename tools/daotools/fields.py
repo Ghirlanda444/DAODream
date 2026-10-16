@@ -65,6 +65,20 @@ PLOT_GUID = 13007
 PLOT_SCRIPT = 13009
 PLOT_LIST = 13016
 
+# Cutscenes (.cut, GFF type "CUT "). Observed on the Human Noble cutscenes: a
+# list of actors (the MASTER track, characters, cameras, sounds), each with a
+# generic list of tracks (TRAK, AANI animation, ASLN spoken line, ACSP sound...).
+CUT_AREA = 3010
+CUT_LENGTH = 5000
+CUT_END_SCRIPT = 5001
+CUT_ACTOR_LIST = 5200
+CUT_TRACK_LIST = 5206
+CUT_ACTOR_TAG = 5216
+CUT_TRACK_START = 5301
+CUT_TRACK_END = 5302
+CUT_LINE_CONVERSATION = 5562  # ASLN: the conversation the line comes from
+CUT_SOUND_EVENT = 5670  # ACSP: the FMOD event it plays
+
 # Talk tables (.tlk, GFF type "TLK ")
 TALK_BUCKET_LIST = 19000
 TALK_STRING_LIST = 19001

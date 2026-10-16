@@ -104,7 +104,8 @@ since they come from the scripts:
 
 ```powershell
 py -m daotools unreal plots --src extracted/scripts/src --plots extracted/plots/raw `
-  --only "bhn*,gen00pt_party" --true-flag GEN_GENDER_MALE --out extracted/ue/plots.json
+  --only "bhn*,gen00pt_party" --true-flag GEN_GENDER_MALE --cutscenes extracted/human_noble `
+  --out extracted/ue/plots.json
 ```
 
 | Kind | Script call | Unreal |
@@ -124,6 +125,7 @@ py -m daotools unreal plots --src extracted/scripts/src --plots extracted/plots/
 | 14 if | `if (WR_GetPlotFlag(PLT_X, FLAG) == TRUE/FALSE)`, `if (nVar)` with `int nVar = WR_GetPlotFlag(...)`, `!...` | skip the next actions (its then-branch) unless the flag is as tested |
 | 15 skip | the `else` of such an `if` | skip the else-branch after the then-branch ran |
 | 9 ambient | `Ambient_Start(creature, ..., pattern)`, `Ambient_StartTeam`, `Ambient_StartTag` / `Ambient_Stop(creature)` | switch its ambient behaviour to that animation pattern, or stop it (`docs/AMBIENT.md`) |
+| 16 cutscene | `CS_LoadCutscene(CUTSCENE_X, PLT_Y, FLAG, speaker)` | play the cutscene's lines as a conversation without choices, then set the flag; the speaker's talk follows as a kind 2 (see Cutscenes below) |
 
 Creatures are found by tag (`object oX = UT_GetNearestCreatureByTag(...)` plus
 the string constants of every script); `PLT_<NAME>` is the plot named `<name>`
@@ -138,6 +140,64 @@ pantry door; the rest are night-castle doors) and all 12 team calls, and every p
 companions in the general party plot `gen00pt_party`, which recruits the mabari). The rest
 is still skipped: making a door non-plot
 (`SetPlot`), items, combat and area transitions.
+
+### Cutscenes
+
+The scripts load four Human Noble cutscenes with `CS_LoadCutscene(cutscene,
+plot, flag, speaker)`: when the cutscene ends the game sets `flag` and the
+`speaker` starts talking to the player. Unreal has none of the cinematics, so
+`daotools unreal plots --cutscenes <pull folder>` reads the `.cut` files
+(`daotools/cutscene.py`) to say what each one tells:
+
+| Cutscene | Loaded by | Length | Plays |
+| --- | --- | --- | --- |
+| `bhn200cs_night_falls` | the night castle's load event; then the mabari talks | 27 s | no one speaks: a caption |
+| `bhn100cs_familyfarewel` | `BHN_MAIN_CUTSCENE_FAMILY_FAREWELL`; then sets `BHN_MAIN_START_PRELUDE` | 34 s | `bhn200dg_farewell_cutscene`, 5 voiced lines |
+| `bhn100cs_finding_byron` | the night pantry door (`bhn000ip_door_pantry`, used) | 18 s | `bhn200dg_bryce_cutscene`, 3 voiced lines |
+| `bhn100cs_intro` | nothing (the call is commented out in `bhn100ar_castle_cousland`) | 56 s | `bhn100dg_introduction` |
+
+A cutscene is a list of actors (characters, cameras, the `MASTER` track),
+each with a generic list of tracks: animations (`AANI`), sounds (`ACSP`,
+an FMOD event), camera shakes, fades, and spoken lines (`ASLN`: start and end
+time, the conversation the line belongs to and the line as a talk-table
+string). Every spoken line of a Human Noble cutscene comes from one
+conversation, in order, and `daotools unreal origin` already exports those
+conversations with voice. So the action is kind 16 with the conversation as
+target and the flag key as argument. A cutscene with no spoken line gets a
+caption: a few lines of our own words in `cutscene.CAPTIONS`, which
+`daotools unreal origin` writes as a conversation named after the cutscene
+(`extracted/ue/conversations/bhn200cs_night_falls.json`, speaker shown as
+"Night falls", no voice). A cutscene with neither is skipped.
+
+In Unreal, `BP_PlotManager.Cutscene` plays it on its own `CutRunner`
+(`BPC_DialogueRunner` component) through the usual dialogue panel, or queues
+it while another conversation runs, like a talk. The runner's `PlayCutscene`
+loads the conversation and starts a 0.25 s timer (`AutoTick`) that clicks
+"Continue" by itself: when the line's voice has finished and at least 1.2 s
+have passed, or for a line without voice after 2 s plus 0.06 s per
+character. The player can click ahead or press Escape to skip it.
+`ConversationEnded` then sets the cutscene's flag (`FinishCut`), starts a
+queued cutscene, and only then a queued talk, so the mabari speaks after the
+night caption, as in the game.
+
+Checked in Play on `L_CastleNight`: the night opens on the three caption
+lines (about 10, 10 and 5 s), then the mabari's
+barking line. `BHN_MAIN_CUTSCENE_FAMILY_FAREWELL` set from the console during
+the caption queued the farewell: it played after the caption, each line
+advancing when its voice ended (Bryce's first two lines: 8.7 s for 8.1 s of
+voice), and at its end set `BHN_MAIN_START_PRELUDE`, whose transition to
+Ostagar is not built yet.
+
+The finding-Bryce cutscene hangs on the pantry door: its script
+(`bhn000ip_door_pantry`) has no tag test but checks the door's area when it
+is used. In the night castle, the first time, it loads the cutscene (then
+`BHN_FATHER_GORE_LEVEL`, then Bryce talks); in the day castle, Gilmore's
+pantry, the mabari talks while he is not in your party. These become
+`open:bhn000ip_door_pantry@<area>` (see Death and team events below).
+Checked in Play on `L_CastleNight`: opening the pantry door plays
+`bhn200dg_bryce_cutscene` (its three voiced lines), sets
+`BHN_FATHER_GORE_LEVEL`, and Bryce comes over and his conversation opens on
+its night start line; closing and reopening the door does not replay it.
 
 ### Death and team events
 
@@ -165,6 +225,15 @@ main hall doors release their fights; the servants' doors start their scenes),
 and `unlock:<tag>` for each one under `PLACEABLE_ACTION_UNLOCK`, run when the
 player tries that door while it is locked (the treasury door starts Mother's
 talk). Several door scripts share these events; the first one is kept.
+A door script with no tag test whose `EVENT_TYPE_USE` branches on
+`GetTag(GetArea(OBJECT_SELF)) == AREA` gives `open:<script>@<area>` per
+area, keeping any plot-flag test of the same `if` as a kind 14 and dropping
+its `!GetLocalInt(OBJECT_SELF, ...)` do-once test. The script's name stands
+for the door's tag (the pantry door's template, tag and script share one
+name). `BP_Door`, after `open:<tag>`, sets `open:<tag>@<AreaName>` as a flag
+(`BP_AreaLoader.AreaName`), so it runs only the first time the door is
+opened in that area, and is remembered across the area transition like any
+flag. For the day's dog line, which the game repeats, that means once.
 `UT_QuickMove(TAG, WAYPOINT, bRun)` is a walk.
 Calls to helper functions defined in the same script (`HoweWarriorStartMother()`)
 are expanded in place, objects re-assigned from one tag to the next

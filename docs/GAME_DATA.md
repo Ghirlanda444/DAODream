@@ -114,6 +114,10 @@ conversation, line and voice counts, warnings). Rules:
   praying guards, for instance).
 - Result for Human Noble: 32 conversations, 941 of 951 spoken lines voiced.
   `bhn200ip_hallway` (one line, an interactive placeable) has no bank.
+- Cutscenes (`.cut` in the pull) are listed under `Cutscenes` in the index
+  with the conversation they play; one with no spoken line and a caption in
+  `daotools/cutscene.py` gets that caption as a conversation
+  (`bhn200cs_night_falls`). See `docs/SCRIPTS.md`, Cutscenes.
 
 One conversation at a time, the same thing by hand:
 

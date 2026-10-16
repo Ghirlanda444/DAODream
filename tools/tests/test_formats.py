@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from daotools import ambient, area, cnv, fields as F, fsb, kit, mfdecode, plo, plotlogic, stats, toolset, unreal
+from daotools import ambient, area, cnv, cutscene, fields as F, fsb, kit, mfdecode, plo, plotlogic, stats, toolset, unreal
 from daotools.cli import main
 from daotools.erf import ERF, ERFError, is_erf
 from daotools.gda import GDA, column_hash
@@ -13,7 +13,7 @@ from daotools.gff4 import (GFF4, T_FLOAT32, T_SINT16, T_UINT8, T_UINT32, T_UINT6
                            to_jsonable)
 from daotools.tlk import TalkTable, TalkTables
 
-from builders import (GFF4Writer, Tmpl, build_cnv, build_erf, build_fsb, build_gff3, build_plo,
+from builders import (GFF4Writer, Tmpl, build_cnv, build_cut, build_erf, build_fsb, build_gff3, build_plo,
                       build_tlk_v02, build_tlk_v05)
 from daotools.gff3 import GFF3, is_gff3
 
@@ -864,6 +864,42 @@ class DoorEventTests(unittest.TestCase):
         self.assertEqual(acts["unlock:vault"], [(14, "0", "EEEE:3", 1), (4, "", "EEEE:5", 1)])
         self.assertEqual(acts["unlock:stairs"], [])
 
+    def test_use_by_area(self):
+        script = """
+            void main()
+            {
+                switch (GetEventType(ev))
+                {
+                    case EVENT_TYPE_USE:
+                    {
+                        Placeable_HandleUsed(ev);
+                        if (GetTag(GetArea(OBJECT_SELF)) == MY_AR_NIGHT && !GetLocalInt(OBJECT_SELF, PLC_DO_ONCE_A))
+                        {
+                            SetLocalInt(OBJECT_SELF, PLC_DO_ONCE_A, TRUE);
+                            CS_LoadCutscene(MY_CUT, PLT_MY_MOTHER, TOLD, MY_CR_DAD);
+                        }
+                        else if ((GetTag(GetArea(OBJECT_SELF)) == MY_AR_DAY) && (WR_GetPlotFlag(PLT_MY_MOTHER, BANTER) == FALSE))
+                        {
+                            UT_Talk(GetObjectByTag("my_dog"), GetHero());
+                        }
+                        else if (GetTag(GetArea(OBJECT_SELF)) == MY_AR_OTHER && GetHour() > 3)
+                        {
+                            UT_Talk(GetObjectByTag("my_dog"), GetHero());
+                        }
+                        break;
+                    }
+                }
+            }
+        """
+        consts = {"MY_AR_NIGHT": "night_area", "MY_AR_DAY": "day_area", "MY_AR_OTHER": "other_area",
+                  "MY_CUT": "bhn200cs_night_falls.cut", "MY_CR_DAD": "dad"}
+        t = plotlogic.translate_events(script, self.PLOTS, consts, "my_pantry")
+        acts = {k: [(a["kind"], a["target"], a["arg"], a["value"]) for a in v] for k, v in t["cases"].items()}
+        self.assertEqual(acts, {
+            "open:my_pantry@night_area": [(16, "bhn200cs_night_falls", "EEEE:3", 1), (2, "dad", "", 1)],
+            "open:my_pantry@day_area": [(14, "0", "EEEE:5", 1), (2, "my_dog", "", 1)]})
+        self.assertIn("open:my_pantry@other_area: tests GetHour() > 3, left out", t["skipped"])
+
 
 class ToolsetTests(unittest.TestCase):
     def test_parse_dump(self):
@@ -994,6 +1030,107 @@ class PlotLogicTests(unittest.TestCase):
         self.assertEqual((out["Value"][4], out["Value"][10]), (0, 0))
         self.assertEqual((out["Target"][7:9], out["Arg"][8]), (["team:7", "team:7"], "my_wp_gate"))
         self.assertEqual(out["Arg"][4:7], ["my_wp_gate", "my_wp_gate", "my_wp_far"])
+
+
+class CutsceneTests(unittest.TestCase):
+    # A made-up cutscene and scripts in the shape of the game's, not game text.
+    PLOTS = {"my_main": {"guid": "AAAA", "name": "my_main", "flags": {0: "FAREWELL", 1: "PRELUDE"}}}
+
+    def _cut(self, d):
+        path = Path(d) / "raw" / "designercutscenes" / "my_farewell.cut"
+        path.parent.mkdir(parents=True)
+        path.write_bytes(build_cut([
+            {"tag": "MASTER", "tracks": [("anim", 0.0, "cs_fade")]},
+            {"tag": "my_cr_father", "tracks": [("anim", 0.0, "cs_up"),
+                                               ("line", 0.7, 4.4, "my_farewell_dlg", 10, "Go.")]},
+            {"tag": "my_cr_mother", "tracks": [("line", 4.9, 10.1, "my_farewell_dlg", 11, "We love you.")]},
+        ], length=33.5, area="my_night"))
+        return path
+
+    def test_lines_and_conversation(self):
+        with tempfile.TemporaryDirectory() as d:
+            s = cutscene.summary(GFF4.open(self._cut(d)))
+            scanned = cutscene.scan(d)
+        self.assertEqual((s["Length"], s["Area"], s["Conversation"]), (33.5, "my_night", "my_farewell_dlg"))
+        self.assertEqual([(l["Start"], l["Actor"], l["Strref"], l["Text"]) for l in s["Lines"]],
+                         [(0.7, "my_cr_father", 10, "Go."), (4.9, "my_cr_mother", 11, "We love you.")])
+        self.assertEqual(list(scanned), ["my_farewell"])
+        self.assertEqual(cutscene.conversation_for("MY_FAREWELL", scanned), "my_farewell_dlg")
+        self.assertEqual(cutscene.conversation_for("bhn200cs_night_falls", scanned), "bhn200cs_night_falls")
+        self.assertIsNone(cutscene.conversation_for("unknown", scanned))
+
+    def test_caption_conversation(self):
+        rt = cutscene.caption_conversation("bhn200cs_night_falls")
+        n = len(cutscene.CAPTIONS["bhn200cs_night_falls"][1])
+        lines = rt["Lines"]
+        self.assertEqual((rt["Starts"], rt["VoBank"], rt["SpeakerNames"]), ([0], "", {"caption": "Night falls"}))
+        self.assertEqual([l["Children"] for l in lines[:n]], [[n + i] for i in range(n)])  # text, then a click
+        self.assertEqual([l["Children"] for l in lines[n:]], [[i + 1] for i in range(n - 1)] + [[]])
+        self.assertTrue(all(l["Text"] and not l["IsPlayer"] for l in lines[:n]))
+        self.assertTrue(all(l["IsPlayer"] and not l["Text"] and not l["Vo"] for l in lines[n:]))
+        made = unreal.conversation({"conversation": "x", "starts": [0], "lines": [
+            {"index": 0, "kind": "npc", "text": "Hi.", "speaker": "OWNER", "children": []}]})
+        self.assertEqual(set(rt) - {"Warnings"}, set(made) - {"Warnings"})
+        self.assertEqual(set(lines[0]), set(made["Lines"][0]))
+
+    def test_load_cutscene(self):
+        plot_script = """
+            void main()
+            {
+                if (nType == EVENT_TYPE_SET_PLOT)
+                {
+                    switch (nFlag)
+                    {
+                        case FAREWELL:
+                        {
+                            WR_UnlockAchievement(ACH_X);
+                            CS_LoadCutscene(MY_CUT_FAREWELL, PLT_MY_MAIN, PRELUDE);
+                            break;
+                        }
+                        case PRELUDE:
+                        {
+                            CS_LoadCutscene(MY_CUT_OTHER);
+                            break;
+                        }
+                    }
+                }
+            }
+        """
+        area_script = """
+            void main()
+            {
+                switch (nEventType)
+                {
+                    case EVENT_TYPE_AREALOAD_PRELOADEXIT:
+                    {
+                        if (nAreaOnce == FALSE)
+                        {
+                            if (nDebug == FALSE) { CS_LoadCutscene(MY_CUT_NIGHT, "", -1, MY_CR_DOG); }
+                        }
+                        break;
+                    }
+                }
+            }
+        """
+        with tempfile.TemporaryDirectory() as d:
+            self._cut(d)
+            (Path(d) / "my_cutscenes_h.nss").write_text(
+                'const resource MY_CUT_FAREWELL = R"my_farewell.cut";\n'
+                'const resource MY_CUT_NIGHT = R"bhn200cs_night_falls.cut";\n'
+                'const resource MY_CUT_OTHER = R"my_other.cut";\nconst string MY_CR_DOG = "my_dog";\n',
+                encoding="utf-8")
+            consts = plotlogic.load_constants(d)
+            cuts = cutscene.scan(d)
+        self.assertEqual(consts["MY_CUT_FAREWELL"], "my_farewell.cut")
+        plot = self.PLOTS["my_main"]
+        t = plotlogic.translate(plot_script, plot, self.PLOTS, consts, cuts)
+        acts = {k: [(a["kind"], a["target"], a["arg"], a["value"]) for a in v] for k, v in t["cases"].items()}
+        self.assertEqual(acts["FAREWELL"], [(16, "my_farewell_dlg", "AAAA:1", 1)])  # PRELUDE set when it ends
+        self.assertEqual(acts["PRELUDE"], [])
+        self.assertIn("PRELUDE: CS_LoadCutscene(MY_CUT_OTHER): no conversation or caption", t["skipped"])
+        e = plotlogic.translate_events(area_script, self.PLOTS, consts, "my_night", cuts)
+        self.assertEqual([(a["kind"], a["target"], a["arg"]) for a in e["cases"]["load:my_night"]],
+                         [(16, "bhn200cs_night_falls", ""), (2, "my_dog", "")])  # its caption, then the dog talks
 
 
 class PartyLogicTests(unittest.TestCase):

@@ -3,7 +3,8 @@
 Works on the output of `daotools pull`: the conversation exports under
 <pull>/json and the voice banks under <pull>/raw. For each conversation it
 writes the runtime JSON (unreal.conversation) and the PCM voice files, and an
-index of what was written, so a whole origin is one command.
+index of what was written, so a whole origin is one command. Cutscenes with no
+spoken lines get their caption (cutscene.CAPTIONS) as a conversation too.
 """
 
 from __future__ import annotations
@@ -11,7 +12,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import fsb, mfdecode, unreal
+from . import cutscene, fsb, mfdecode, unreal
 
 
 def pick_conversations(json_dir: str | Path) -> tuple[dict[str, Path], list[str]]:
@@ -112,6 +113,15 @@ def export(pull_dir: str | Path, out_dir: str | Path, *, plots: dict[str, dict] 
             "VoicedLines": len(voiced),
             "Warnings": rt["Warnings"],
         }
+    index["Cutscenes"] = {}
+    for name, cut in cutscene.scan(pull).items():
+        caption = not cut["Conversation"] and name in cutscene.CAPTIONS
+        if caption:
+            (out / "conversations" / f"{name}.json").write_text(
+                json.dumps(cutscene.caption_conversation(name), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        index["Cutscenes"][name] = {"Length": cut["Length"], "Area": cut["Area"], "Lines": len(cut["Lines"]),
+                                    "Conversation": cutscene.conversation_for(name, {name: cut}) or "",
+                                    "Caption": caption}
     (out / "conversations" / "index.json").write_text(
         json.dumps(index, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return index

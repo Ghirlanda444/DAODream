@@ -21,6 +21,9 @@ cases are a short list of helper calls. This turns each case into actions:
                                                                                 lock, unlock, break
   9 ambient   Ambient_Start(oCreature, ..., nAnimPattern), Ambient_StartTeam,  target tag or team,
               Ambient_StartTag / Ambient_Stop(oCreature)                       pattern (-1 its own), 0 stop
+ 16 cutscene  CS_LoadCutscene(CUTSCENE_X, PLT_NAME, FLAG, SPEAKER)            target conversation,
+              (cutscene.py: the conversation its lines come from, or         "GUID:FLAG" set when it
+              its caption), then `talk` SPEAKER                              ends (or "")
 
 Teams: UT_TeamAppears(TEAM, bool) and UT_TeamMove(TEAM, WAYPOINT, bRun) become
 `active` and `walk` with the target "team:<id>"; Unreal tags every spawned
@@ -32,7 +35,9 @@ the key "death:<tag>", and an area script's EVENT_TYPE_TEAM_DESTROYED cases
 them when that creature dies or the last member of that team does. A door's
 script (EVENT_TYPE_USE) gives "open:<tag>" for each `if (sTag == X)` in its
 DoorOpened helper, run when the player opens that door, and "unlock:<tag>" for
-each one under PLACEABLE_ACTION_UNLOCK, run when the player tries it locked.
+each one under PLACEABLE_ACTION_UNLOCK, run when the player tries it locked. A door
+script with no tag test whose use branches on the door's area gives
+"open:<script>@<area>", which Unreal runs the first time that door opens there.
 
 Case fall-through (a case without `break`) is followed, as the game does.
 Anything else in a case is listed under "Skipped" so coverage is visible.
@@ -49,12 +54,14 @@ import fnmatch
 import re
 from pathlib import Path
 
+from . import cutscene
+
 FORMAT = "DAODream.PlotActions 1"
 JUMP, TALK, ACTIVE, SETFLAG, AUTOSAVE, WALK, DOOR, PARTY, AMBIENT = 1, 2, 3, 4, 5, 6, 7, 8, 9
-HOSTILE, EXIT, KILL, TRANSITION, COND, SKIP = 10, 11, 12, 13, 14, 15
+HOSTILE, EXIT, KILL, TRANSITION, COND, SKIP, CUTSCENE = 10, 11, 12, 13, 14, 15, 16
 _KIND_NAMES = {JUMP: "jump", TALK: "talk", ACTIVE: "active", SETFLAG: "setflag", AUTOSAVE: "autosave", WALK: "walk",
                DOOR: "door", PARTY: "party", AMBIENT: "ambient", HOSTILE: "hostile", EXIT: "exit", KILL: "kill",
-               TRANSITION: "transition", COND: "if", SKIP: "skip"}
+               TRANSITION: "transition", COND: "if", SKIP: "skip", CUTSCENE: "cutscene"}
 _GROUPS = {"GROUP_HOSTILE": 1, "GROUP_HOSTILE_ON_GROUND": 1, "GROUP_NEUTRAL": 0, "GROUP_FRIENDLY": 0, "GROUP_PC": 0}
 _PARTY_CALLS = {"UT_HireFollower": 1, "SetFollowerRecruited": 1, "SetFollowerInParty": 1, "AddNonPartyFollower": 1,
                 "UT_FireFollower": 0, "Party_SetFollowerInCamp": 0}
@@ -65,7 +72,7 @@ _DOOR_STATES = {"PLC_STATE_DOOR_UNLOCKED": "close", "PLC_STATE_DOOR_LOCKED": "lo
                 "PLC_STATE_DOOR_OPEN_2": "open2", "PLC_STATE_DOOR_DEAD": "break", "PLC_STATE_DOOR_DEAD_2": "break"}
 
 _COMMENTS = re.compile(r"//[^\n]*|/\*.*?\*/", re.S)
-_CONST = re.compile(r"const\s+(string|int)\s+(\w+)\s*=\s*(\"[^\"]*\"|-?\d+)\s*;")
+_CONST = re.compile(r"const\s+(string|int|resource)\s+(\w+)\s*=\s*(R?\"[^\"]*\"|-?\d+)\s*;")
 _GETTERS = r"(?:UT_GetNearestCreatureByTag|UT_GetNearestObjectByTag|GetObjectByTag|Party_GetFollowerByTag)"
 _ASSIGN = re.compile(r"^(?:object\s+)?(\w+)\s*=\s*" + _GETTERS +
                      r"\s*\(\s*(?:\w+(?:\(\s*\))?\s*,\s*)?(\w+|\"[^\"]*\")")
@@ -85,7 +92,7 @@ def load_constants(src_dir: str | Path) -> dict[str, object]:
     consts: dict[str, object] = {}
     for p in sorted(Path(src_dir).glob("*.nss")):
         for kind, name, value in _CONST.findall(_COMMENTS.sub("", p.read_text(encoding="utf-8", errors="replace"))):
-            consts.setdefault(name, value.strip('"') if kind == "string" else int(value))
+            consts.setdefault(name, int(value) if kind == "int" else value.lstrip("R").strip('"'))
     return consts
 
 
@@ -206,7 +213,7 @@ def _unwrap(c: str) -> str:
     return c
 
 
-def _resolver(text: str, plots_by_name: dict[str, dict], consts: dict):
+def _resolver(text: str, plots_by_name: dict[str, dict], consts: dict, cutscenes: dict[str, dict] | None = None):
     """action(statement) -> action dict, None (nothing to do) or ("skip", why), for one script
     (comments already stripped)."""
     objects = {}
@@ -235,11 +242,42 @@ def _resolver(text: str, plots_by_name: dict[str, dict], consts: dict):
             return None
         return where, int(len(args) > 1 and value(args[1]) == 1)
 
+    def flag_key(plt: str, flag: str):
+        target = plots_by_name.get(plt[4:].lower()) if plt.startswith("PLT_") else None
+        fid = {n: f for f, n in target["flags"].items()}.get(flag) if target else None
+        return None if fid is None else f"{target['guid']}:{fid}"
+
+    def load_cutscene(fn: str, args: list[str]):
+        """CS_LoadCutscene(cut, plot, flag, speaker) -> a cutscene action (its conversation, the flag
+        set when it ends) and the speaker's talk; CS_LoadCutsceneWithReplacements has two more
+        arguments (replacement actors) after the cutscene."""
+        rest = args[3:] if fn == "CS_LoadCutsceneWithReplacements" else args[1:]
+        cut = value(args[0]) if args else ""
+        name = cut[:-4] if isinstance(cut, str) and cut.lower().endswith(".cut") else None
+        conv = cutscene.conversation_for(name, cutscenes) if name else None
+        if conv is None:
+            return ("skip", f"{fn}({args[0] if args else ''}): no conversation or caption")
+        key = ""
+        if len(rest) > 1 and rest[0] not in ('""', "") and value(rest[1]) != -1:
+            key = flag_key(rest[0], rest[1])
+            if key is None:
+                return ("skip", f"{fn}({args[0]}): unknown plot flag {rest[0]}, {rest[1]}")
+        acts = [{"kind": CUTSCENE, "target": conv, "arg": key, "value": 1}]
+        speaker = value(rest[2]) if len(rest) > 2 else ""
+        if isinstance(speaker, str) and speaker and speaker != rest[2]:
+            acts.append({"kind": TALK, "target": speaker, "arg": "", "value": 1})
+        return acts
+
     def obj(token: str):
         """The tag an object argument names, or None when it is only known at runtime."""
         token = token.strip()
         if token in objects:
             return objects[token]
+        inline = re.fullmatch(_GETTERS + r"\s*\(\s*(?:\w+(?:\(\s*\))?\s*,\s*)?(\w+|\"[^\"]*\")\s*(?:,[^()]*)?\)", token)
+        if inline:  # GetObjectByTag("tag") or UT_GetNearestCreatureByTag(oPC, CONST) passed directly
+            ref = inline.group(1)
+            ref = ref.strip('"') if ref.startswith('"') else consts.get(ref)
+            return ref if isinstance(ref, str) else None
         return token.strip('"') if token.startswith('"') else None
 
     def ambient_action(fn: str, args: list[str]):
@@ -297,6 +335,8 @@ def _resolver(text: str, plots_by_name: dict[str, dict], consts: dict):
                 return ("skip", f"{fn}({args[0]}, {args[1]}): unknown plot or flag")
             force = "force" if len(args) > 3 and value(args[3]) == 1 else ""
             return {"kind": SETFLAG, "target": force, "arg": f"{target['guid']}:{fid}", "value": int(value(args[2]) == 1)}
+        if fn in ("CS_LoadCutscene", "CS_LoadCutsceneWithReplacements"):
+            return load_cutscene(fn, args)
         if fn == "DoAutoSave":
             return {"kind": AUTOSAVE, "target": "", "arg": "", "value": 1}
         if fn in ("AddCommand", "WR_AddCommand") and len(args) >= 2 and args[0] in objects:
@@ -447,11 +487,12 @@ def _drop_debug(text: str) -> str:
     return "".join(out)
 
 
-def translate_events(script: str, plots_by_name: dict[str, dict], consts: dict, name: str = "") -> dict:
+def translate_events(script: str, plots_by_name: dict[str, dict], consts: dict, name: str = "",
+                     cutscenes: dict[str, dict] | None = None) -> dict:
     """{"cases": {"death:<tag>" / "teamdead:<id>" / "load:<name>" / "enter:<name>": [action dicts]},
     "skipped": [...]} for a creature, area or trigger script called `name`."""
     text = _drop_debug(_COMMENTS.sub("", script))
-    action, value = _resolver(text, plots_by_name, consts)
+    action, value = _resolver(text, plots_by_name, consts, cutscenes)
     cases: dict[str, list] = {}
     skipped: list[str] = []
     m = re.search(r"case\s+EVENT_TYPE_DEATH\s*:", text)
@@ -495,6 +536,31 @@ def translate_events(script: str, plots_by_name: dict[str, dict], consts: dict, 
                 if t:
                     yield value(t.group(1)), it[2]
                 yield from tag_branches(it[3])
+    # A door script with no tag test whose use depends on the area it is in (the pantry door: the
+    # night's cutscene, the day's dog): "open:<script>@<area>". The script's name is the tag of its
+    # door (single-door templates share script, template and tag); Unreal runs it the first time.
+    m = re.search(r"case\s+EVENT_TYPE_USE\s*:", text)
+    if m and "DoorOpened" not in text and not re.search(r"\bsTag\s*==", text):
+        def area_branches(items):
+            for it in items:
+                if not isinstance(it, tuple):
+                    continue
+                terms = _and_terms(it[1])
+                areas = [value(a.group(1)) for a in (_AREA_TEST.fullmatch(x) for x in terms) if a]
+                if areas and isinstance(areas[0], str):
+                    rest = [x for x in terms if not _AREA_TEST.fullmatch(x) and not _ONCE_TEST.fullmatch(x)]
+                    yield areas[0], rest, it[2]
+                yield from area_branches(it[3])
+        for area_tag, rest, then_items in area_branches(_items(_block(text, m.end()))):
+            key = f"open:{name}@{area_tag}"
+            conds = [action.cond(x) for x in rest]
+            if None in conds:
+                skipped.append(f"{key}: tests {' && '.join(rest)}, left out")
+                continue
+            acts = _emit(action, then_items, key, skipped)
+            for flag, expected in reversed(conds):  # each further test skips the actions unless it holds
+                acts = [{"kind": COND, "target": str(expected), "arg": flag, "value": len(acts)}] + acts
+            cases[key] = cases.get(key, []) + acts
     for verb, pattern in (("open", r"\bvoid\s+DoorOpened\s*\([^)]*\)\s*\{"),
                           ("unlock", r"case\s+PLACEABLE_ACTION_UNLOCK\s*:")):
         m = re.search(pattern, text)
@@ -506,10 +572,29 @@ def translate_events(script: str, plots_by_name: dict[str, dict], consts: dict, 
     return {"cases": cases, "skipped": skipped}
 
 
-def translate(script: str, plot: dict, plots_by_name: dict[str, dict], consts: dict) -> dict:
-    """{"cases": {flag name: [action dicts]}, "skipped": [...]} for one plot script."""
+_AREA_TEST = re.compile(r"GetTag\s*\(\s*GetArea\s*\(\s*OBJECT_SELF\s*\)\s*\)\s*==\s*(\w+|\"[^\"]*\")")
+_ONCE_TEST = re.compile(r"!\s*GetLocalInt\s*\(\s*OBJECT_SELF\s*,\s*\w+\s*\)")
+
+
+def _and_terms(cond: str) -> list[str]:
+    """The top-level `&&` terms of a condition, each without its outer parentheses."""
+    c = _unwrap(cond)
+    terms, depth, start = [], 0, 0
+    for i, ch in enumerate(c):
+        depth += {"(": 1, ")": -1}.get(ch, 0)
+        if depth == 0 and c.startswith("&&", i):
+            terms.append(c[start:i])
+            start = i + 2
+    terms.append(c[start:])
+    return [_unwrap(x) for x in terms if x.strip()]
+
+
+def translate(script: str, plot: dict, plots_by_name: dict[str, dict], consts: dict,
+              cutscenes: dict[str, dict] | None = None) -> dict:
+    """{"cases": {flag name: [action dicts]}, "skipped": [...]} for one plot script. `cutscenes`
+    ({name: cutscene.summary}) says which conversation each loaded cutscene plays."""
     text = _drop_debug(_COMMENTS.sub("", script))
-    action, _ = _resolver(text, plots_by_name, consts)
+    action, _ = _resolver(text, plots_by_name, consts, cutscenes)
     flag_ids = {name: fid for fid, name in plot["flags"].items()}
     skipped: list[str] = []
 
@@ -657,7 +742,8 @@ def _matches(name: str, only: str) -> bool:
     return any(fnmatch.fnmatch(name.lower(), pattern.strip().lower()) for pattern in only.split(","))
 
 
-def export(src_dir: str | Path, plots: dict[str, dict], only: str = "*", true_flags: list[str] | None = None) -> dict:
+def export(src_dir: str | Path, plots: dict[str, dict], only: str = "*", true_flags: list[str] | None = None,
+           cutscenes: dict[str, dict] | None = None) -> dict:
     """The runtime file: flat arrays keyed by "GUID:FLAG" (plus "death:<tag>" and
     "teamdead:<id>" from creature and area scripts whose name matches `only`), and a
     readable report."""
@@ -671,7 +757,7 @@ def export(src_dir: str | Path, plots: dict[str, dict], only: str = "*", true_fl
         path = Path(src_dir) / f"{script}.nss"
         if not script or not _matches(plot["name"], only) or not path.exists():
             continue
-        t = translate(path.read_text(encoding="utf-8", errors="replace"), plot, by_name, consts)
+        t = translate(path.read_text(encoding="utf-8", errors="replace"), plot, by_name, consts, cutscenes)
         flag_ids = {name: fid for fid, name in plot["flags"].items()}
         for label, acts in t["cases"].items():
             if not acts:
@@ -698,7 +784,7 @@ def export(src_dir: str | Path, plots: dict[str, dict], only: str = "*", true_fl
         if not any(e in text for e in ("EVENT_TYPE_DEATH", "EVENT_TYPE_TEAM_DESTROYED", "EVENT_TYPE_ENTER", "EVENT_TYPE_USE",
                                         "EVENT_TYPE_AREALOAD_PRELOADEXIT", "EVENT_TYPE_AREALOAD_POSTLOADEXIT")):
             continue
-        t = translate_events(text, by_name, consts, path.stem)
+        t = translate_events(text, by_name, consts, path.stem, cutscenes)
         if not t["cases"]:
             continue
         for key, acts in t["cases"].items():

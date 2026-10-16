@@ -7,8 +7,8 @@ import struct
 import zlib
 
 from daotools import fields as F
-from daotools.gff4 import (FIELD_SIZES, FLAG_LIST, FLAG_REFERENCE, FLAG_STRUCT, NULL, T_SINT32,
-                           T_STRING, T_TLKSTRING, T_UINT8, T_UINT32)
+from daotools.gff4 import (FIELD_SIZES, FLAG_LIST, FLAG_REFERENCE, FLAG_STRUCT, NULL, T_FLOAT32, T_GENERIC,
+                           T_SINT32, T_STRING, T_TLKSTRING, T_UINT8, T_UINT32)
 
 
 # --- ERF --------------------------------------------------------------------
@@ -49,7 +49,8 @@ def build_erf(files: dict[str, bytes], version: str = "V2.0", compression: int =
 class Tmpl:
     """A struct template. fields: list of (field_id, kind) where kind is one of
     a scalar type code, "string", "tlk", ("struct", Tmpl), ("list", type code),
-    ("structlist", Tmpl) or ("reflist", Tmpl)."""
+    ("structlist", Tmpl), ("reflist", Tmpl) or ("genericlist", None): a list of structs of
+    mixed templates, its value a list of (Tmpl, values) pairs."""
 
     def __init__(self, label: str, fields: list):
         self.label = label.ljust(4)[:4]
@@ -95,6 +96,8 @@ def _type_flags(kind) -> int:
         return arg.index | (FLAG_STRUCT | FLAG_LIST) << 16
     if k == "reflist":
         return arg.index | (FLAG_STRUCT | FLAG_LIST | FLAG_REFERENCE) << 16
+    if k == "genericlist":
+        return T_GENERIC | (FLAG_LIST | FLAG_REFERENCE) << 16
     raise ValueError(kind)
 
 
@@ -185,6 +188,14 @@ class GFF4Writer:
                     self._write_struct(so, sub, item)
                     struct.pack_into("<I", self.heap, lo + 4 + 4 * i, so)
                 struct.pack_into("<I", self.heap, p, lo)
+            elif kind[0] == "genericlist":  # count, then (type and flags, pointer) per element
+                lo = self._alloc(4 + 8 * len(v))
+                struct.pack_into("<I", self.heap, lo, len(v))
+                for i, (sub, item) in enumerate(v):
+                    so = self._alloc(sub.size)
+                    self._write_struct(so, sub, item)
+                    struct.pack_into("<II", self.heap, lo + 4 + 8 * i, sub.index | FLAG_STRUCT << 16, so)
+                struct.pack_into("<I", self.heap, p, lo)
 
 
 # --- talk tables --------------------------------------------------------------
@@ -268,6 +279,32 @@ def build_cnv(lines: list[dict], starts: list[int], children_as_structs: bool = 
             F.CONV_LINE_SKIP: 0,
             F.CONV_LINE_CHILDREN_LIST: links(l.get("children", [])),
         } for l in lines],
+    })
+
+
+# --- cutscenes ----------------------------------------------------------------------
+
+def build_cut(actors: list[dict], length: float = 10.0, area: str = "my_area") -> bytes:
+    """A cutscene laid out as the retail ones: actors, each with a generic list of tracks.
+    actors: dicts with tag and tracks, a track being ("line", start, end, conversation, strref, text)
+    or ("anim", start, animation)."""
+    asln = Tmpl("ASLN", [(F.CUT_TRACK_START, T_FLOAT32), (F.CUT_TRACK_END, T_FLOAT32),
+                         (F.CUT_LINE_CONVERSATION, "string"), (22, "tlk")])
+    aani = Tmpl("AANI", [(F.CUT_TRACK_START, T_FLOAT32), (5400, "string")])
+    actor = Tmpl("ACTR", [(F.CUT_ACTOR_TAG, "string"), (F.CUT_TRACK_LIST, ("genericlist", None))])
+    root = Tmpl("CUT ", [(F.CUT_AREA, "string"), (F.CUT_LENGTH, T_FLOAT32), (F.CUT_ACTOR_LIST, ("structlist", actor))])
+
+    def track(tr):
+        if tr[0] == "line":
+            _, start, end, conv, strref, text = tr
+            return asln, {F.CUT_TRACK_START: start, F.CUT_TRACK_END: end, F.CUT_LINE_CONVERSATION: conv,
+                          22: (strref, text)}
+        return aani, {F.CUT_TRACK_START: tr[1], 5400: tr[2]}
+
+    return GFF4Writer("CUT ", "V1.0", [root, actor, asln, aani]).build({
+        F.CUT_AREA: area, F.CUT_LENGTH: length,
+        F.CUT_ACTOR_LIST: [{F.CUT_ACTOR_TAG: a["tag"], F.CUT_TRACK_LIST: [track(tr) for tr in a["tracks"]]}
+                           for a in actors],
     })
 
 
