@@ -52,37 +52,37 @@ It does not model clothes: armour (gambeson, tabard, mail, helmets) has to be
 modelled elsewhere (Blender) and brought in through that outfit pipeline, or
 bought. The slice uses free outfits; armour comes after it.
 
-### What you do (editor and Epic Games Launcher)
+### What you do (Epic Games Launcher)
 
-1. Close the editor completely. The project now enables MetaHuman Creator
-   (`MetaHumanCharacter`) and the outfit plugins (`ChaosClothAsset`,
-   `ChaosClothAssetEditor`).
-2. In the Epic Games Launcher, Unreal Engine library, 5.8: the arrow next to
-   Launch > Options, tick **MetaHuman Creator Core Data**, Apply, wait for the
-   download. Then open the project again.
-3. From Fab, free (Personal licence), into the project:
-   [Poor man Outfit](https://www.fab.com/listings/ebeea391-8264-44ef-8cb0-f4801ffea4a6)
-   and [Medieval Old Shoes](https://www.fab.com/listings/d9e8b9a5-718e-4385-8d46-f480a2c22b6c).
-   MetaHuman outfits go to `Content/Outfits` (Project Settings > Plugins >
-   MetaHuman SDK shows the path); they then appear in MetaHuman Creator's
-   Clothing section.
-4. Bryce: Content Browser, right-click in `Content/MetaHumans/Bryce`,
-   MetaHuman > MetaHuman Character, name it `MHC_Bryce`. Brief, in our own
-   words (check against the original in the game):
-   - a man in his late fifties, tall and broad, a soldier gone grey;
-   - weathered, warm face, strong nose and brow, laugh lines;
-   - dark hair going grey at the temples and receding, worn short;
-   - a short full beard, greyer than his hair;
-   - clothing: the plainest pieces for now (the Old Shoes, dark plain top and
-     trousers); a noble's clothes come later.
-5. A soldier of Howe's: `Content/MetaHumans/HoweSoldier`, `MHC_HoweSoldier`:
-   - a man in his thirties, lean and hard, plain features, stubble or a short
-     beard, short dark hair;
-   - the Poor man Outfit and the Old Shoes.
-6. Assemble both with the lighter, game-ready option (not cinematic), output
-   in `Content/MetaHumans`. Texture downloads may ask you to sign in to Epic.
+MetaHuman Creator has a Python API (`unreal.MetaHumanCharacterEditorSubsystem`,
+with Epic's examples in the engine under
+`Engine/Plugins/MetaHuman/MetaHumanCharacter/Content/Python/examples`): creating
+the asset, body measurements, face sculpting, skin, hair and beard grooms,
+clothing and colours, the face rig and textures (Epic's cloud services) and the
+assembly. Claude runs it from the editor's console (`py <script>`), so only the
+Launcher step is manual:
 
-Tell Claude when both are assembled.
+1. Close the editor completely (it then loads `MetaHumanCharacter`,
+   `ChaosClothAsset` and `ChaosClothAssetEditor` on the next start).
+2. Epic Games Launcher: Unreal Engine > Library > the 5.8 engine tile > the
+   arrow next to Launch > Options > tick **MetaHuman Creator Core Data** >
+   Apply, and wait for the download. It installs the hair, beards, clothing and
+   presets (`/MetaHumanCharacter/Optional/...`) the scripts use.
+3. Open the project again. If the editor asks you to sign in to Epic for the
+   face rig or textures, sign in.
+
+### What Claude scripts
+
+- `MHC_Bryce` in `/Game/MetaHumans/Bryce`: a man in his late fifties, tall and
+  broad, a soldier gone grey; weathered, warm face, strong nose and brow; dark
+  hair greying at the temples and receding, short; a short full beard, greyer
+  than his hair.
+- `MHC_HoweSoldier` in `/Game/MetaHumans/HoweSoldier`: a man in his thirties,
+  lean and hard, plain features, stubble, short dark hair.
+- Clothing for this test: the plain garments of the Core Data, in dark colours
+  (medieval outfits, from Fab or our own, once MetaHumans prove they run).
+- Face rig, textures, and an optimized, medium-quality assembly into
+  `/Game/MetaHumans`.
 
 ### What gets wired (Claude)
 
