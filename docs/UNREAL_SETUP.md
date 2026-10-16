@@ -25,7 +25,9 @@ LFS) and `Unreal/.gitignore` (which keeps Unreal's caches out of git).
 1. Launch Unreal Engine 5.8 from the Epic Games Launcher.
 2. **Games** → **Third Person**. Settings: **Blueprint**, **Desktop**,
    **Maximum** quality, **Starter Content** on.
-3. Project location: `C:\Users\joshu\Documents\DAODream\Unreal`
+3. Project location: `E:\DAODream\Unreal` (created under
+   `C:\Users\joshu\Documents\DAODream` and moved to E: on 2026-10-16, when C:
+   ran out of space)
    Project name: `Cousland`
 4. **Create**. The editor opens with the third-person sample level. Press
    **Play** (Alt+P) once to check you can run around, then stop (Esc).
