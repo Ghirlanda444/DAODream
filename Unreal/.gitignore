@@ -12,3 +12,7 @@
 *.opendb
 # Unreal's MCP connection file is per machine (port, local URL).
 */.mcp.json
+# Third-party character assets (MetaHumans, Fab packs): their licences do not allow
+# redistributing the raw assets in this public repo. See docs/CHARACTERS.md.
+*/Content/MetaHumans/
+*/Content/ThirdParty/

@@ -42,7 +42,10 @@ Each phase ends with something you can see running.
       boxes, so the castle has its real rooms and corridors; all still greybox
       boxes
 - [ ] Characters: rebuilt models (MetaHuman or custom), the original ones as
-      proportion and costume reference
+      proportion and costume reference. Started: the plan is MetaHumans for
+      the named cast and Fab packs for soldiers, guards, servants and animals,
+      kept out of the public repo; first slice Bryce and one of Howe's
+      soldiers (`docs/CHARACTERS.md`)
 - [ ] Exploration: Fergus, Oriana and Oren, Nan in the kitchen, Ser Gilmore,
       the guests. All 35 talking characters already stand in place and talk
       (with voice) in L_CastleCousland
