@@ -78,7 +78,10 @@ py -m daotools unreal conv extracted/dog/json/al_bhn01al_castle_cousland/dog00cr
   is already fighting bids 3 m further away, so the dog and Gilmore pick
   different rats when there is a choice). Party members within 1.1 m of each
   other step apart (`Separate`). It goes to that target and
-  attacks every 1.5 s with its own stats. Party members stand still during conversations;
+  attacks every 1.5 s with its own stats. A party member on a scripted walk
+  (jogging over to talk, a plot's walk) finishes it before following or
+  fighting again; before, the walk and the fight pulled the same character
+  each frame and Eleanor jogged on the spot instead of fighting. Party members stand still during conversations;
   you can still talk to them.
 
 Played through (with the placeholder numbers that came before the stats):
