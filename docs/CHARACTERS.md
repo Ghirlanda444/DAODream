@@ -71,31 +71,74 @@ Launcher step is manual:
 3. Open the project again. If the editor asks you to sign in to Epic for the
    face rig or textures, sign in.
 
-### What Claude scripts
+### What Claude scripted (done)
 
-- `MHC_Bryce` in `/Game/MetaHumans/Bryce`: a man in his late fifties, tall and
-  broad, a soldier gone grey; weathered, warm face, strong nose and brow; dark
-  hair greying at the temples and receding, short; a short full beard, greyer
-  than his hair.
-- `MHC_HoweSoldier` in `/Game/MetaHumans/HoweSoldier`: a man in his thirties,
-  lean and hard, plain features, stubble, short dark hair.
-- Clothing for this test: the plain garments of the Core Data, in dark colours
-  (medieval outfits, from Fab or our own, once MetaHumans prove they run).
-- Face rig, textures, and an optimized, medium-quality assembly into
-  `/Game/MetaHumans`.
+- `MHC_Bryce` in `/Game/MetaHumans/Bryce`, from the Lorenzo preset: a man in
+  his late fifties, tall and broad (186 cm), a soldier gone grey; slicked-back
+  dark hair going grey, a full grey beard and moustache; dark green shirt.
+- `MHC_HoweSoldier` in `/Game/MetaHumans/HoweSoldier`, from the Bruce preset: a
+  man in his thirties, lean and hard (180 cm), brush-cut dark hair, stubble;
+  rust-red shirt (Howe's colour).
+- Clothing for this test: the Core Data's default garment (shirt and shorts,
+  barefoot). Medieval outfits come next, from Fab or our own.
+- Face rig (joints only) and textures from Epic's cloud services, then an
+  optimized, medium-quality assembly: `BP_MHC_Bryce` and `BP_MHC_HoweSoldier`
+  in `/Game/MetaHumans/MHC_<name>/`, shared assets in `/Game/MetaHumans/Common`
+  (about 0.8 GB on disk, git-ignored).
 
-### What gets wired (Claude)
+Notes for the next characters: the rig and textures ask for an Epic sign-in the
+first time (a device-code page opens in the default browser; only the newest
+page works, and the code expires in 10 minutes; the sign-in then lasts months).
+Assembling a second character in the same editor session ran the GPU out of
+memory and crashed the editor, so restart between assemblies. The GPU skinning
+settings MetaHumans need (`r.GPUSkin.Support16BitBoneIndex`,
+`r.GPUSkin.UnlimitedBoneInfluences`) are in `Config/DefaultEngine.ini`.
 
-- A looks table (our data, committed): creature tag or template -> MetaHuman.
-- `BP_DlgNPC`: a creature with a look hides its mannequin but keeps it
-  animating; the MetaHuman follows it (retargeted from the UE5 mannequin), so
-  walking, fighting, talking and the ragdoll keep working unchanged.
-- Checks in Play: Bryce's opening and night scenes, a fight with the soldier;
-  then 10, 20 and 40 soldiers in the night castle, recording the frame rate,
-  the editor's memory and free RAM each time, to decide how far MetaHumans can
-  go for the crowds (LODs, fewer variants, or a lighter source for them).
+### How a look is worn (done)
 
-Baseline with today's mannequins, Howe's soldiers standing in the night
+- The looks table lives on `BP_DlgNPC` (class defaults, committed):
+  `LookTags` holds creature tag prefixes and `LookClasses` the MetaHuman
+  Blueprint for each, as soft paths. Today: `bhn100cr_father` (Bryce),
+  `bhn200cr_howe_` (every Howe soldier at night, knight and mage included) and
+  `bhn100cr_howe_guard` (Howe's two guards by day) to the soldier.
+- `SetupCombat` calls `ApplyLook` with the creature's tag. On a match it loads
+  the class, spawns the MetaHuman (collision off), attaches it to the
+  mannequin, and `FollowMesh` makes the MetaHuman's `Body` copy the
+  mannequin's pose bone by bone (leader pose; the face and clothes follow the
+  body). The mannequin is hidden but keeps animating
+  (`AlwaysTickPoseAndRefreshBones`), so walking, attacks and the ragdoll work
+  unchanged. `SetPlotActive` shows and hides the look with the creature.
+- A fresh clone without the MetaHumans loads nothing and keeps the mannequins.
+- The body takes the mannequin's proportions (no retargeting yet), which suits
+  average builds; very tall, short or broad characters will need an IK
+  retargeter.
+
+### Checks in Play (2026-10-17)
+
+- Day castle: Bryce opens the origin as a MetaHuman (face, hair and beard
+  render, the idle plays); Howe's two guards wear the soldier; killing a guard
+  drops him in a ragdoll.
+- Night castle: the soldiers' first wave fights and dies as MetaHumans.
+- Crowd: all 55 of Howe's night soldiers wear the look, so the cost of loading
+  is paid at once; then 10, 20 and 40 of them stand in the main hall around
+  the player (Play in the editor, not throttled):
+
+| Soldiers in view | Frame rate | Editor memory | Free RAM |
+| --- | --- | --- | --- |
+| none (all spawned) | 110 fps | 3.95 GB | 1.3 GB |
+| 10 | 82 fps | 3.96 GB | 1.5 GB |
+| 20 | 73 fps | 3.76 GB | 2.0 GB |
+| 40 | 62 fps | 3.75 GB | 1.8 GB |
+
+Against the mannequin baseline below, the MetaHumans roughly double the
+editor's memory (2 GB to 4 GB, one face and one outfit shared by every soldier)
+and cost about a quarter to a half of the frame rate with 10 to 40 in view.
+That is playable on this PC, so MetaHumans can carry the crowds with a few
+reused faces; each extra variant adds its own textures, so keep the variants
+per faction few and check memory as they are added. Next: medieval outfits,
+then the rest of the named cast.
+
+Baseline with the mannequins, Howe's soldiers standing in the night
 castle's main hall around the player (Play in the editor, not throttled):
 10, 20 and 40 soldiers all run at about 116-120 fps (the editor seems to cap
 near 120), with the editor at about 2 GB and 1.7-2.0 GB of RAM free. One

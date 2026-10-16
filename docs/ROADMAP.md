@@ -44,8 +44,9 @@ Each phase ends with something you can see running.
 - [ ] Characters: rebuilt models (MetaHuman or custom), the original ones as
       proportion and costume reference. Started: the plan is MetaHumans for
       the named cast and Fab packs for soldiers, guards, servants and animals,
-      kept out of the public repo; first slice Bryce and one of Howe's
-      soldiers (`docs/CHARACTERS.md`)
+      kept out of the public repo. First slice done: Bryce and Howe's soldiers
+      are MetaHumans in Play, 40 on screen at about 60 fps
+      (`docs/CHARACTERS.md`); next medieval outfits and the named cast
 - [ ] Exploration: Fergus, Oriana and Oren, Nan in the kitchen, Ser Gilmore,
       the guests. All 35 talking characters already stand in place and talk
       (with voice) in L_CastleCousland
