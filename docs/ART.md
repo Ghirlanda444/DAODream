@@ -34,13 +34,43 @@ The greybox instances now derive from it:
 | `MI_Greybox_Floor` | the floor plan (Floors) | dark flagstones, 70 x 55 cm |
 | `MI_Greybox_Prop` | furniture and other props (Props) | oak planks, 16 cm |
 | `MI_Greybox_Door` | `BP_Door` | dark planked doors |
+| `MI_Greybox_Ceiling` | ceilings and lids (Ceilings) | pale lime plaster: ashlar mode, 110 x 70 cm panels, faint 0.8 cm joints |
 
 The material is flagged for instanced static meshes (the castle is drawn
 with them); without that flag Unreal silently falls back to its default grid
 material.
 
+## Ceilings
+
+The rooms have roofs now (`docs/GAME_DATA.md`, "Walls from the level kit"):
+the kit's ceiling pieces (solid kind 3, their bounding boxes) and, where those
+are missing or sit above the walls, lids at the top of the surrounding walls.
+`BP_AreaLoader` draws both with its `Ceilings` instanced mesh component and
+`MI_Greybox_Ceiling`; `BuildSolids` sets that component's mesh and material
+itself, so a level whose loader was placed before the component existed still
+gets them. Ceilings block like walls (`BlockAllDynamic`), so the third-person
+camera's spring arm, which probes the camera channel, pulls in under them
+instead of rising through them: from the start in the Main Hall, a boom
+pitched 75 degrees down meets the lid at 3.9 of its 4 m.
+
+## Lights
+
+Interiors are lit by the game's own lights: each room's light model lists its
+lamps, fireplaces and fill lights, and `BP_AreaLoader.SpawnLights` adds a
+movable point light per light (`PlaceLight`) at its position, with its radius
+as attenuation radius. The game's colour carries the brightness too: the light
+gets that colour divided by its largest channel and an intensity of that
+channel times the loader's `LightScale` (candelas), and lights at least 0.8
+bright (lamps and fireplaces rather than fills) cast shadows. `LightScale` is
+12 in `L_CastleCousland`, where auto exposure adapts to the dark rooms, and 20
+in `L_CastleNight`, whose exposure is fixed at -1.5 EV. Lamps that the flat
+greybox ceilings would hide are moved just under them (`area.tuck_lights`).
+
+The day castle keeps its sun and sky; with roofs on, they light only what is
+still open (the outer rims and a few uncovered patches).
+
 ## Next
 
-Normal detail (bevelled joints), ceilings (the rooms are open to the sky, so
-interiors are lit like a courtyard), separate looks for the kitchen, chapel and
-cellars, and banners, rugs and lighting for the rooms.
+Normal detail (bevelled joints), vaulted rather than flat ceilings,
+separate looks for the kitchen, chapel and cellars, banners and rugs, and
+flame effects at the lamps.

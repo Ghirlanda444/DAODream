@@ -1,12 +1,19 @@
-"""The level kit: walls, props and blockers as collision boxes, for Unreal.
+"""The level kit: walls, props, blockers and ceilings as boxes, and the rooms'
+lights, for Unreal.
 
 A Dragon Age area layout is made of rooms (`.rml`, one per room of the `.arl`).
 Each room places models from a building kit ("FCA_Wall01_0", "blk_01_0",
 "prp_barrel01_0"...) with a position and a rotation. A model's physics file
 (`.phy`) lists its collision shapes, almost all boxes. Blockers (`blk_*`) have
 no physics: the bounding box in their model hierarchy (`.mmh`) is the blocking
-volume. This turns all of it into oriented boxes in Unreal coordinates. Only
+volume. Ceilings (`FCA_Ceiling*`, `FCA_CorrTop*`) have neither: they are fade
+meshes, drawn from below and hidden from above, and their bounding box stands in
+for them. This turns all of it into oriented boxes in Unreal coordinates. Only
 box sizes and poses come out; no model geometry.
+
+Each room also places a light model (`<layout>_<room>_ll`, its `.mmh` in the
+layout's room archive) whose point-light nodes are the room's lamps, fireplaces
+and fill lights; `lights` places them like any other model.
 
 GFF4 fields (observed on the Castle Cousland layout, hrt201d):
   RML  root 4 position, 5 orientation (quaternion x y z w), 3050 placed models
@@ -14,7 +21,9 @@ GFF4 fields (observed on the Castle Cousland layout, hrt201d):
        the room)
   PHY  struct "shap": 6058 shape type (2 box), 6060 orientation, 6061 position;
        child "boxs" 6071 half extents
-  MMH  struct "bbox": 6054 min, 6055 max
+  MMH  struct "bbox": 6054 min, 6055 max; struct "nplt" (point light): 6000 name,
+       6007 colour (rgba, above 1 for bright lamps), 6008 radius, child "trsl"
+       6047 position
 Game coordinates are metres, right-handed, Z up; see area.py for Unreal's.
 """
 
@@ -26,18 +35,23 @@ from pathlib import Path
 from .erf import ERF
 from .gff4 import GFF4, to_jsonable
 
-WALL, PROP, BLOCKER = 0, 1, 2
+WALL, PROP, BLOCKER, CEILING = 0, 1, 2, 3
 BOX_SHAPE = 2
 MIN_PROP_HALF = 0.25  # m; smaller props (cups, candles, bottles) are not obstacles
-_SKIP_WORDS = ("floor", "ceiling", "corrtop", "fxe_", "fx_")
+MIN_CEILING_HALF = 0.1  # m; some ceiling pieces are flat sheets (the vaults' end arches)
+MAX_LIGHT_RADIUS = 50.0  # m; larger "lights" (sun_fake) stand in for the sun over a whole level
+_CEILING_WORDS = ("ceiling", "corrtop")
+_SKIP_WORDS = ("floor", "fxe_", "fx_")
 
 
 def kind(model: str) -> int | None:
-    """WALL, PROP, BLOCKER, or None for pieces that are not obstacles (floors,
-    ceilings, effects). Floors come from the navigation grid instead."""
+    """WALL, PROP, BLOCKER, CEILING, or None for pieces that are not solid (floors,
+    effects). Floors come from the navigation grid instead."""
     name = model.lower()
     if name.startswith("blk_"):
         return BLOCKER
+    if any(word in name for word in _CEILING_WORDS):
+        return CEILING
     if any(word in name for word in _SKIP_WORDS):
         return None
     if name.startswith("prp_"):
@@ -95,10 +109,17 @@ def local_boxes(name: str, phy: dict | None, mmh: dict | None, piece: int) -> tu
     bounding box for blockers, for walls and pillars without box collision (some
     corridor walls have none, a few use a collision mesh), and for props whose
     collision is round (barrels) or missing, unless they are small (cups, candles).
-    Decorative pieces without collision (arch fades, beams) stay open."""
+    Decorative pieces without collision (arch fades, beams) stay open. Ceilings
+    are their bounding box, at least 2 x MIN_CEILING_HALF thick."""
     if piece == BLOCKER:
         box = _bbox(mmh)
         return ([box] if box else []), 0
+    if piece == CEILING:
+        box = _bbox(mmh)
+        if not box:
+            return [], 0
+        center, orient, half = box
+        return [(center, orient, [max(h, MIN_CEILING_HALF) for h in half])], 0
     boxes, other = [], 0
     for shape in _structs(phy or {}, "shap"):
         box = next(_structs(shape, "boxs"), None)
@@ -131,9 +152,11 @@ def _qrot(q, v):
 def solids(rml_roots: list[dict], kit: dict[str, tuple[dict | None, dict | None]]) -> dict:
     """{"Solids": flat list, 13 numbers per box: center xyz, half extents xyz (Unreal
     cm), the box's X axis and Z axis (unit vectors in Unreal space) and kind (0 wall,
-    1 prop, 2 blocker); "Summary": counts}. `kit` maps model name -> (phy, mmh)."""
+    1 prop, 2 blocker, 3 ceiling); "Summary": counts}. `kit` maps model name ->
+    (phy, mmh)."""
     out: list[float] = []
-    summary = {"Walls": 0, "Props": 0, "Blockers": 0, "Skipped": 0, "NotBoxes": 0, "NoCollision": 0}
+    summary = {"Walls": 0, "Props": 0, "Blockers": 0, "Ceilings": 0, "Skipped": 0, "NotBoxes": 0,
+               "NoCollision": 0}
     for room in rml_roots:
         room_pos, room_rot = room.get("4") or [0, 0, 0], room.get("5") or [0, 0, 0, 1]
         for m in room.get("3050") or []:
@@ -162,8 +185,38 @@ def solids(rml_roots: list[dict], kit: dict[str, tuple[dict | None, dict | None]
                         *(round(h * scale * 100, 1) for h in half),
                         round(xa[0], 4), round(-xa[1], 4), round(xa[2], 4),
                         round(za[0], 4), round(-za[1], 4), round(za[2], 4), piece]
-                summary[("Walls", "Props", "Blockers")[piece]] += 1
+                summary[("Walls", "Props", "Blockers", "Ceilings")[piece]] += 1
     return {"Solids": out, "Summary": summary}
+
+
+def lights(rml_roots: list[dict], light_models: dict[str, dict]) -> list[float]:
+    """The rooms' point lights, 7 numbers each: position xyz and radius (Unreal cm),
+    then the game's colour rgb (its brightness too: above 1 for bright lamps).
+    `light_models` maps model name -> its .mmh (the rooms' `_ll` models); each
+    light sits in its model like a kit piece's box. Level-wide stand-ins for the
+    sun (radius over MAX_LIGHT_RADIUS) are left out."""
+    out: list[float] = []
+    for room in rml_roots:
+        room_pos, room_rot = room.get("4") or [0, 0, 0], room.get("5") or [0, 0, 0, 1]
+        for m in room.get("3050") or []:
+            mmh = light_models.get(str(m.get("3063") or "").lower())
+            for light in _structs(mmh or {}, "nplt"):
+                radius = float(light.get("6008") or 0.0)
+                pos = next(_structs(light, "trsl"), {}).get("6047")
+                if not pos or not 0 < radius <= MAX_LIGHT_RADIUS:
+                    continue
+                local = _qrot(m.get("5") or [0, 0, 0, 1], pos[:3])
+                c = [m["4"][i] + local[i] for i in range(3)]
+                world = [room_pos[i] + v for i, v in enumerate(_qrot(room_rot, c))]
+                out += [round(world[0] * 100, 1), round(-world[1] * 100, 1), round(world[2] * 100, 1),
+                        round(radius * 100, 1), *(round(v, 3) for v in (light.get("6007") or [1, 1, 1])[:3])]
+    return out
+
+
+def load_light_models(rooms_dir: str | Path) -> dict[str, dict]:
+    """The rooms' light models (`*_ll.mmh.json` under a pulled layout's JSON)."""
+    return {p.name[:-len(".mmh.json")].lower(): json.loads(p.read_text(encoding="utf-8"))
+            for p in Path(rooms_dir).rglob("*_ll.mmh.json")}
 
 
 def load_kit(kit_dir: str | Path, names: set[str]) -> dict[str, tuple[dict | None, dict | None]]:

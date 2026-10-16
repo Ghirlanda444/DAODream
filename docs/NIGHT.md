@@ -18,7 +18,8 @@ py -m daotools unreal area extracted/human_noble/json/al_bhn02al_castle_after_si
 Howe's war dogs use generic templates (`dog_mabari_*`), pulled on their own.
 The mabari is a party member the game brings from the day, not part of the
 night area, so `--add-creature` puts him in your bedroom. The export has 967
-floor boxes, 2,467 kit solids, 95 creatures (71 hidden until the scripts call
+floor boxes, 7,596 kit solids (328 kit ceilings and 4,801 lids among them),
+130 lights, 95 creatures (71 hidden until the scripts call
 them, most of them Howe's soldiers in 22 teams), 50 waypoints, 26 doors and
 15 triggers. Every creature is spawned now, also those with no conversation,
 team or ambient behaviour (the warning servant, the bodies): plots move and
@@ -29,7 +30,9 @@ the night area, lit by a dim blue moon (directional light 0.6 at 35 degrees,
 lighting the atmosphere, so the sky is a deep blue) and a blue sky light that
 keeps the shadows readable. An unbound post-process volume (`NightGrade`)
 fixes the exposure at -1.5 EV, so the eye does not adapt the night into day,
-and takes some colour out. Its loader's
+and takes some colour out. Under the roofs (`docs/ART.md`) the moon only
+reaches what is still open; the rooms are lit by the game's 130 night lights,
+mostly torches, at `LightScale` 20. Its loader's
 `StartFlags` (`BHN_MAIN_BATTLE_BEGUN`, `BHN_MOTHER_BATTLE_BEGUN`) are added
 quietly at load, so the level also plays when started on its own; arriving
 from the day castle they are already set.

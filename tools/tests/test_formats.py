@@ -457,6 +457,69 @@ class KitTests(unittest.TestCase):
         self.assertEqual(wall[12], kit.WALL)
         self.assertEqual(out["Solids"][13:19], [1000.0, -2000.0, 250.0, 100.0, 50.0, 150.0])
 
+    def test_ceilings(self):
+        # A vault piece (bounding box 4 x 4 x 4 m, 5.4 m up) and a vault's end arch, a flat sheet.
+        vault = {"_struct": "mdlh", "6999": [{"_struct": "node", "6999": [
+            {"_struct": "bbox", "6054": [-2.0, -2.0, 5.4, 1.0], "6055": [2.0, 2.0, 9.4, 1.0]}]}]}
+        arch = {"_struct": "mdlh", "6999": [{"_struct": "node", "6999": [
+            {"_struct": "bbox", "6054": [1.5, -2.0, 5.6, 1.0], "6055": [1.5, 2.0, 9.4, 1.0]}]}]}
+        room = {"4": [0.0, 0.0, 0.0], "5": [0.0, 0.0, 0.0, 1.0], "3050": [
+            {"3063": "FCA_Ceiling01_0", "4": [10.0, 20.0, 0.0], "5": [0.0, 0.0, 0.0, 1.0]},
+            {"3063": "FCA_Ceiling05_0", "4": [10.0, 20.0, 0.0], "5": [0.0, 0.0, 0.0, 1.0]},
+            {"3063": "FCA_CorrTop01_0", "4": [0.0, 0.0, 0.0], "5": [0.0, 0.0, 0.0, 1.0]}]}
+        out = kit.solids([room], {"fca_ceiling01_0": (None, vault), "fca_ceiling05_0": (None, arch)})
+        self.assertEqual((out["Summary"]["Ceilings"], out["Summary"]["NoCollision"]), (2, 1))
+        boxes = [out["Solids"][i:i + 13] for i in range(0, len(out["Solids"]), 13)]
+        self.assertEqual(boxes[0][:6], [1000.0, -2000.0, 740.0, 200.0, 200.0, 200.0])
+        self.assertEqual(boxes[1][:6], [1150.0, -2000.0, 750.0, 10.0, 200.0, 190.0])  # sheet: 20 cm thick
+        self.assertEqual({b[12] for b in boxes}, {kit.CEILING})
+        # Ceilings are neither cut by doors nor dropped as hanging props.
+        self.assertEqual(area.drop_hanging(out["Solids"], AreaTests.nav), (out["Solids"], 0))
+        self.assertEqual(area.cut_doorways(out["Solids"], [([1000.0, -2000.0, 600.0], 80.0)])[1], 0)
+
+    def test_lights(self):
+        # A room light model with a lamp 1 m to its +X, 2 m up, and a level-wide sun stand-in.
+        mmh = {"format": "V4.0 PC MMH V0.1", "root": {"_struct": "mdlh", "6999": [{"_struct": "node", "6999": [
+            {"_struct": "nplt", "6000": "lamp_001_RT", "6007": [1.8, 0.96, 0.3, 1.0], "6008": 6.0,
+             "6999": [{"_struct": "trsl", "6047": [1.0, 0.0, 2.0, 1.0]}, {"_struct": "rota", "6048": [0, 0, 0, 1]}]},
+            {"_struct": "nplt", "6000": "sun_fake", "6007": [1.0, 1.0, 1.0, 1.0], "6008": 2250.0,
+             "6999": [{"_struct": "trsl", "6047": [0.0, 0.0, 500.0, 1.0]}]}]}]}}
+        q90 = [0.0, 0.0, math.sqrt(0.5), math.sqrt(0.5)]  # 90 degrees about Z
+        room = {"4": [10.0, 20.0, 0.0], "5": q90, "3050": [
+            {"3063": "lay_10_ll", "4": [0.0, 0.0, 1.0], "5": [0.0, 0.0, 0.0, 1.0]},
+            {"3063": "FCA_Wall01_0", "4": [0.0, 0.0, 0.0], "5": [0.0, 0.0, 0.0, 1.0]}]}
+        # The room turns the lamp's +1 m X into +1 m Y: (10, 21, 3) m, Y flipped for Unreal.
+        self.assertEqual(kit.lights([room], {"lay_10_ll": mmh}), [1000.0, -2100.0, 300.0, 600.0, 1.8, 0.96, 0.3])
+
+    def test_lids(self):
+        # A 10 x 10 m room of 5 m walls (and a pillar, looked past) around an 8 x 8 m floor.
+        def wall(x, y, hx, hy, h=500.0):
+            return [x, y, h / 2, hx, hy, h / 2, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, kit.WALL]
+        room = wall(500, 0, 20, 500) + wall(-500, 0, 20, 500) + wall(0, 500, 500, 20) + wall(0, -500, 500, 20)
+        pillar = wall(100, 100, 30, 30, 900.0)
+        floor = [-400.0, -400.0, -20.0, 400.0, 400.0, 0.0, 0]
+        out, n = area.lids(floor, room + pillar)
+        boxes = [out[i:i + 13] for i in range(0, len(out), 13)]
+        # Four 2 m columns, each one slab along Y at the walls' top, 50 cm wider all round.
+        self.assertEqual(n, 4)
+        self.assertEqual([b[:6] for b in boxes][0], [-300.0, 0.0, 515.0, 150.0, 450.0, 15.0])
+        self.assertEqual({b[12] for b in boxes}, {kit.CEILING})
+        # Under a kit ceiling that meets the walls, or with walls on two sides only
+        # (outdoors), no lid; under one 3 m above the walls, a lid closes the gap.
+        ceiling = [0.0, 0.0, 550.0, 600.0, 600.0, 50.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, kit.CEILING]
+        self.assertEqual(area.lids(floor, room + ceiling)[1], 0)
+        high = ceiling[:2] + [850.0] + ceiling[3:]
+        self.assertEqual(area.lids(floor, room + high)[0][2], 515.0)
+        self.assertEqual(area.lids(floor, wall(500, 0, 20, 500) + wall(-500, 0, 20, 500))[1], 0)
+
+    def test_tuck_lights(self):
+        ceiling = [0.0, 0.0, 600.0, 600.0, 600.0, 50.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, kit.CEILING]
+        lamp = [0.0, 0.0, 580.0, 500.0, 1.8, 0.96, 0.3]  # inside the ceiling slab
+        low = [100.0, 0.0, 300.0, 500.0, 1.8, 0.96, 0.3]
+        upstairs = [0.0, 0.0, 1500.0, 500.0, 1.8, 0.96, 0.3]
+        out, moved = area.tuck_lights(lamp + low + upstairs, ceiling)
+        self.assertEqual((moved, out[2], out[9], out[16]), (1, 520.0, 300.0, 1500.0))
+
     def test_cut_doorway(self):
         wall = [0.0, 0.0, 250.0, 200.0, 20.0, 250.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0]
         out, cuts = area.cut_doorways(wall, [([50.0, 0.0, 0.0], 80.0)])

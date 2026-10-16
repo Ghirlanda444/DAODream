@@ -372,7 +372,7 @@ def cmd_toolset_scripts(args) -> int:
 def cmd_unreal_area(args) -> int:
     are_root = json.loads(Path(args.file).read_text(encoding="utf-8"))["root"]
     layout_root = to_jsonable(GFF4.open(args.layout).root, NAMES)
-    solids = None
+    solids, lights = None, None
     if args.rooms:
         rooms = [json.loads(f.read_text(encoding="utf-8"))["root"] for f in sorted(Path(args.rooms).rglob("*.rml.json"))]
         names = kit.placed_models(rooms)
@@ -381,6 +381,7 @@ def cmd_unreal_area(args) -> int:
             print(f"kit: {got['Files']} files, {len(got['Missing'])} models without any", file=sys.stderr)
         solids = kit.solids(rooms, kit.load_kit(args.kit, names))
         print(f"kit: {solids['Summary']}", file=sys.stderr)
+        lights = kit.lights(rooms, kit.load_light_models(args.rooms))
     door_models = None
     if args.game or args.placeable_types:
         if args.game:
@@ -413,11 +414,13 @@ def cmd_unreal_area(args) -> int:
     out = area.area(are_root, layout_root, area.creature_templates(args.pull), start=args.start or "",
                     solids=solids, door_models=door_models, creature_stats=creature_stats, player=player,
                     ambient_tables=ambient_tables, trigger_templates=area.trigger_templates(args.pull),
-                    extra_creatures=[tuple(x.split("@", 1)) for x in args.add_creature or []])
+                    extra_creatures=[tuple(x.split("@", 1)) for x in args.add_creature or []], lights=lights)
     s = out["Summary"]
     print(f"{out['Area']}: {s['Floors']} floor boxes, {s['Walls']} grid walls, {s['Solids']} kit solids "
           f"({s['DoorwaysCut']} doorways cut, {s['DoorFrames']} door frames, "
-          f"{s['HangingPropsDropped']} hanging props dropped), {s['TalkingCreatures']} talking "
+          f"{s['HangingPropsDropped']} hanging props dropped, {s['Ceilings']} ceilings, {s['Lids']} of them lids), "
+          f"{s['Lights']} lights ({s['LightsTucked']} moved under a ceiling), "
+          f"{s['TalkingCreatures']} talking "
           f"creatures and {s['TeamOnly']} more in {s['Teams']} teams ({s['Inactive']} hidden at first, "
           f"{s['OtherCreatures']} others, {s['Ambient']} with ambient behaviour), "
           f"{s['Waypoints']} waypoints, {s['Doors']} doors, {len(out['Labels'])} room labels", file=sys.stderr)
@@ -545,8 +548,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--layout", required=True, help="the area's layout .arl (packages/core/env/<Layout>.arl)")
     s.add_argument("--pull", required=True, help="pull json folder, for the creature templates")
     s.add_argument("--start", help="waypoint tag where the player starts")
-    s.add_argument("--rooms", help="folder of the layout's room files (.rml.json, from pull) for walls, props and "
-                                   "blockers from the level kit instead of the navigation grid")
+    s.add_argument("--rooms", help="folder of the layout's room files (.rml.json, from pull) for walls, props, "
+                                   "blockers and ceilings from the level kit instead of the navigation grid, "
+                                   "and the rooms' lights (*_ll.mmh.json)")
     s.add_argument("--kit", default="extracted/kit/json", help="folder for the kit pieces' physics and hierarchy JSON")
     s.add_argument("--game", help="game folder: pull the kit pieces the rooms use into --kit first")
     s.add_argument("--items", default="extracted/items/json", help="item templates (.uti.json, from pull "

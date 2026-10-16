@@ -243,6 +243,26 @@ def _bottom(b: list[float]) -> float:
     return b[2] - sum(abs(ax[2]) * b[3 + j] for j, ax in enumerate(_axes(b)))
 
 
+def _top(b: list[float]) -> float:
+    return b[2] + sum(abs(ax[2]) * b[3 + j] for j, ax in enumerate(_axes(b)))
+
+
+class _Grid:
+    """Boxes (13 numbers each) bucketed by their horizontal reach, for point tests."""
+    CELL = 500.0
+
+    def __init__(self, boxes: list[list[float]]):
+        self.cells: dict[tuple[int, int], list[list[float]]] = {}
+        for b in boxes:
+            r = math.sqrt(sum(h * h for h in b[3:6]))
+            for gx in range(int((b[0] - r) // self.CELL), int((b[0] + r) // self.CELL) + 1):
+                for gy in range(int((b[1] - r) // self.CELL), int((b[1] + r) // self.CELL) + 1):
+                    self.cells.setdefault((gx, gy), []).append(b)
+
+    def at(self, x: float, y: float) -> list[list[float]]:
+        return self.cells.get((int(x // self.CELL), int(y // self.CELL)), [])
+
+
 def drop_hanging(solids: list[float], nav: dict, above: float = 100.0) -> tuple[list[float], int]:
     """Drop props (kind 1) whose box starts more than `above` cm over the floor
     under it: lamps, banners, wall displays, shelves' contents. You walk under them,
@@ -357,12 +377,103 @@ def cut_doorways(solids: list[float], doors: list[tuple[list[float], float]]) ->
     return out, cuts
 
 
+LID_TILE = 200.0  # cm
+LID_REACH = 6000.0  # cm
+LID_MIN_WALL = 400.0  # cm over the floor; lower walls (benches, screens) don't bound a room
+LID_PILLAR = 75.0  # cm; narrower boxes (pillars, posts) are looked past
+LID_THICK = 30.0  # cm
+LID_OVERLAP = 50.0  # cm; lids reach this far past their tile, over the walls' tops beside them
+
+
+def lids(floor_boxes: list[float], solids: list[float]) -> tuple[list[float], int]:
+    """Ceilings (kind 3) where the kit's leave the sky showing. The game leaves its
+    tallest rooms (the main hall, the chapel, the family quarters) open above: its
+    camera looks down from above and the sky there is dark. And the walls drawn
+    here are the kit's collision boxes, mostly 4.5 to 6 m tall, below many kit
+    ceilings (corridor tops start 6 to 8 m up). Floor boxes (7 numbers, see
+    floor_plan) are cut into LID_TILE tiles; from each tile, rays at 1.5 m look
+    for a wall (kind 0, at least LID_MIN_WALL over the floor, pillars looked past)
+    along +-X and +-Y. Where at least three find one within LID_REACH, the tile is
+    indoors and gets a slab at the lowest of those walls' tops, snapped down to
+    25 cm, unless a kit ceiling already starts no higher: no gap opens between wall
+    and ceiling. Tiles of a floor box at the same height are merged along its Y,
+    and each lid reaches LID_OVERLAP past its tiles to close the slits over walls."""
+    boxes = [solids[i:i + 13] for i in range(0, len(solids), 13)]
+    grid = _Grid([b for b in boxes if b[12] == 3 or (b[12] == 0 and max(
+        b[3 + j] for j, ax in enumerate(_axes(b)) if abs(ax[2]) < 0.5) >= LID_PILLAR)])
+
+    def ceiling(x: float, y: float, z: float) -> float | None:
+        under = [_bottom(b) for b in grid.at(x, y) if b[12] == 3 and b[2] > z and _inside(b, (x, y, b[2]))]
+        return min(under) if under else None
+
+    def wall_top(x: float, y: float, z: float, dx: float, dy: float) -> float | None:
+        t = 25.0
+        while t < LID_REACH:
+            px, py = x + dx * t, y + dy * t
+            for b in grid.at(px, py):
+                if b[12] == 0 and _inside(b, (px, py, z + 150)) and _top(b) - z >= LID_MIN_WALL:
+                    return _top(b)
+            t += 25.0
+        return None
+
+    out: list[float] = []
+    count = 0
+    for i in range(0, len(floor_boxes), 7):
+        x0, y0, _, x1, y1, z, kind = floor_boxes[i:i + 7]
+        if kind != 0:
+            continue
+        nx, ny = max(1, math.ceil((x1 - x0) / LID_TILE)), max(1, math.ceil((y1 - y0) / LID_TILE))
+        for a in range(nx):
+            ax0, ax1 = x0 + (x1 - x0) * a / nx, x0 + (x1 - x0) * (a + 1) / nx
+            run: list[tuple[float, float, float]] = []  # (y from, y to, lid height) along this column
+            for c in range(ny):
+                ay0, ay1 = y0 + (y1 - y0) * c / ny, y0 + (y1 - y0) * (c + 1) / ny
+                cx, cy = (ax0 + ax1) / 2, (ay0 + ay1) / 2
+                tops = [t for t in (wall_top(cx, cy, z, dx, dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+                        if t is not None]
+                h = math.floor(min(tops) / 25) * 25 if len(tops) >= 3 else None
+                kit_ceiling = ceiling(cx, cy, z)
+                if h is not None and kit_ceiling is not None and kit_ceiling <= h + 25:
+                    h = None
+                if h is not None and run and run[-1][2] == h and abs(run[-1][1] - ay0) < 1:
+                    run[-1] = (run[-1][0], ay1, h)
+                elif h is not None:
+                    run.append((ay0, ay1, h))
+            for ry0, ry1, h in run:
+                out += [round((ax0 + ax1) / 2, 1), round((ry0 + ry1) / 2, 1), round(h + LID_THICK / 2, 1),
+                        round((ax1 - ax0) / 2 + LID_OVERLAP, 1), round((ry1 - ry0) / 2 + LID_OVERLAP, 1), LID_THICK / 2,
+                        1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 3]
+                count += 1
+    return out, count
+
+
+def tuck_lights(lights: list[float], solids: list[float], below: float = 30.0) -> tuple[list[float], int]:
+    """Move lights (7 numbers each, see kit.lights) that sit inside or just above a
+    ceiling box (kind 3) to `below` cm under it, so they light the room and not the
+    roof: the greybox ceilings are flat at the vaults' springing and the lids sit at
+    the walls' tops, lower than the game's lamps in places."""
+    grid = _Grid([solids[i:i + 13] for i in range(0, len(solids), 13) if solids[i + 12] == 3])
+    out: list[float] = []
+    moved = 0
+    for i in range(0, len(lights), 7):
+        light = list(lights[i:i + 7])
+        under = [_bottom(b) for b in grid.at(light[0], light[1])
+                 if _inside(b, (light[0], light[1], b[2])) and _bottom(b) < light[2] <= _top(b) + 50]
+        if under:
+            light[2] = round(min(under) - below, 1)
+            moved += 1
+        out += light
+    return out, moved
+
+
 def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start: str = "",
          solids: dict | None = None, door_models: dict[str, tuple[float, float, float]] | None = None,
          creature_stats=None, player: dict | None = None, ambient_tables: dict | None = None,
-         trigger_templates: dict[str, dict] | None = None, extra_creatures: list[tuple[str, str]] = ()) -> dict:
+         trigger_templates: dict[str, dict] | None = None, extra_creatures: list[tuple[str, str]] = (),
+         lights: list[float] | None = None) -> dict:
     """The runtime area file. `solids` (kit.solids, from the layout's rooms) replaces
-    the navigation grid's walls with the level kit's walls, props and blockers.
+    the navigation grid's walls with the level kit's walls, props, blockers and
+    ceilings; `lights` (kit.lights) are the rooms' point lights.
     `creature_stats` (utc -> stats.stats() dict) and `player` add the game's combat
     numbers (see stats.py). `ambient_tables` (ambient.load_tables) adds what each
     creature does on its own (see ambient.py); creatures with ambient behaviour are
@@ -468,7 +579,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     amb_patterns, amb_actions = ambient.pattern_table(ambient_tables) if ambient_tables else ([], [])
 
     boxes = floor_plan(navigation(layout_root))
-    solid_boxes, cut, dropped, fitted = [], 0, 0, 0
+    solid_boxes, cut, dropped, fitted, lidded = [], 0, 0, 0, 0
     if solids is not None:
         boxes = [v for i in range(0, len(boxes), 7) if boxes[i + 6] == 0 for v in boxes[i:i + 7]]  # floors only
         solid_boxes, dropped = drop_hanging(solids["Solids"], navigation(layout_root))
@@ -476,6 +587,9 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         solid_boxes, cut = cut_doorways(solid_boxes, doors)
         frames, fitted = frame_doors(door_pose, door_size_wh, solid_boxes)
         solid_boxes += frames
+        lid_boxes, lidded = lids(boxes, solid_boxes)
+        solid_boxes += lid_boxes
+    lights, tucked = tuck_lights(lights or [], solid_boxes)
     return {
         "Format": FORMAT,
         "Area": are_root.get("Tag") or "",
@@ -516,6 +630,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "DoorSize": door_size_wh,
         "DoorActive": door_active,
         "Solids": solid_boxes,
+        # Per light: position xyz, radius (cm), colour rgb (the game's, may exceed 1).
+        "Lights": lights,
         **triggers(are_root, trigger_templates or {}),
         "Labels": labels,
         "LabelPos": label_pos,
@@ -527,6 +643,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
                     "OtherCreatures": sum(1 for c, t in zip(npc_convs, npc_team) if not c and t == NO_TEAM),
                     "Waypoints": len(wp_tags), "Doors": len(door_tags),
                     "Solids": len(solid_boxes) // 13, "DoorwaysCut": cut,
-                    "HangingPropsDropped": dropped, "DoorFrames": fitted},
+                    "HangingPropsDropped": dropped, "DoorFrames": fitted,
+                    "Ceilings": sum(1 for k in solid_boxes[12::13] if k == 3), "Lids": lidded,
+                    "Lights": len(lights) // 7, "LightsTucked": tucked},
         "Warnings": warnings,
     }

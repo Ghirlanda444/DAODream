@@ -261,7 +261,7 @@ matches exactly.
 
 `daotools/kit.py` turns this into oriented boxes (`Solids`, 13 numbers each:
 centre and half extents in cm, the box's X and Z axes, kind 0 wall, 1 prop,
-2 blocker). Floors, ceilings and effects are left out (floors stay from the
+2 blocker, 3 ceiling). Floors and effects are left out (floors stay from the
 grid); walls and pillars without box collision, and props with round or no
 collision, fall back to their bounding box (small props, under 0.5 m, are
 dropped); decorative arch fades and beams have no collision and stay open.
@@ -269,6 +269,43 @@ Props whose box starts more than 1 m above the floor under it (lamps,
 banners, wall displays, things on shelves) are dropped (`area.drop_hanging`):
 you walk under them, and as greybox they looked like boxes floating in the
 room.
+
+Ceilings (`FCA_Ceiling01-05_0`, the vaults and flat ceilings of rooms, and
+`FCA_CorrTop*_0`, the corridors' tops) have no physics: their `.mmh` is a
+fade mesh (`MshFade_*`), drawn from below and faded out when the camera is
+above it, so the game's top-down camera sees into the rooms. Their bounding
+box becomes the ceiling (kind 3), at least 20 cm thick: `FCA_Ceiling05_0` is a
+flat sheet, the arch closing the end of a vault. Measured against the
+navigation grid under them, ceilings start 4 to 5.6 m above the floor
+(vaults from their springing, about 5.4 m; flat ceilings 5.2 to 5.5 m) and
+corridor tops 6 to 8 m above it, so nothing walks into them, and neither door
+cutting nor the hanging-prop filter touches them.
+
+The kit does not roof everything: the Main Hall, the chapel and the family
+quarters upstairs have no ceiling pieces at all (only beams about 19 m up; the
+game's camera looks down from above and the sky there is dark), and the walls
+drawn here are the collision boxes, mostly 4.5 to 6 m tall, under kit ceilings
+that start up to 8 m up. `area.lids` closes both: it cuts the floor boxes into
+2 m tiles and, from each, looks along +-X and +-Y at 1.5 m for walls at least
+4 m tall (pillars, under 1.5 m wide, looked past) within 60 m. Where three
+directions find one, the tile is indoors and gets a 30 cm slab at the lowest
+of those walls' tops (snapped down to 25 cm), unless a kit ceiling already
+starts no higher; the slabs reach 50 cm past their tiles, over the walls
+beside them. Lids are ceilings too (kind 3). The game's lights that end up
+inside or just above a ceiling are moved 30 cm under it (`area.tuck_lights`).
+
+Each room also places its lights as a model, `<layout>_<room>_ll` (the room's
+"light layer", its `.mmh` in the layout's room archive next to `_lc`, which
+holds only the baked sun, ambient and bounce settings). Its point-light nodes
+(struct `nplt`) are named `lamp_*`, `fireplace_*`, `bounce_*` and
+`window_bounce_*` (fill lights standing in for bounced light) by day, `light`
+at night; each has a colour (6007, rgba; above 1 for bright lamps, e.g.
+(1.82, 0.96, 0.30) for a torch, (0.20, 0.26, 0.29) for a cool fill), a radius
+in metres (6008, 4 to 12) and a position (`trsl` 6047) in the model's space,
+placed like any kit piece: 85 lights by day, 130 at night, most 1 to 5 m above
+the floor. One level-wide `sun_fake` (radius 2,250 m) is left out.
+`kit.lights` exports them as `Lights` (7 numbers each: position and radius in
+cm, colour), from the `*_ll.mmh.json` that `pull` writes into `--rooms`.
 
 Doors come from their own model: a placeable template's `Appearance` is a row
 of `placeable_types.gda` (in `packages/core/data/2da.erf`), whose `ModelName`
@@ -286,8 +323,9 @@ replace them; `--game` first pulls the kit pieces' `.phy` and `.mmh` into
 a wall (one guard sits on a bench, one waypoint is in a plant), and the
 castle seen from above shows its rooms and corridors.
 
-Castle Cousland: 1,003 floor boxes, 1,164 wall, 969 prop and 201 blocker
-boxes from the kit (320 hanging props dropped, 28 door frames), 36 talking
+Castle Cousland: 1,003 floor boxes, 1,164 wall, 969 prop, 201 blocker and
+284 ceiling boxes from the kit (320 hanging props dropped, 28 door frames),
+4,679 lids, 85 lights (9 moved under a ceiling), 36 talking
 characters
 (the mabari is pulled separately, see `docs/COMBAT.md`; the cat is missing), 18 giant rats
 in two teams (hidden at first), 33 waypoints, 27 doors.
