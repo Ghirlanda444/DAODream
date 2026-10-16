@@ -68,7 +68,9 @@ Each phase ends with something you can see running.
       mabari's conversation starts it, three waves of rats, the castle reacts
       when they are dead), with placeholder numbers (`docs/COMBAT.md`).
       Gilmore and the mabari join the party when the scripts say so, follow
-      you and fight beside you
+      you and fight beside you, but only against hostiles near you; the
+      castle's armed guards fight Howe's men too, without joining the party.
+      A test switch (`bOneShot`, on for now) makes the player kill in one hit
 - [ ] Real-time with pause, tactics slots, DAO's stats and abilities from the
       data tables. Started: health, attack, defense and damage come from the
       tables, as the scripts compute them, and every attack rolls to hit
@@ -83,7 +85,10 @@ Each phase ends with something you can see running.
       or voiced conversations), then the mabari growls, a servant runs in and
       is cut down, Howe's men attack, the dog joins you, Mother comes out; and
       the castle's triggers bring out Howe's soldiers as you go
-      (`docs/NIGHT.md`)
+      (`docs/NIGHT.md`). Played through by hand to Duncan in the larder: Eleanor
+      fights beside you and remarks once on each room (the conversations'
+      "show once" setting), the servants' scenes play, fill lights stand in
+      for the game's baked ambient light so no corridor is black
 - [ ] Origin complete: start to finish without debug tools
 
 ## Later
