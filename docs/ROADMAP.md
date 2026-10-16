@@ -89,7 +89,11 @@ Each phase ends with something you can see running.
       fights beside you and remarks once on each room (the conversations'
       "show once" setting), the servants' scenes play, fill lights stand in
       for the game's baked ambient light so no corridor is black
-- [ ] Origin complete: start to finish without debug tools
+- [x] Origin complete: start to finish without debug tools. Played from the
+      day castle's opening to Duncan's farewell with no flag set by hand; it
+      ends on an "End of the Human Noble origin" message (`docs/NIGHT.md`).
+      Still placeholder: greybox rooms and mannequins, cutscenes as captions,
+      no game over, Howe's men only attack you and your party
 
 ## Later
 

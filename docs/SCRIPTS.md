@@ -186,7 +186,7 @@ barking line. `BHN_MAIN_CUTSCENE_FAMILY_FAREWELL` set from the console during
 the caption queued the farewell: it played after the caption, each line
 advancing when its voice ended (Bryce's first two lines: 8.7 s for 8.1 s of
 voice), and at its end set `BHN_MAIN_START_PRELUDE`, whose transition to
-Ostagar is not built yet.
+Ostagar is not built yet (the end-of-origin message, `docs/NIGHT.md`).
 
 The finding-Bryce cutscene hangs on the pantry door: its script
 (`bhn000ip_door_pantry`) has no tag test but checks the door's area when it

@@ -89,8 +89,16 @@ Checked in Play:
    then Bryce talks to you (`open:bhn000ip_door_pantry@bhn200ar_castle_after_siege`,
    `docs/SCRIPTS.md`, Cutscenes). Duncan's conversation sets
    `BHN_MAIN_CUTSCENE_FAMILY_FAREWELL`, and the farewell plays the same way
-   and ends the night (`BHN_MAIN_START_PRELUDE`); the scene from Bryce to
-   Duncan has not been played through yet.
+   and ends the night (`BHN_MAIN_START_PRELUDE`). Its move to Ostagar's
+   King's Camp is not built, so `BP_PlotManager.Transition` shows a lasting
+   message instead: "End of the Human Noble origin. Ostagar comes next".
+
+The whole origin was played from the day castle's opening to that message
+without setting any flag by hand: the opening with Howe and Duncan, Gilmore
+at the doorway, Nan and the larder rats, Fergus' farewell, Bryce upstairs, the
+night transition, the mabari and the servant, Eleanor, Landra's room, the main
+hall and Gilmore, the larder, Bryce, Duncan and the farewell. The run moved
+the player between rooms rather than walking every corridor.
 
 Opening the bedroom hall door (unlocked when Mother tells you to go
 downstairs) brings out Howe's men by Landra's room; when they are dead, the
