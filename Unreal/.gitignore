@@ -16,3 +16,5 @@
 # redistributing the raw assets in this public repo. See docs/CHARACTERS.md.
 */Content/MetaHumans/
 */Content/ThirdParty/
+# MetaHuman outfits (MetaHuman SDK's default Outfits path), Fab ones included.
+*/Content/Outfits/
