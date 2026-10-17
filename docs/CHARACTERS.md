@@ -94,13 +94,41 @@ memory and crashed the editor, so restart between assemblies. The GPU skinning
 settings MetaHumans need (`r.GPUSkin.Support16BitBoneIndex`,
 `r.GPUSkin.UnlimitedBoneInfluences`) are in `Config/DefaultEngine.ini`.
 
+### The named cast, from the original's data
+
+Each character's look in the game is a head morph (`hm_gen_<name>.mor` in
+`packages/core/data/face.erf`, a GFF4 `MORP` file `daotools pull` converts to
+JSON into git-ignored `extracted/faces/`). It names the hair and beard models,
+the skin, eye and hair textures and colours, an age blend, and holds the
+sculpted face mesh. Original models are reference only (`docs/ROADMAP.md`), so
+the mesh is only looked at (rendered as front and side point clouds); the
+MetaHuman is built from presets and the colours and styles the morph lists.
+
+Per character: pick the nearest preset(s) by face shape, blend their face
+models (`get_face_model_coefficients` / `set_face_model_coefficients`), choose
+an older or younger skin texture (`skin_settings.skin.face_texture_index`) to
+match the age blend, and the nearest Core Data grooms; then rig, textures, a
+fresh editor, assembly, and one line in the looks table.
+
+- **Duncan** (`bhn100cr_duncan`, `MHC_Duncan` in `/Game/MetaHumans/Duncan`):
+  morph `hm_gen_duncan` gives his own hair and beard (tied back, short full
+  beard), black hair, a near-black beard, dark brown eyes, a tanned skin tint
+  and an age blend of 0.45. Built from Victor's face blended half and half with
+  Walter's, Walter's older skin (texture 121) tanned (u 0.42, v 0.45),
+  `Hair_S_LowPonytail`, `Beard_S_Full`, `Mustache_S_Full`; 183 cm, fit; a dark
+  blue shirt until the Grey Warden outfit exists. To fix: in game his skin
+  pokes through the shirt at the chest and shoulder (not in the Creator, so it
+  comes from following the mannequin's skeleton), and the beard reads thinner
+  and browner than the original's.
+
 ### How a look is worn (done)
 
 - The looks table lives on `BP_DlgNPC` (class defaults, committed):
   `LookTags` holds creature tag prefixes and `LookClasses` the MetaHuman
   Blueprint for each, as soft paths. Today: `bhn100cr_father` (Bryce),
   `bhn200cr_howe_` (every Howe soldier at night, knight and mage included) and
-  `bhn100cr_howe_guard` (Howe's two guards by day) to the soldier.
+  `bhn100cr_howe_guard` (Howe's two guards by day) to the soldier;
+  `bhn100cr_duncan` (Duncan).
 - `SetupCombat` calls `ApplyLook` with the creature's tag. On a match it loads
   the class, spawns the MetaHuman (collision off), attaches it to the
   mannequin, and `FollowMesh` makes the MetaHuman's `Body` copy the
