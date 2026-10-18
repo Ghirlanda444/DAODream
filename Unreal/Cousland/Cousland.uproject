@@ -44,6 +44,10 @@
 		{
 			"Name": "ChaosClothAssetEditor",
 			"Enabled": true
+		},
+		{
+			"Name": "AlembicHairImporter",
+			"Enabled": true
 		}
 	]
 }

@@ -111,15 +111,32 @@ match the age blend, and the nearest Core Data grooms; then rig, textures, a
 fresh editor, assembly, and one line in the looks table.
 
 - **Duncan** (`bhn100cr_duncan`, `MHC_Duncan` in `/Game/MetaHumans/Duncan`):
-  morph `hm_gen_duncan` gives his own hair and beard (tied back, short full
-  beard), black hair, a near-black beard, dark brown eyes, a tanned skin tint
-  and an age blend of 0.45. Built from Victor's face blended half and half with
-  Walter's, Walter's older skin (texture 121) tanned (u 0.42, v 0.45),
-  `Hair_S_LowPonytail`, `Beard_S_Full`, `Mustache_S_Full`; 183 cm, fit; a dark
-  blue shirt until the Grey Warden outfit exists. To fix: in game his skin
-  pokes through the shirt at the chest and shoulder (not in the Creator, so it
-  comes from following the mannequin's skeleton), and the beard reads thinner
-  and browner than the original's.
+  morph `hm_gen_duncan` gives tied-back black hair, a near-black full beard,
+  dark brown eyes, a tanned skin and an age blend of 0.45; a realistic
+  reimagining of his portrait (made by the user) set the target. Face ("E3"):
+  Bruce 0.4, Victor 0.3, Dominic 0.2, Walter 0.1, then four passes of landmark
+  moves widening the jaw (landmarks 92/91/46/68/43/63 out by 1.5/0.8) and
+  lengthening the nose (6/64); skin texture 70 at u 0.62, v 0.47;
+  `Beard_L_Full`, `Mustache_L_Full`, `Eyebrows_M_FlatThick`, all black; body
+  185 cm, chest 114, shoulders 41, biceps 37. A clean copy is kept as
+  `MHC_Duncan_E3_safe`.
+  - Hair is our own groom, not a MetaHuman one: `tools/blender/duncan_hair.py`
+    grows it on his exported head in Blender (slicked back with a soft
+    hairline, sideburns into the beard, a short round ponytail, loose locks
+    that leave the hair and fall over the temple and forehead). In Unreal it is
+    `Groom_DuncanHair7` (enable `AlembicHairImporter`; hair width override
+    0.011 cm) with `MI_DuncanHair` (black). The build always puts MetaHuman's
+    own hair back, so run `tools/unreal/duncan_groom_apply.py` in the editor
+    after every Duncan assembly: it binds the groom to his face mesh and sets
+    it on `BP_MHC_Duncan`.
+  - Tried and dropped: fitting the face to a 3D head made from the portrait
+    (TripoSG, run locally; Hunyuan3D's licence excludes the EU) with
+    `conform_to_target_meshes`. The solver either twisted the body or fell
+    back to an average face. Hand sculpting in the Creator is the way to push
+    the likeness further.
+  - To fix: in game his skin pokes through the placeholder shirt at the right
+    shoulder (it follows the mannequin's skeleton; outfits and retargeting
+    will fix it).
 
 ### How a look is worn (done)
 
