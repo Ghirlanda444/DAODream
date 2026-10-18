@@ -10,7 +10,9 @@ editor's MCP server (`localhost:8000/mcp`, the ModelContextProtocol plugin):
 - `wshot.py`: full-resolution screenshot of one editor window (e.g. a MetaHuman Creator).
 - `metahuman_make.py` + `metahuman_recipes.json`: makes MetaHumans in batches, one fresh editor
   each (`python metahuman_make.py metahuman_recipes.json Fergus Eleanor ...`); see
-  `docs/CHARACTERS.md`. `mh_look.body.py` is its colours-and-body step.
+  `docs/CHARACTERS.md`. `mh_look.body.py` is its colours-and-body step;
+  `metahuman_strands.body.py` its last step (real hair strands instead of the build's
+  cards-only grooms; also runs alone with `NAMES = [...]` and optional `THICKEN`).
 - `duncan_groom_apply.py`: run inside the editor after building Duncan, puts his custom groom back.
 
 The MetaHumans they make stay out of git (`Content/MetaHumans/`).

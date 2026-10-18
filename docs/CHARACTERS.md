@@ -235,6 +235,34 @@ full, groom bindings and shaders silently failed to cache (Duncan's hair stayed 
 pose, floating above his head). The custom groom's binding must be set again after the
 Blueprint compiles (`tools/unreal/duncan_groom_apply.py` does).
 
+### Hair strands in close-ups (2026-10-18)
+
+Beards rendered as black, speckled, dithered patches in dialogue. The cause was not the
+bindings (all matched their face mesh) but the Optimized assembly: it copies each groom
+into `MHC_<Name>/Grooms` with the strands stripped (1 curve instead of tens of thousands)
+and maps LODSync to groom LODs 3/5/7 (named characters) or 5/7 (crowd faces), i.e. hair
+cards and meshes only. Epic's grooms hold strands at LOD 0-1, cards at 2-4, meshes at 5-7.
+
+- `tools/unreal/metahuman_strands.body.py` (run by `metahuman_make.py` after every build)
+  points Hair/Beard/Mustache/Eyebrows back at Epic's original grooms, binds each to the
+  character's face with a transfer from the template head the groom was authored on
+  (`SKM_Groom_Head_Legacy01/02` or `MH_Groom_Head`, read from Epic's template binding;
+  without it the roots land in the wrong place), keeps the assembly's material overrides,
+  and maps LODSync to 0/3/7 (strands, cards, meshes) or 0/3 for crowd faces. A recipe's
+  `"thicken"` factors widen the strands of a copy in `/Game/MetaHumans/<Name>/Strands`.
+  Applied to all 22 faces in use (not the unused drafts `Duncan`, `DuncanV2`).
+- Dialogue: `BP_PlotManager.ConversationStarted/Ended` call `BP_DlgNPC.DialogueLOD` on
+  every NPC, which sets the look's LODSync `ForcedLOD` to 0 (strands) for looks within
+  25 m of the player while a conversation runs and back to -1 (automatic) when it ends.
+- `DefaultEngine.ini [SystemSettings]`: strands on, 8 visibility samples per pixel with a
+  full sample budget, and TSR's flicker rejection kept on at every scalability level.
+  TSR stays the anti-aliasing method: it is the one hair strands are built for, and
+  Unreal has no per-camera anti-aliasing (it is the global `r.AntiAliasingMethod`, not a
+  post-process setting), so TAA only for dialogue cameras is not possible without
+  switching the whole renderer at runtime.
+- Under the very bright blockout light, the edge strands facing it read white (strong
+  specular); the shaded side is clean. To revisit when the castle gets its real lighting.
+
 ### Outfits (started, parked)
 
 `tools/blender/outfit.py` grows a medieval base outfit on a MetaHuman's full

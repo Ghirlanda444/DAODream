@@ -234,9 +234,10 @@ def make(R):
             return False
     r = pyrun.run(BUILD.replace("__N__", repr(name)).replace("__Q__", repr(R.get("quality", "MEDIUM"))), 1500)
     print("  build", r, flush=True)
-    if r.get("bp") and R.get("thicken"):
-        body = "NAME = %r\nFACTORS = %r\n" % (name, R["thicken"]) + open(os.path.join(HERE, "groom_thicken.body.py"), encoding="utf-8").read()
-        print("  thicken", pyrun.run(body, 900), flush=True)
+    if r.get("bp"):  # the build's groom copies are cards only: put the strand grooms back (and thicken them)
+        body = "NAMES = [%r]\nTHICKEN = {%r: %r}\n" % (name, name, R.get("thicken") or {}) + \
+            open(os.path.join(HERE, "metahuman_strands.body.py"), encoding="utf-8").read()
+        print("  strands", str(pyrun.run(body, 900).get("strands"))[:300], flush=True)
     return bool(r.get("bp"))
 
 
