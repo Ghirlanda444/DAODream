@@ -425,7 +425,7 @@ class AreaTests(unittest.TestCase):
                     "XPosition": 0, "YPosition": 0, "ZPosition": 0, "XOrientation": 0, "YOrientation": 0,
                     "ZOrientation": 0, "WOrientation": 1}]}
         templates = {"bhn_father": {"DialogResRef": "BHN_Father", "LocName": {"strref": 2, "text": "Bryce"},
-                                    "Appearance Data": {"Gender": 1}},
+                                    "Race": 3, "Appearance Data": {"Gender": 1, "HeadMorph": "hm_bhn100_father.mor"}},
                      "bhn_rat": {"DialogResRef": "", "VarTable": [{"Name": "CREATURE_SPAWN_DEAD", "Value": 1}]},
                      "bhn_rat_giant": {"DialogResRef": "", "Race": 5, "Rank": 1, "GroupId": 1,
                                        "LocName": {"strref": 3, "text": "Giant Rat"}}}
@@ -442,6 +442,10 @@ class AreaTests(unittest.TestCase):
         self.assertEqual((out["Summary"]["TalkingCreatures"], out["Summary"]["TeamOnly"]), (2, 1))
         self.assertEqual((out["WaypointTags"], out["WaypointPose"]), (["start"], [1100.0, -2100.0, 0.0, -90.0]))
         self.assertEqual(out["Summary"]["OtherCreatures"], 1)
+        # Looks: the head morph names the character in any module; adult humans also get a crowd face.
+        self.assertEqual(out["NpcMorph"], ["hm_bhn100_father", "", "hm_bhn100_father", ""])
+        self.assertEqual([k[:8] for k in out["NpcCrowd"]], ["crowd_m_", "crowd_m_", "crowd_m_", ""])
+        self.assertEqual(out["NpcCrowd"][0], area.look_keys({}, 3, "bryce@10,20")[1])
         # Only doors, with their state (1 = locked) and a small door's greybox size.
         self.assertEqual((out["DoorTags"], out["DoorPose"], out["DoorState"], out["DoorSize"], out["DoorActive"]),
                          (["bhn_door_cellar"], [1200.0, -2000.0, 0.0, -90.0], [1], [160.0, 260.0], [1]))

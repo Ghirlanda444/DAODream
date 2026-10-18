@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import math
+import hashlib
 from pathlib import Path
 
 from . import ambient
@@ -32,7 +33,8 @@ from . import ambient
 FORMAT = "DAODream.Area 1"
 WALL_HEIGHT = 3.0  # m above the highest neighbouring floor
 FLOOR_THICKNESS = 0.2  # m
-RACE_DWARF, RACE_ANIMAL = 1, 5  # RACE_* in the game's constants; 3 is human
+RACE_DWARF, RACE_HUMAN, RACE_ANIMAL = 1, 3, 5  # RACE_* in the game's constants (2 is elf)
+CROWD_FACES = {"m": 6, "f": 2}  # generic MetaHuman faces for humans without a look of their own
 RANK_CRITTER = 1  # CREATURE_RANK_*
 GROUP_HOSTILE, GROUP_HOSTILE_ON_GROUND = 1, 36  # GROUP_*
 NO_TEAM = -1
@@ -170,6 +172,19 @@ def door_size(template: str) -> tuple[float, float]:
     doors (`sm`, the pantry) are 1.6 x 2.6 m and all others 3 x 3.6 m."""
     name = template.lower()
     return (160.0, 260.0) if "_sm_" in name or "pantry" in name else (300.0, 360.0)
+
+
+def look_keys(look: dict, race, tag: str) -> tuple[str, str]:
+    """(head morph name, crowd face key) for a creature's MetaHuman look. Crowd faces go to adult
+    humans only (children's heads are kn_*); the key is a stable hash of the tag and position, so a
+    guard keeps his face between runs, and guards sharing a tag still get different faces."""
+    morph = str(look.get("HeadMorph") or "").lower()
+    morph = morph[:-4] if morph.endswith(".mor") else morph
+    if race not in (RACE_HUMAN, None) or morph.startswith("kn_"):
+        return morph, ""
+    g = "f" if look.get("Gender") == 2 else "m"
+    h = int(hashlib.md5(tag.lower().encode()).hexdigest()[:8], 16)
+    return morph, "crowd_%s_%d" % (g, h % CROWD_FACES[g])
 
 
 def armed_ally(utc: dict, template: str = "") -> bool:
@@ -566,6 +581,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     warnings: list[str] = []
     npc_tags, npc_names, npc_convs, npc_female, npc_pose, npc_active = [], [], [], [], [], []
     npc_team, npc_scale, npc_hostile, npc_rank, npc_dead, npc_ally = [], [], [], [], [], []
+    npc_morph, npc_crowd = [], []
     npc_health, npc_attack, npc_defense, npc_damage, npc_dscale = [], [], [], [], []
     npc_ambient, npc_ambient_prefix = [], []
     creatures = list(are_root.get("CreatureList") or [])
@@ -607,6 +623,11 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
                          else 0.8 if race == RACE_DWARF else 1.0)
         npc_hostile.append(1 if utc.get("GroupId") in (GROUP_HOSTILE, GROUP_HOSTILE_ON_GROUND) else 0)
         npc_ally.append(1 if armed_ally(utc, str(c.get("TemplateResRef", ""))) else 0)
+        # Look keys: the head morph names the same character in every module (hm_gen_duncan), so a
+        # MetaHuman made once is found again later; other adult humans get a stable crowd face.
+        morph, crowd = look_keys(look, race, "%s@%d,%d" % (c.get("Tag") or "", round(float(c.get("XPosition") or 0)), round(float(c.get("YPosition") or 0))))
+        npc_morph.append(morph)
+        npc_crowd.append(crowd)
         npc_rank.append(rank)
         if creature_stats is not None:  # stats.stats() for this template (see the CLI)
             st = creature_stats(utc)
@@ -696,6 +717,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcHostile": npc_hostile,
         # 1: fights hostiles near the player without joining the party (armed_ally).
         "NpcAlly": npc_ally,
+        "NpcMorph": npc_morph,
+        "NpcCrowd": npc_crowd,
         "NpcRank": npc_rank,
         "NpcHealth": npc_health,
         "NpcAttack": npc_attack,
