@@ -106,11 +106,18 @@ def close_popups():
     t = json.loads(ue.call(SL, "Snapshot", {"ref": "", "maxDepth": 60}))["returnValue"]
     closed = []
     cur = None
+    pending_no = False
     for l in t.split("\n"):
         m = re.match(r'window "(.*?)"', l.strip())
         if m:
             cur = m.group(1)
             continue
+        if "erano aperti quando l'editor si" in l:  # "reopen asset editors?" after a crash: No
+            pending_no = True
+        if 'button "No"' in l and locals().get("pending_no"):
+            m = re.search(r"\[ref=(\w+)\]", l)
+            if m:
+                ue.call(SL, "Click", {"ref": m.group(1)}); closed.append("reopen prompt"); pending_no = False
         if cur and cur in ("Registro dei messaggi", "Diagnostica editor"):
             m = re.search(r'button "Chiudi" .*\[ref=(\w+)\]', l)
             if m:

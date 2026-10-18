@@ -156,7 +156,8 @@ except Exception as e:
 OUT["editing"] = unreal.get_editor_subsystem(unreal.MetaHumanCharacterEditorSubsystem).is_object_added_for_editing(c)
 '''
 
-LOOK = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "mh_look.body.py"), encoding="utf-8").read()
+HERE = os.path.dirname(os.path.abspath(__file__))
+LOOK = open(os.path.join(HERE, "mh_look.body.py"), encoding="utf-8").read()
 
 RIG = r'''
 sub = unreal.get_editor_subsystem(unreal.MetaHumanCharacterEditorSubsystem)
@@ -233,6 +234,9 @@ def make(R):
             return False
     r = pyrun.run(BUILD.replace("__N__", repr(name)).replace("__Q__", repr(R.get("quality", "MEDIUM"))), 1500)
     print("  build", r, flush=True)
+    if r.get("bp") and R.get("thicken"):
+        body = "NAME = %r\nFACTORS = %r\n" % (name, R["thicken"]) + open(os.path.join(HERE, "groom_thicken.body.py"), encoding="utf-8").read()
+        print("  thicken", pyrun.run(body, 900), flush=True)
     return bool(r.get("bp"))
 
 
