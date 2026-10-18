@@ -228,7 +228,7 @@ parts (hairstyles, noses, mouths, skin tones mixed per head), so:
   such as Howe): unique, each from a reference the user gives (a realistic reimagining of
   the original portrait, kept in git-ignored `extracted/refs/`). Quick previews first
   (`"preview_only": true` in a recipe: no rig, textures or assembly), then the full build.
-  Done one at a time, starting with Bryce; Duncan will be redone without the Blender hair.
+  Done one at a time: Bryce, then Duncan (V3: MetaHuman ponytail and beard, nose and brows from preset weights, brown eyes copied from a preset with `"eyes_from"`). Strong landmark sculpting distorts the face; small moves only.
 
 Unreal's local cache (Zen) is moved to `E:/UnrealDDC` in `DefaultEngine.ini`: with C:
 full, groom bindings and shaders silently failed to cache (Duncan's hair stayed in its rest

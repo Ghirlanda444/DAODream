@@ -135,6 +135,9 @@ try:
         sk.u = R["skin"].get("u", sk.u); sk.v = R["skin"].get("v", sk.v)
         s.skin = sk
         sub.commit_skin_settings(c, s)
+    if R.get("eyes_from"):
+        src = unreal.load_asset("/MetaHumanCharacter/Optional/Presets/%s.%s" % (R["eyes_from"], R["eyes_from"]))
+        sub.commit_eyes_settings(c, src.get_editor_property("eyes_settings"))
 finally:
     sub.remove_object_to_edit(c)
 OUT["saved"] = eal.save_asset(A, only_if_is_dirty=False)
