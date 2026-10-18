@@ -215,6 +215,8 @@ def make(R):
         wshot.shot("mh_%s.png" % name, "window \"MHC_%s\"" % name)
     except Exception as e:
         print("  shot failed", e)
+    if R.get("preview_only"):
+        return True
     for rig in (True, False):
         start = len(log_lines())
         pyrun.run(RIG.replace("__A__", A).replace("__RIG__", repr(rig)), 120)

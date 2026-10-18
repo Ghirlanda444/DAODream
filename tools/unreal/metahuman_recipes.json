@@ -1391,5 +1391,392 @@
   },
   "passes": 3,
   "quality": "MEDIUM"
+ },
+ {
+  "name": "BryceP1",
+  "mix": {
+   "Orlando": 0.6,
+   "Bruce": 0.4
+  },
+  "grooms": {
+   "Hair": "Hair_M_BobStraight",
+   "Beard": "Goatee_M_Soulpatch",
+   "Mustache": "Mustache_S_Stubble",
+   "Eyebrows": "Eyebrows_M_Natural"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.5,
+    "Whiteness": 0.35,
+    "Redness": 0.15
+   },
+   "Beard": {
+    "Melanin": 0.6,
+    "Whiteness": 0.15,
+    "Redness": 0.2
+   },
+   "Mustache": {
+    "Melanin": 0.55,
+    "Whiteness": 0.2,
+    "Redness": 0.2
+   },
+   "Eyebrows": {
+    "Melanin": 0.6,
+    "Whiteness": 0.15,
+    "Redness": 0.15
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.18,
+     0.04,
+     0.03,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 85,
+   "u": 0.24,
+   "v": 0.5
+  },
+  "body": {
+   "Height": 186,
+   "Chest": 106,
+   "Waist": 92,
+   "Across Shoulder": 39,
+   "Bicep": 33,
+   "Neck": 41
+  },
+  "quality": "MEDIUM",
+  "preview_only": true,
+  "replace": true
+ },
+ {
+  "name": "BryceP2",
+  "mix": {
+   "Orlando": 0.7,
+   "Walter": 0.3
+  },
+  "grooms": {
+   "Hair": "Hair_M_Layered",
+   "Beard": "Goatee_M_Soulpatch",
+   "Mustache": "Mustache_S_Stubble",
+   "Eyebrows": "Eyebrows_M_Natural"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.5,
+    "Whiteness": 0.4,
+    "Redness": 0.15
+   },
+   "Beard": {
+    "Melanin": 0.6,
+    "Whiteness": 0.15,
+    "Redness": 0.2
+   },
+   "Mustache": {
+    "Melanin": 0.55,
+    "Whiteness": 0.2,
+    "Redness": 0.2
+   },
+   "Eyebrows": {
+    "Melanin": 0.6,
+    "Whiteness": 0.15,
+    "Redness": 0.15
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.18,
+     0.04,
+     0.03,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 151,
+   "u": 0.23,
+   "v": 0.5
+  },
+  "body": {
+   "Height": 186,
+   "Chest": 106,
+   "Waist": 92,
+   "Across Shoulder": 39,
+   "Bicep": 33,
+   "Neck": 41
+  },
+  "quality": "MEDIUM",
+  "preview_only": true,
+  "replace": true
+ },
+ {
+  "name": "BryceP3",
+  "mix": {
+   "Orlando": 0.5,
+   "Victor": 0.3,
+   "Bruce": 0.2
+  },
+  "grooms": {
+   "Hair": "Hair_M_BobSlick",
+   "Beard": "Goatee_S_ChinStrap",
+   "Mustache": "Mustache_S_Stubble",
+   "Eyebrows": "Eyebrows_M_Natural"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.5,
+    "Whiteness": 0.35,
+    "Redness": 0.15
+   },
+   "Beard": {
+    "Melanin": 0.6,
+    "Whiteness": 0.15,
+    "Redness": 0.2
+   },
+   "Mustache": {
+    "Melanin": 0.55,
+    "Whiteness": 0.2,
+    "Redness": 0.2
+   },
+   "Eyebrows": {
+    "Melanin": 0.6,
+    "Whiteness": 0.15,
+    "Redness": 0.15
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.18,
+     0.04,
+     0.03,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 85,
+   "u": 0.25,
+   "v": 0.5
+  },
+  "body": {
+   "Height": 186,
+   "Chest": 106,
+   "Waist": 92,
+   "Across Shoulder": 39,
+   "Bicep": 33,
+   "Neck": 41
+  },
+  "quality": "MEDIUM",
+  "preview_only": true,
+  "replace": true
+ },
+ {
+  "name": "BryceP4",
+  "mix": {
+   "Orlando": 0.6,
+   "Walter": 0.2,
+   "Bruce": 0.2
+  },
+  "grooms": {
+   "Hair": "Hair_M_BobSlick",
+   "Beard": "Goatee_M_Soulpatch",
+   "Mustache": "Mustache_S_Stubble",
+   "Eyebrows": "Eyebrows_M_Natural"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.5,
+    "Whiteness": 0.5,
+    "Redness": 0.12
+   },
+   "Beard": {
+    "Melanin": 0.7,
+    "Whiteness": 0.2,
+    "Redness": 0.2
+   },
+   "Mustache": {
+    "Melanin": 0.55,
+    "Whiteness": 0.2,
+    "Redness": 0.2
+   },
+   "Eyebrows": {
+    "Melanin": 0.6,
+    "Whiteness": 0.15,
+    "Redness": 0.15
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.18,
+     0.04,
+     0.03,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 151,
+   "u": 0.23,
+   "v": 0.5
+  },
+  "body": {
+   "Height": 186,
+   "Chest": 106,
+   "Waist": 92,
+   "Across Shoulder": 39,
+   "Bicep": 33,
+   "Neck": 41
+  },
+  "quality": "MEDIUM",
+  "preview_only": true,
+  "replace": true
+ },
+ {
+  "name": "Bryce",
+  "mix": {
+   "Orlando": 0.6,
+   "Walter": 0.2,
+   "Bruce": 0.2
+  },
+  "grooms": {
+   "Hair": "Hair_M_BobSlick",
+   "Beard": "Goatee_M_Soulpatch",
+   "Mustache": "Mustache_S_Stubble",
+   "Eyebrows": "Eyebrows_M_Natural"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.5,
+    "Whiteness": 0.5,
+    "Redness": 0.12
+   },
+   "Beard": {
+    "Melanin": 0.7,
+    "Whiteness": 0.2,
+    "Redness": 0.2
+   },
+   "Mustache": {
+    "Melanin": 0.55,
+    "Whiteness": 0.2,
+    "Redness": 0.2
+   },
+   "Eyebrows": {
+    "Melanin": 0.6,
+    "Whiteness": 0.15,
+    "Redness": 0.15
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.18,
+     0.04,
+     0.03,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 151,
+   "u": 0.23,
+   "v": 0.5
+  },
+  "body": {
+   "Height": 186,
+   "Chest": 106,
+   "Waist": 92,
+   "Across Shoulder": 39,
+   "Bicep": 33,
+   "Neck": 41
+  },
+  "quality": "MEDIUM",
+  "replace": true
  }
 ]

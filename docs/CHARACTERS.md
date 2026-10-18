@@ -219,6 +219,17 @@ the servants, Howe's mage) need pointed ears made in Blender; children (Oren,
 the squires) need a child body. Later modules will also need dwarves (a short,
 stocky MetaHuman body) and Qunari (tall, grey skin, horns made in Blender).
 
+Two kinds of faces (the user's direction, 2026-10-18). DAO built its NPCs from shared
+parts (hairstyles, noses, mouths, skin tones mixed per head), so:
+- Minor characters and crowds (servants, guards, soldiers, the elven servants, Howe's
+  mage): made from templates and varied by combining parts (preset mix, hair, beard,
+  skin), as the crowd faces are.
+- Main characters (Bryce, Eleanor, Fergus, Oren, Iona, Duncan, the player, antagonists
+  such as Howe): unique, each from a reference the user gives (a realistic reimagining of
+  the original portrait, kept in git-ignored `extracted/refs/`). Quick previews first
+  (`"preview_only": true` in a recipe: no rig, textures or assembly), then the full build.
+  Done one at a time, starting with Bryce; Duncan will be redone without the Blender hair.
+
 Unreal's local cache (Zen) is moved to `E:/UnrealDDC` in `DefaultEngine.ini`: with C:
 full, groom bindings and shaders silently failed to cache (Duncan's hair stayed in its rest
 pose, floating above his head). The custom groom's binding must be set again after the
