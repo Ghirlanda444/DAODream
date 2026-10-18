@@ -1,0 +1,1395 @@
+[
+ {
+  "name": "Fergus",
+  "mix": {
+   "Orlando": 0.6,
+   "Bruce": 0.4
+  },
+  "grooms": {
+   "Hair": "Hair_S_Messy",
+   "Beard": "Beard_S_Full",
+   "Mustache": "Mustache_S_Full",
+   "Eyebrows": "Eyebrows_M_Natural"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.8,
+    "Whiteness": 0,
+    "Redness": 0.25
+   },
+   "Eyebrows": {
+    "Melanin": 0.8,
+    "Whiteness": 0,
+    "Redness": 0.25
+   },
+   "Beard": {
+    "Melanin": 0.8,
+    "Whiteness": 0,
+    "Redness": 0.25
+   },
+   "Mustache": {
+    "Melanin": 0.8,
+    "Whiteness": 0,
+    "Redness": 0.25
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.06,
+     0.09,
+     0.05,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 85,
+   "u": 0.27,
+   "v": 0.45
+  },
+  "body": {
+   "Height": 185,
+   "Chest": 108,
+   "Waist": 88,
+   "Across Shoulder": 40,
+   "Bicep": 34,
+   "Neck": 41
+  },
+  "quality": "MEDIUM"
+ },
+ {
+  "name": "Gilmore",
+  "mix": {
+   "Orlando": 0.8,
+   "Bruce": 0.2
+  },
+  "grooms": {
+   "Hair": "Hair_S_Casual",
+   "Beard": "",
+   "Mustache": "",
+   "Eyebrows": "Eyebrows_M_Natural"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.35,
+    "Whiteness": 0,
+    "Redness": 0.9
+   },
+   "Eyebrows": {
+    "Melanin": 0.35,
+    "Whiteness": 0,
+    "Redness": 0.9
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.07,
+     0.09,
+     0.05,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 85,
+   "u": 0.21,
+   "v": 0.5
+  },
+  "body": {
+   "Height": 182,
+   "Chest": 102,
+   "Waist": 82,
+   "Across Shoulder": 39,
+   "Bicep": 32,
+   "Neck": 39
+  },
+  "quality": "MEDIUM"
+ },
+ {
+  "name": "Dairren",
+  "mix": {
+   "Orlando": 0.75,
+   "Victor": 0.25
+  },
+  "grooms": {
+   "Hair": "Hair_S_SideSweptFringe",
+   "Beard": "",
+   "Mustache": "",
+   "Eyebrows": "Eyebrows_M_Natural"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.45,
+    "Whiteness": 0,
+    "Redness": 0.3
+   },
+   "Eyebrows": {
+    "Melanin": 0.45,
+    "Whiteness": 0,
+    "Redness": 0.3
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.1,
+     0.07,
+     0.04,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 85,
+   "u": 0.24,
+   "v": 0.48
+  },
+  "body": {
+   "Height": 178,
+   "Chest": 98,
+   "Waist": 80,
+   "Across Shoulder": 38,
+   "Bicep": 30,
+   "Neck": 38
+  },
+  "quality": "MEDIUM",
+  "replace": true
+ },
+ {
+  "name": "ArlHowe",
+  "mix": {
+   "Orlando": 0.45,
+   "Walter": 0.35,
+   "Lorenzo": 0.2
+  },
+  "grooms": {
+   "Hair": "Hair_S_SlickBack",
+   "Beard": "Goatee_M_Soulpatch",
+   "Mustache": "Mustache_S_Stubble",
+   "Eyebrows": "Eyebrows_M_Natural"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.5,
+    "Whiteness": 0.55,
+    "Redness": 0.05
+   },
+   "Eyebrows": {
+    "Melanin": 0.6,
+    "Whiteness": 0.3,
+    "Redness": 0.05
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.12,
+     0.09,
+     0.03,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   },
+   "Beard": {
+    "Melanin": 0.6,
+    "Whiteness": 0.35,
+    "Redness": 0.05
+   },
+   "Mustache": {
+    "Melanin": 0.5,
+    "Whiteness": 0.4,
+    "Redness": 0.05
+   }
+  },
+  "skin": {
+   "idx": 151,
+   "u": 0.26,
+   "v": 0.45
+  },
+  "body": {
+   "Height": 177,
+   "Chest": 96,
+   "Waist": 82,
+   "Across Shoulder": 38,
+   "Bicep": 29,
+   "Neck": 37
+  },
+  "quality": "MEDIUM",
+  "replace": true
+ },
+ {
+  "name": "Aldous",
+  "mix": {
+   "Walter": 0.8,
+   "Lorenzo": 0.2
+  },
+  "grooms": {
+   "Hair": "Hair_S_HairLoss",
+   "Beard": "Beard_S_Full",
+   "Mustache": "Mustache_S_Full",
+   "Eyebrows": "Eyebrows_M_Messy"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.2,
+    "Whiteness": 0.95,
+    "Redness": 0.0
+   },
+   "Eyebrows": {
+    "Melanin": 0.2,
+    "Whiteness": 0.95,
+    "Redness": 0.0
+   },
+   "Beard": {
+    "Melanin": 0.2,
+    "Whiteness": 0.95,
+    "Redness": 0.0
+   },
+   "Mustache": {
+    "Melanin": 0.2,
+    "Whiteness": 0.95,
+    "Redness": 0.0
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.05,
+     0.05,
+     0.08,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 121,
+   "u": 0.22,
+   "v": 0.45
+  },
+  "body": {
+   "Height": 172,
+   "Chest": 98,
+   "Waist": 94,
+   "Across Shoulder": 36,
+   "Bicep": 27,
+   "Neck": 38
+  },
+  "quality": "MEDIUM"
+ },
+ {
+  "name": "Librarian",
+  "mix": {
+   "Orlando": 0.5,
+   "Bruce": 0.3,
+   "Walter": 0.2
+  },
+  "grooms": {
+   "Hair": "Hair_S_Messy",
+   "Beard": "Beard_S_Stubble",
+   "Mustache": "Mustache_S_Stubble",
+   "Eyebrows": "Eyebrows_M_Natural"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 1.0,
+    "Whiteness": 0,
+    "Redness": 0.05
+   },
+   "Eyebrows": {
+    "Melanin": 1.0,
+    "Whiteness": 0,
+    "Redness": 0.05
+   },
+   "Beard": {
+    "Melanin": 1.0,
+    "Whiteness": 0,
+    "Redness": 0.05
+   },
+   "Mustache": {
+    "Melanin": 1.0,
+    "Whiteness": 0,
+    "Redness": 0.05
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.08,
+     0.05,
+     0.06,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 13,
+   "u": 0.27,
+   "v": 0.47
+  },
+  "body": {
+   "Height": 176,
+   "Chest": 96,
+   "Waist": 84,
+   "Across Shoulder": 37,
+   "Bicep": 29,
+   "Neck": 38
+  },
+  "quality": "MEDIUM",
+  "replace": true
+ },
+ {
+  "name": "HoweKnight",
+  "mix": {
+   "Bruce": 0.7,
+   "Victor": 0.3
+  },
+  "grooms": {
+   "Hair": "Hair_S_BuzzCut",
+   "Beard": "Beard_S_Stubble",
+   "Mustache": "Mustache_S_Stubble",
+   "Eyebrows": "Eyebrows_M_Thick"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 1.0,
+    "Whiteness": 0,
+    "Redness": 0.05
+   },
+   "Eyebrows": {
+    "Melanin": 1.0,
+    "Whiteness": 0,
+    "Redness": 0.05
+   },
+   "Beard": {
+    "Melanin": 1.0,
+    "Whiteness": 0,
+    "Redness": 0.05
+   },
+   "Mustache": {
+    "Melanin": 1.0,
+    "Whiteness": 0,
+    "Redness": 0.05
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.2,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 13,
+   "u": 0.32,
+   "v": 0.5
+  },
+  "body": {
+   "Height": 186,
+   "Chest": 112,
+   "Waist": 92,
+   "Across Shoulder": 41,
+   "Bicep": 36,
+   "Neck": 43
+  },
+  "quality": "MEDIUM"
+ },
+ {
+  "name": "Eleanor",
+  "mix": {
+   "Vivian": 0.7,
+   "Jelena": 0.3
+  },
+  "grooms": {
+   "Hair": "Hair_S_UpdoBuns",
+   "Eyebrows": "Eyebrows_M_SlightArch"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.35,
+    "Whiteness": 0.65,
+    "Redness": 0.05
+   },
+   "Eyebrows": {
+    "Melanin": 0.45,
+    "Whiteness": 0.4,
+    "Redness": 0.05
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.05,
+     0.08,
+     0.04,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 121,
+   "u": 0.22,
+   "v": 0.45
+  },
+  "body": {
+   "Height": 168,
+   "Chest": 92,
+   "Waist": 74,
+   "Hip": 98
+  },
+  "quality": "MEDIUM"
+ },
+ {
+  "name": "Landra",
+  "mix": {
+   "Vivian": 0.85,
+   "Jelena": 0.15
+  },
+  "grooms": {
+   "Hair": "Hair_S_UpdoBraids",
+   "Eyebrows": "Eyebrows_M_SlightArch"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.35,
+    "Whiteness": 0.7,
+    "Redness": 0.05
+   },
+   "Eyebrows": {
+    "Melanin": 0.45,
+    "Whiteness": 0.45,
+    "Redness": 0.05
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.09,
+     0.05,
+     0.07,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 151,
+   "u": 0.22,
+   "v": 0.45
+  },
+  "body": {
+   "Height": 166,
+   "Chest": 94,
+   "Waist": 78,
+   "Hip": 100
+  },
+  "quality": "MEDIUM",
+  "replace": true
+ },
+ {
+  "name": "Oriana",
+  "mix": {
+   "Vivian": 0.5,
+   "Celeste": 0.5
+  },
+  "grooms": {
+   "Hair": "Hair_M_Layered",
+   "Eyebrows": "Eyebrows_M_SlightArch"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.3,
+    "Whiteness": 0,
+    "Redness": 0.25
+   },
+   "Eyebrows": {
+    "Melanin": 0.4,
+    "Whiteness": 0,
+    "Redness": 0.2
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.1,
+     0.04,
+     0.05,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 17,
+   "u": 0.2,
+   "v": 0.45
+  },
+  "body": {
+   "Height": 165,
+   "Chest": 88,
+   "Waist": 66,
+   "Hip": 94
+  },
+  "quality": "MEDIUM"
+ },
+ {
+  "name": "Mallol",
+  "mix": {
+   "Vivian": 0.9,
+   "Jelena": 0.1
+  },
+  "grooms": {
+   "Hair": "Hair_S_PulledBack",
+   "Eyebrows": "Eyebrows_M_Natural"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.9,
+    "Whiteness": 0.3,
+    "Redness": 0.05
+   },
+   "Eyebrows": {
+    "Melanin": 0.9,
+    "Whiteness": 0.2,
+    "Redness": 0.05
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.12,
+     0.1,
+     0.07,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 151,
+   "u": 0.24,
+   "v": 0.45
+  },
+  "body": {
+   "Height": 164,
+   "Chest": 94,
+   "Waist": 80,
+   "Hip": 100
+  },
+  "quality": "MEDIUM",
+  "replace": true
+ },
+ {
+  "name": "Cook",
+  "mix": {
+   "Jelena": 0.5,
+   "Vivian": 0.5
+  },
+  "grooms": {
+   "Hair": "Hair_S_UpdoBuns",
+   "Eyebrows": "Eyebrows_M_Natural"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.3,
+    "Whiteness": 0.85,
+    "Redness": 0.05
+   },
+   "Eyebrows": {
+    "Melanin": 0.4,
+    "Whiteness": 0.6,
+    "Redness": 0.05
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.1,
+     0.09,
+     0.07,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 121,
+   "u": 0.24,
+   "v": 0.5
+  },
+  "body": {
+   "Height": 160,
+   "Chest": 108,
+   "Waist": 100,
+   "Hip": 112
+  },
+  "quality": "MEDIUM"
+ },
+ {
+  "name": "CrowdM1",
+  "mix": {
+   "Orlando": 0.7,
+   "Walter": 0.3
+  },
+  "grooms": {
+   "Hair": "Hair_S_BrushCut",
+   "Beard": "Beard_S_Stubble",
+   "Mustache": "Mustache_S_Stubble",
+   "Eyebrows": "Eyebrows_M_Natural"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.6,
+    "Whiteness": 0,
+    "Redness": 0.2
+   },
+   "Eyebrows": {
+    "Melanin": 0.6,
+    "Whiteness": 0,
+    "Redness": 0.2
+   },
+   "Beard": {
+    "Melanin": 0.6,
+    "Whiteness": 0,
+    "Redness": 0.2
+   },
+   "Mustache": {
+    "Melanin": 0.6,
+    "Whiteness": 0,
+    "Redness": 0.2
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.08,
+     0.06,
+     0.05,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 85,
+   "u": 0.26,
+   "v": 0.45
+  },
+  "body": {
+   "Height": 181,
+   "Chest": 104,
+   "Waist": 86,
+   "Across Shoulder": 40,
+   "Bicep": 33,
+   "Neck": 40
+  },
+  "quality": "LOW"
+ },
+ {
+  "name": "CrowdM2",
+  "mix": {
+   "Bruce": 0.5,
+   "Lorenzo": 0.5
+  },
+  "grooms": {
+   "Hair": "Hair_S_BuzzCut",
+   "Beard": "Beard_S_Full",
+   "Mustache": "Mustache_S_Full",
+   "Eyebrows": "Eyebrows_M_Thick"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.95,
+    "Whiteness": 0,
+    "Redness": 0.1
+   },
+   "Eyebrows": {
+    "Melanin": 0.95,
+    "Whiteness": 0,
+    "Redness": 0.1
+   },
+   "Beard": {
+    "Melanin": 0.95,
+    "Whiteness": 0,
+    "Redness": 0.1
+   },
+   "Mustache": {
+    "Melanin": 0.95,
+    "Whiteness": 0,
+    "Redness": 0.1
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.08,
+     0.06,
+     0.05,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 13,
+   "u": 0.3,
+   "v": 0.45
+  },
+  "body": {
+   "Height": 179,
+   "Chest": 106,
+   "Waist": 90,
+   "Across Shoulder": 40,
+   "Bicep": 34,
+   "Neck": 41
+  },
+  "quality": "LOW"
+ },
+ {
+  "name": "CrowdM3",
+  "mix": {
+   "Walter": 0.5,
+   "Orlando": 0.5
+  },
+  "grooms": {
+   "Hair": "Hair_S_HairLoss",
+   "Beard": "",
+   "Mustache": "Mustache_S_Full",
+   "Eyebrows": "Eyebrows_M_Natural"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.3,
+    "Whiteness": 0.4,
+    "Redness": 0.15
+   },
+   "Eyebrows": {
+    "Melanin": 0.3,
+    "Whiteness": 0.4,
+    "Redness": 0.15
+   },
+   "Mustache": {
+    "Melanin": 0.3,
+    "Whiteness": 0.45,
+    "Redness": 0.15
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.08,
+     0.06,
+     0.05,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 121,
+   "u": 0.25,
+   "v": 0.45
+  },
+  "body": {
+   "Height": 177,
+   "Chest": 104,
+   "Waist": 92,
+   "Across Shoulder": 39,
+   "Bicep": 32,
+   "Neck": 40
+  },
+  "quality": "LOW",
+  "replace": true
+ },
+ {
+  "name": "CrowdM4",
+  "mix": {
+   "Victor": 0.5,
+   "Bruce": 0.5
+  },
+  "grooms": {
+   "Hair": "Hair_S_Clean",
+   "Beard": "Beard_S_Uneven",
+   "Mustache": "Mustache_S_Uneven",
+   "Eyebrows": "Eyebrows_M_Natural"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.55,
+    "Whiteness": 0,
+    "Redness": 0.7
+   },
+   "Eyebrows": {
+    "Melanin": 0.55,
+    "Whiteness": 0,
+    "Redness": 0.7
+   },
+   "Beard": {
+    "Melanin": 0.55,
+    "Whiteness": 0,
+    "Redness": 0.7
+   },
+   "Mustache": {
+    "Melanin": 0.55,
+    "Whiteness": 0,
+    "Redness": 0.7
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.08,
+     0.06,
+     0.05,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 28,
+   "u": 0.28,
+   "v": 0.5
+  },
+  "body": {
+   "Height": 183,
+   "Chest": 104,
+   "Waist": 86,
+   "Across Shoulder": 40,
+   "Bicep": 33,
+   "Neck": 40
+  },
+  "quality": "LOW"
+ },
+ {
+  "name": "CrowdM5",
+  "mix": {
+   "Orlando": 0.6,
+   "Lorenzo": 0.4
+  },
+  "grooms": {
+   "Hair": "Hair_S_SweptUp",
+   "Beard": "",
+   "Mustache": "",
+   "Eyebrows": "Eyebrows_M_Natural"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.2,
+    "Whiteness": 0,
+    "Redness": 0.15
+   },
+   "Eyebrows": {
+    "Melanin": 0.2,
+    "Whiteness": 0,
+    "Redness": 0.15
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.08,
+     0.06,
+     0.05,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 85,
+   "u": 0.22,
+   "v": 0.45
+  },
+  "body": {
+   "Height": 180,
+   "Chest": 100,
+   "Waist": 82,
+   "Across Shoulder": 39,
+   "Bicep": 31,
+   "Neck": 39
+  },
+  "quality": "LOW"
+ },
+ {
+  "name": "CrowdF0",
+  "mix": {
+   "Vivian": 0.6,
+   "Jelena": 0.4
+  },
+  "grooms": {
+   "Hair": "Hair_S_LowPonytail",
+   "Eyebrows": "Eyebrows_M_Natural"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.6,
+    "Whiteness": 0,
+    "Redness": 0.2
+   },
+   "Eyebrows": {
+    "Melanin": 0.6,
+    "Whiteness": 0,
+    "Redness": 0.2
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.08,
+     0.06,
+     0.05,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 17,
+   "u": 0.22,
+   "v": 0.45
+  },
+  "body": {
+   "Height": 164,
+   "Chest": 88,
+   "Waist": 70,
+   "Hip": 96
+  },
+  "quality": "LOW",
+  "replace": true
+ },
+ {
+  "name": "CrowdF1",
+  "mix": {
+   "Vivian": 0.8,
+   "Jelena": 0.2
+  },
+  "grooms": {
+   "Hair": "Hair_S_UpdoBuns",
+   "Eyebrows": "Eyebrows_M_Natural"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.55,
+    "Whiteness": 0.35,
+    "Redness": 0.15
+   },
+   "Eyebrows": {
+    "Melanin": 0.55,
+    "Whiteness": 0.3,
+    "Redness": 0.15
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.08,
+     0.06,
+     0.05,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 151,
+   "u": 0.24,
+   "v": 0.45
+  },
+  "body": {
+   "Height": 162,
+   "Chest": 96,
+   "Waist": 84,
+   "Hip": 102
+  },
+  "quality": "LOW",
+  "replace": true
+ },
+ {
+  "name": "DuncanV2",
+  "mix": {
+   "Orlando": 0.4,
+   "Bruce": 0.3,
+   "Victor": 0.2,
+   "Dominic": 0.1
+  },
+  "grooms": {
+   "Hair": "Hair_S_LowPonytail",
+   "Beard": "Beard_L_Full",
+   "Mustache": "Mustache_L_Full",
+   "Eyebrows": "Eyebrows_M_FlatThick"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 1.0,
+    "Whiteness": 0.03,
+    "Redness": 0.05
+   },
+   "Beard": {
+    "Melanin": 1.0,
+    "Whiteness": 0.02,
+    "Redness": 0.05
+   },
+   "Mustache": {
+    "Melanin": 1.0,
+    "Whiteness": 0.02,
+    "Redness": 0.05
+   },
+   "Eyebrows": {
+    "Melanin": 1.0,
+    "Whiteness": 0.0,
+    "Redness": 0.05
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.05,
+     0.07,
+     0.13,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.04,
+     0.04,
+     0.05,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.05,
+     0.05,
+     0.06,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 70,
+   "u": 0.62,
+   "v": 0.47
+  },
+  "body": {
+   "Height": 185,
+   "Chest": 114,
+   "Waist": 94,
+   "Across Shoulder": 41,
+   "Bicep": 37,
+   "Neck": 44,
+   "Forearm": 31
+  },
+  "sculpt": {
+   "6": [
+    0,
+    0.3,
+    0
+   ],
+   "64": [
+    0,
+    0.1,
+    -0.15
+   ]
+  },
+  "passes": 3,
+  "quality": "MEDIUM"
+ }
+]

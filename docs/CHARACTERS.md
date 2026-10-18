@@ -183,6 +183,47 @@ reused faces; each extra variant adds its own textures, so keep the variants
 per faction few and check memory as they are added. Next: medieval outfits,
 then the rest of the named cast.
 
+### All the humans of the castle (2026-10-18)
+
+Every look is keyed by who the creature is, so it is reused in later modules:
+the area export writes each creature's head morph (`NpcMorph`, e.g.
+`hm_gen_duncan`, the same in every module that has Duncan) and a crowd face
+(`NpcCrowd`, `crowd_m_0`-`5` / `crowd_f_0`-`1`, a stable hash of tag and
+position, adult humans only). The loader applies the morph's MetaHuman first,
+then the crowd face (`GiveNpcLook`).
+
+Faces are made in batches by `tools/unreal/metahuman_make.py` from
+`tools/unreal/metahuman_recipes.json`: one fresh editor per character
+(assembling two in one session runs the GPU out of memory), preset mix,
+grooms (`""` removes the preset's), colours, skin texture and tone, body,
+optional landmark sculpting, face rig, textures, assembly (named characters
+MEDIUM, crowd faces LOW), and a Creator picture for review.
+
+Ferelden is medieval England (its war with Orlais is the Hundred Years' War):
+everyone in the castle but Duncan is white, mostly North European. Only these
+presets are used for them: Orlando (the best North European base), Bruce and
+Walter, with Lorenzo and Victor for a Mediterranean touch; Vivian and Jelena
+for women (Celeste reads East Asian next to them; only Oriana, an Antivan,
+keeps a share). Age comes from older skin textures (121, 151) toned pale
+(u 0.22-0.27), never from the older Asian presets. Reference pictures from
+the user (front portraits) steer individual faces: Arl Howe has combed-back
+grey hair, a narrow hollow-cheeked face and the soul patch his son Sebastian
+shares (`Goatee_S_SoulpatchStrip`).
+
+Made: Duncan (V2, Fergus's square jaw, custom hair), Fergus, Eleanor, Gilmore, Dairren, Arl Howe, Aldous, the librarian,
+Howe's knight, Landra, Oriana, Mother Mallol, the cook, and crowd faces
+`CrowdM1`-`5`, `CrowdF0`-`1` (the first Howe soldier is `crowd_m_0`).
+
+Still to do in this castle, each needing more than MetaHuman: elves (Iona,
+the servants, Howe's mage) need pointed ears made in Blender; children (Oren,
+the squires) need a child body. Later modules will also need dwarves (a short,
+stocky MetaHuman body) and Qunari (tall, grey skin, horns made in Blender).
+
+Unreal's local cache (Zen) is moved to `E:/UnrealDDC` in `DefaultEngine.ini`: with C:
+full, groom bindings and shaders silently failed to cache (Duncan's hair stayed in its rest
+pose, floating above his head). The custom groom's binding must be set again after the
+Blueprint compiles (`tools/unreal/duncan_groom_apply.py` does).
+
 ### Outfits (started, parked)
 
 `tools/blender/outfit.py` grows a medieval base outfit on a MetaHuman's full
