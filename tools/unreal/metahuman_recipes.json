@@ -4342,6 +4342,438 @@
   "passes": 5
  },
  {
+  "name": "DuncanP22",
+  "mix": {
+   "Lorenzo": 0.4,
+   "Bruce": 0.25,
+   "Walter": 0.2,
+   "Orlando": 0.15
+  },
+  "grooms": {
+   "Hair": "Hair_S_LowPonytail",
+   "Beard": "Beard_L_Full",
+   "Mustache": "Mustache_L_Full",
+   "Eyebrows": "Eyebrows_M_FlatThick"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.72,
+    "Whiteness": 0.03,
+    "Redness": 0.35
+   },
+   "Beard": {
+    "Melanin": 0.85,
+    "Whiteness": 0.03,
+    "Redness": 0.3
+   },
+   "Mustache": {
+    "Melanin": 0.85,
+    "Whiteness": 0.03,
+    "Redness": 0.3
+   },
+   "Eyebrows": {
+    "Melanin": 1.0,
+    "Whiteness": 0.0,
+    "Redness": 0.1
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.05,
+     0.07,
+     0.13,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.04,
+     0.04,
+     0.05,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.05,
+     0.05,
+     0.06,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 13,
+   "u": 0.52,
+   "v": 0.5
+  },
+  "body": {
+   "Height": 185,
+   "Chest": 112,
+   "Waist": 94,
+   "Across Shoulder": 41,
+   "Bicep": 36,
+   "Neck": 43,
+   "Forearm": 30
+  },
+  "eyes_from": "Jorge",
+  "quality": "MEDIUM",
+  "preview_only": true,
+  "replace": true,
+  "sculpt": {
+   "7": [
+    0,
+    0.5,
+    -0.3
+   ],
+   "0": [
+    0,
+    0.45,
+    -0.35
+   ],
+   "27": [
+    0,
+    0.45,
+    -0.35
+   ],
+   "59": [
+    0,
+    0.2,
+    0
+   ],
+   "51": [
+    0.0,
+    -0.11000000000000001,
+    -0.0825
+   ],
+   "35": [
+    0.0,
+    -0.11000000000000001,
+    -0.0825
+   ],
+   "44": [
+    0.0,
+    -0.11000000000000001,
+    -0.0825
+   ],
+   "20": [
+    0.0,
+    -0.11000000000000001,
+    -0.0825
+   ],
+   "52": [
+    0.0,
+    -0.0825,
+    -0.066
+   ],
+   "36": [
+    0.0,
+    -0.0825,
+    -0.066
+   ],
+   "10": [
+    0,
+    0.2,
+    -0.3
+   ],
+   "26": [
+    0,
+    0.2,
+    -0.3
+   ]
+  },
+  "passes": 5
+ },
+ {
+  "name": "DuncanP23",
+  "mix": {
+   "Lorenzo": 0.4,
+   "Bruce": 0.25,
+   "Walter": 0.2,
+   "Orlando": 0.15
+  },
+  "grooms": {
+   "Hair": "Hair_S_LowPonytail",
+   "Beard": "Beard_M_Curly",
+   "Mustache": "Mustache_L_Full",
+   "Eyebrows": "Eyebrows_M_FlatThick"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.72,
+    "Whiteness": 0.03,
+    "Redness": 0.35
+   },
+   "Beard": {
+    "Melanin": 0.85,
+    "Whiteness": 0.03,
+    "Redness": 0.3
+   },
+   "Mustache": {
+    "Melanin": 0.85,
+    "Whiteness": 0.03,
+    "Redness": 0.3
+   },
+   "Eyebrows": {
+    "Melanin": 1.0,
+    "Whiteness": 0.0,
+    "Redness": 0.1
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.05,
+     0.07,
+     0.13,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.04,
+     0.04,
+     0.05,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.05,
+     0.05,
+     0.06,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 13,
+   "u": 0.52,
+   "v": 0.5
+  },
+  "body": {
+   "Height": 185,
+   "Chest": 112,
+   "Waist": 94,
+   "Across Shoulder": 41,
+   "Bicep": 36,
+   "Neck": 43,
+   "Forearm": 30
+  },
+  "eyes_from": "Jorge",
+  "quality": "MEDIUM",
+  "preview_only": true,
+  "replace": true,
+  "sculpt": {
+   "7": [
+    0,
+    0.5,
+    -0.3
+   ],
+   "0": [
+    0,
+    0.45,
+    -0.35
+   ],
+   "27": [
+    0,
+    0.45,
+    -0.35
+   ],
+   "59": [
+    0,
+    0.2,
+    0
+   ],
+   "51": [
+    0.0,
+    -0.11000000000000001,
+    -0.0825
+   ],
+   "35": [
+    0.0,
+    -0.11000000000000001,
+    -0.0825
+   ],
+   "44": [
+    0.0,
+    -0.11000000000000001,
+    -0.0825
+   ],
+   "20": [
+    0.0,
+    -0.11000000000000001,
+    -0.0825
+   ],
+   "52": [
+    0.0,
+    -0.0825,
+    -0.066
+   ],
+   "36": [
+    0.0,
+    -0.0825,
+    -0.066
+   ],
+   "10": [
+    0,
+    0.2,
+    -0.3
+   ],
+   "26": [
+    0,
+    0.2,
+    -0.3
+   ]
+  },
+  "passes": 5
+ },
+ {
+  "name": "DuncanP24",
+  "mix": {
+   "Lorenzo": 0.4,
+   "Bruce": 0.25,
+   "Walter": 0.2,
+   "Orlando": 0.15
+  },
+  "grooms": {
+   "Hair": "Hair_S_LowPonytail",
+   "Beard": "Beard_S_Full",
+   "Mustache": "Mustache_S_Full",
+   "Eyebrows": "Eyebrows_M_FlatThick"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.72,
+    "Whiteness": 0.03,
+    "Redness": 0.35
+   },
+   "Beard": {
+    "Melanin": 0.85,
+    "Whiteness": 0.03,
+    "Redness": 0.3
+   },
+   "Mustache": {
+    "Melanin": 0.85,
+    "Whiteness": 0.03,
+    "Redness": 0.3
+   },
+   "Eyebrows": {
+    "Melanin": 1.0,
+    "Whiteness": 0.0,
+    "Redness": 0.1
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.05,
+     0.07,
+     0.13,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.04,
+     0.04,
+     0.05,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.05,
+     0.05,
+     0.06,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 13,
+   "u": 0.52,
+   "v": 0.5
+  },
+  "body": {
+   "Height": 185,
+   "Chest": 112,
+   "Waist": 94,
+   "Across Shoulder": 41,
+   "Bicep": 36,
+   "Neck": 43,
+   "Forearm": 30
+  },
+  "eyes_from": "Jorge",
+  "quality": "MEDIUM",
+  "preview_only": true,
+  "replace": true,
+  "sculpt": {
+   "7": [
+    0,
+    0.5,
+    -0.3
+   ],
+   "0": [
+    0,
+    0.45,
+    -0.35
+   ],
+   "27": [
+    0,
+    0.45,
+    -0.35
+   ],
+   "59": [
+    0,
+    0.2,
+    0
+   ],
+   "51": [
+    0.0,
+    -0.11000000000000001,
+    -0.0825
+   ],
+   "35": [
+    0.0,
+    -0.11000000000000001,
+    -0.0825
+   ],
+   "44": [
+    0.0,
+    -0.11000000000000001,
+    -0.0825
+   ],
+   "20": [
+    0.0,
+    -0.11000000000000001,
+    -0.0825
+   ],
+   "52": [
+    0.0,
+    -0.0825,
+    -0.066
+   ],
+   "36": [
+    0.0,
+    -0.0825,
+    -0.066
+   ],
+   "10": [
+    0,
+    0.2,
+    -0.3
+   ],
+   "26": [
+    0,
+    0.2,
+    -0.3
+   ]
+  },
+  "passes": 5
+ },
+ {
   "name": "DuncanV3",
   "mix": {
    "Lorenzo": 0.4,
@@ -4352,7 +4784,7 @@
   "grooms": {
    "Hair": "Hair_S_LowPonytail",
    "Beard": "Beard_M_Curly",
-   "Mustache": "Mustache_M_Curly",
+   "Mustache": "Mustache_L_Full",
    "Eyebrows": "Eyebrows_M_FlatThick"
   },
   "colours": {
@@ -4484,9 +4916,9 @@
   },
   "passes": 5,
   "thicken": {
-   "Beard": 1.6,
-   "Mustache": 1.45,
-   "Eyebrows": 1.6
+   "Beard": 1.15,
+   "Mustache": 1.15,
+   "Eyebrows": 1.35
   }
  }
 ]
