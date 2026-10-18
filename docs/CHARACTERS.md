@@ -183,6 +183,27 @@ reused faces; each extra variant adds its own textures, so keep the variants
 per faction few and check memory as they are added. Next: medieval outfits,
 then the rest of the named cast.
 
+### Outfits (started, parked)
+
+`tools/blender/outfit.py` grows a medieval base outfit on a MetaHuman's full
+body: a padded gambeson with long sleeves, a belt and a flared skirt to
+mid-thigh, trousers and boots. Each piece is cut from the body surface by the
+bone that drives it, smoothed and pushed out, so it keeps the body's skin
+weights; the skirt and belt are tubes sized from the hips' outline. Input is
+the uncut body (`export_geometry` with `body_skeletal_mesh`, since the
+assembled body has the skin under the default clothes removed); output is one
+skeletal mesh on `metahuman_base_skel` with three slots. Howe's soldier has
+one imported (`/Game/Outfits/HoweSoldier/SKM_HoweSoldier_Outfit`) with
+`M_Cloth` (colour, roughness, quilting lines) and Howe's red, brown and dark
+leather instances. Not yet worn: the remaining step is to swap it into the
+built Blueprint's clothing component after each build. Parked so that all the
+humans are made first.
+
+Armour and weapons should also drive combat: `stats.py` already takes damage
+from the equipped weapon's base item, but armour is not modelled yet (hits are
+computed against no armour). Outfits will follow each creature's equipped
+chest item, and its armour value will go into the hit and damage rolls.
+
 Baseline with the mannequins, Howe's soldiers standing in the night
 castle's main hall around the player (Play in the editor, not throttled):
 10, 20 and 40 soldiers all run at about 116-120 fps (the editor seems to cap
