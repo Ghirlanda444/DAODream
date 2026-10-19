@@ -4998,6 +4998,7 @@
   "existing": true,
   "quality": "MEDIUM",
   "thicken": {
+   "Beard": 1.1,
    "Mustache": 1.15
   },
   "note": "DuncanV3 fitted to a 3D head generated from the user's clean-shaven front reference (mouth, chin and jaw included), brow ridge pushed forward to the shaved side view; same grooms and colours as DuncanH (docs/CHARACTERS.md)",
@@ -5063,6 +5064,12 @@
    "Bicep": 36,
    "Neck": 43,
    "Forearm": 30
+  },
+  "layers": {
+   "BeardBase": [
+    "Beard_S_Stubble",
+    "Beard"
+   ]
   }
  }
 ]

@@ -5,6 +5,7 @@ python mh_make.py recipes.json Name [Name ...]
 A recipe: {"name", "mix": {preset: weight}, "grooms": {slot: groom}, "skin": {"idx", "u", "v"},
            "colours": {slot: {param: value}}, "body": {measure: cm}, "sculpt": {landmark: [dx,dy,dz]},
            "passes": n, "quality": "MEDIUM"|"LOW"}
+"layers": {component: [groom, like_slot]} adds groom layers (e.g. stubble under a beard).
 "existing": true builds a character already in /Game/MetaHumans/<name> (e.g. a hand-fitted face):
 no create step, so its face survives; "grooms", "colours" and "body", if given, are applied to it.
 """
@@ -259,7 +260,8 @@ def make(R):
     r = pyrun.run(BUILD.replace("__N__", repr(name)).replace("__Q__", repr(R.get("quality", "MEDIUM"))), 1500)
     print("  build", r, flush=True)
     if r.get("bp"):  # the build's groom copies are cards only: put the strand grooms back (and thicken them)
-        body = "NAMES = [%r]\nTHICKEN = {%r: %r}\n" % (name, name, R.get("thicken") or {}) + \
+        body = "NAMES = [%r]\nTHICKEN = {%r: %r}\nLAYERS = {%r: %r}\n" % (
+            name, name, R.get("thicken") or {}, name, R.get("layers") or {}) + \
             open(os.path.join(HERE, "metahuman_strands.body.py"), encoding="utf-8").read()
         print("  strands", str(pyrun.run(body, 900).get("strands"))[:300], flush=True)
     return bool(r.get("bp"))

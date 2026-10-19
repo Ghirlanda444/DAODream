@@ -271,6 +271,14 @@ cards and meshes only. Epic's grooms hold strands at LOD 0-1, cards at 2-4, mesh
 - Dialogue: `BP_PlotManager.ConversationStarted/Ended` call `BP_DlgNPC.DialogueLOD` on
   every NPC, which sets the look's LODSync `ForcedLOD` to 0 (strands) for looks within
   25 m of the player while a conversation runs and back to -1 (automatic) when it ends.
+  It also switches on two hidden rect lights on looks within 6 m (`DlgKey`, `DlgRim` on
+  BP_DlgNPC, found by name at runtime): a soft key from the viewer's left and a rim behind,
+  placed from the head toward the player camera at the conversation's start, off at its end.
+  The effect is modest while conversations use the normal third-person camera (about 5 m
+  away) under the bright blockout light; close-up dialogue cameras would make it count.
+- Groom layers: a recipe's `"layers"` adds extra groom components (e.g. Duncan's
+  `BeardBase`, `Beard_S_Stubble` under `Beard_L_Full`, so skin does not show through the
+  beard); `metahuman_strands.body.py` binds them like the others.
 - `DefaultEngine.ini [SystemSettings]`: strands on, 8 visibility samples per pixel with a
   full sample budget, and TSR's flicker rejection kept on at every scalability level.
   TSR stays the anti-aliasing method: it is the one hair strands are built for, and

@@ -7,7 +7,8 @@
 # wider strands (THICKEN factors), binds it to the character's face mesh, keeps the assembly's material
 # overrides (same slot names), and maps LODSync so its closest level uses strands:
 #   3 levels (named characters): strands -> cards -> meshes;  2 levels (crowd faces): strands -> cards.
-# NAMES: list of MetaHuman names (BP_MHC_<Name>); THICKEN: {name: {slot: factor}} (optional).
+# NAMES: list of MetaHuman names (BP_MHC_<Name>); THICKEN: {name: {slot: factor}} (optional);
+# LAYERS: {name: {component: [groom, like_slot]}} (optional, see below).
 SLOTS = ("Hair", "Beard", "Mustache", "Eyebrows")
 MAPS = {3: [0, 3, 7], 2: [0, 3]}
 CARDS = {3: [3, 5, 7], 2: [5, 7]}   # the assembly's own mapping (cards and meshes only)
@@ -23,6 +24,7 @@ for a in eal.list_assets(TEMPLATES, recursive=True, include_folder=False):
     if not n.startswith("WI_"):
         templates[n[:-len("_Binding")] if n.endswith("_Binding") else n] = a.split(".")[0]
 THICKEN = globals().get("THICKEN") or {}
+LAYERS = globals().get("LAYERS") or {}
 report = {}
 
 
@@ -93,6 +95,31 @@ for name in NAMES:
                         d = m[k]; d.set_editor_property("mapping", (MAPS if str(k) in made else CARDS)[n]); m[k] = d
                 o.modify(); o.set_editor_property("custom_lod_mapping", m)
         unreal.BlueprintEditorLibrary.compile_blueprint(bp)
+    # Extra groom layers (LAYERS = {name: {component: [groom, like_slot]}}), e.g. dense stubble under a full
+    # beard so skin does not show through it: a new groom component on the face, bound like the others and
+    # wearing the like_slot's first material (its colours). Strands only, so it is left out of LODSync.
+    for comp, (gname, like) in LAYERS.get(name, {}).items():
+        handles = {str(lib.get_variable_name(lib.get_data(h))): h for h in sds.k2_gather_subobject_data_for_blueprint(bp)}
+        if comp not in handles:
+            h, fail = sds.add_new_subobject(unreal.AddNewSubobjectParams(
+                parent_handle=handles["Face"], new_class=unreal.GroomComponent, blueprint_context=bp))
+            sds.rename_subobject(h, unreal.Text(comp))
+            handles[comp] = h
+        g = unreal.load_asset(originals[gname])
+        bind = "%s/%s_Binding" % (dst, gname)
+        if eal.does_asset_exist(bind):
+            eal.delete_asset(bind)
+        head = unreal.load_asset(templates[gname]).get_editor_property("target_skeletal_mesh")
+        b = unreal.GroomLibrary.create_new_groom_binding_asset_with_path(bind, g, face, 100, head, 0)
+        eal.save_asset(bind, only_if_is_dirty=False)
+        mat = [o for s, o in comps(bp) if s == like][0].get_editor_property("override_materials")[0]
+        for rnd in range(2):
+            o = lib.get_object(lib.get_data(handles[comp]))
+            o.modify()
+            o.set_editor_property("groom_asset", g); o.set_editor_property("binding_asset", b)
+            o.set_editor_property("override_materials", [mat])
+            unreal.BlueprintEditorLibrary.compile_blueprint(bp)
+        made[comp] = (g, b)
     for slot, o in comps(bp):
         if slot in made:
             r[slot] = [o.groom_asset.get_name(), o.binding_asset.get_name() if o.binding_asset else None]
