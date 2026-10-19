@@ -246,6 +246,11 @@ parts (hairstyles, noses, mouths, skin tones mixed per head), so:
   matched the shaved side view except the brow ridge, pushed 0.4-0.8 cm forward (the face model
   stops there). Same grooms and colours as DuncanH. Compared in the portrait booth
   (`tools/unreal/booth_shot.py`); the user chose it, and `hm_gen_duncan` now loads `DuncanS`.
+  Bryce in game is now `BryceW` (2026-10-19), made the same way from the user's Bryce sheet.
+  Fitting Bryce's own character failed: it uses an older 125-point landmark layout and the solver
+  shifted the head off the neck, so the fit starts from DuncanV3 (79 points) and takes Bryce's
+  skin, eyes, body and grooms; the fit area leaves out the hair hanging beside his cheeks, then the
+  chin and brow are pushed toward the side view. Ash grey-brown hair and a stubble layer.
 
 Unreal's local cache (Zen) is moved to `E:/UnrealDDC` in `DefaultEngine.ini`: with C:
 full, groom bindings and shaders silently failed to cache (Duncan's hair stayed in its rest
