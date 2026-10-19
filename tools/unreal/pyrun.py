@@ -17,15 +17,28 @@ with open(%r, "w", encoding="utf-8") as f:
 '''
 
 
+def restore_editor():
+    """Un-minimise the editor: a minimised editor shows no Slate windows, so the console box is not found."""
+    import ctypes, subprocess
+    out = subprocess.run(["powershell", "-NoProfile", "-Command",
+                          "(Get-Process UnrealEditor -ErrorAction SilentlyContinue | Select-Object -First 1).MainWindowHandle"],
+                         capture_output=True, text=True).stdout.strip()
+    if out.isdigit() and int(out):
+        ctypes.windll.user32.ShowWindow(ctypes.c_void_p(int(out)), 9)
+        time.sleep(2)
+
+
 def cmd_box():
-    t = json.loads(ue.call(SL, "Snapshot", {"ref": "", "maxDepth": 60}))["returnValue"]
-    lines = t.split("\n")
-    for i, l in enumerate(lines):
-        if 'text "Cmd"' in l or 'text "Python"' in l:
-            for l2 in lines[i:i + 6]:
-                m = re.search(r"textbox .*\[ref=(\w+)\]", l2)
-                if m:
-                    return m.group(1)
+    for attempt in range(2):
+        t = json.loads(ue.call(SL, "Snapshot", {"ref": "", "maxDepth": 60}))["returnValue"]
+        lines = t.split("\n")
+        for i, l in enumerate(lines):
+            if 'text "Cmd"' in l or 'text "Python"' in l:
+                for l2 in lines[i:i + 6]:
+                    m = re.search(r"textbox .*\[ref=(\w+)\]", l2)
+                    if m:
+                        return m.group(1)
+        restore_editor()   # a minimised editor hides the console
     raise RuntimeError("console box not found")
 
 

@@ -5101,5 +5101,79 @@
    "SpecEdge": 0.35,
    "SpecFront": 0.35
   }
+ },
+ {
+  "name": "BryceW",
+  "existing": true,
+  "quality": "MEDIUM",
+  "grooms": {
+   "Hair": "Hair_M_BobSlick",
+   "Beard": "Goatee_M_Soulpatch",
+   "Mustache": "Mustache_S_Stubble",
+   "Eyebrows": "Eyebrows_M_Natural"
+  },
+  "body": {
+   "Height": 186,
+   "Chest": 106,
+   "Waist": 92,
+   "Across Shoulder": 39,
+   "Bicep": 33,
+   "Neck": 41
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.6,
+    "Whiteness": 0.45,
+    "Redness": 0.05
+   },
+   "Beard": {
+    "Melanin": 0.68,
+    "Whiteness": 0.2,
+    "Redness": 0.15
+   },
+   "Mustache": {
+    "Melanin": 0.68,
+    "Whiteness": 0.2,
+    "Redness": 0.15
+   },
+   "Eyebrows": {
+    "Melanin": 0.68,
+    "Whiteness": 0.15,
+    "Redness": 0.12
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.18,
+     0.04,
+     0.03,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "layers": {
+   "BeardBase": [
+    "Beard_S_Stubble",
+    "Beard"
+   ]
+  },
+  "note": "DuncanV3 face fitted to a 3D head generated from the user's Bryce reference (face area without the side hair), chin and brow pushed to the side view; Bryce's skin, eyes, body and grooms (docs/CHARACTERS.md)"
  }
 ]

@@ -188,7 +188,7 @@ def strands_body(R):
     """Inputs for metahuman_strands.body.py from a recipe (with the defaults above)."""
     n = R["name"]
     return "NAMES = [%r]\nTHICKEN = {%r: %r}\nLAYERS = {%r: %r}\nMATERIAL = {%r: %r}\n" % (
-        n, n, R.get("thicken") or DEFAULT_THICKEN, n, R.get("layers") or {}, n, R.get("groom_material") or DEFAULT_GROOM_MATERIAL) + \
+        n, n, R.get("thicken") or dict(DEFAULT_THICKEN, **{c: {"width": 1.2, "density": 0.7} for c in R.get("layers") or {}}), n, R.get("layers") or {}, n, R.get("groom_material") or DEFAULT_GROOM_MATERIAL) + \
         open(os.path.join(HERE, "metahuman_strands.body.py"), encoding="utf-8").read()
 LOOK = open(os.path.join(HERE, "mh_look.body.py"), encoding="utf-8").read()
 
