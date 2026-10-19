@@ -236,7 +236,11 @@ parts (hairstyles, noses, mouths, skin tones mixed per head), so:
   a sloped forehead and a protruding mouth and chin, so the profile line (forehead, brows, nose,
   lips, chin) was moved back to DuncanV3's depths with landmark moves, the ring around mouth and
   nose halfway. Built with `"existing": true` in its recipe (no create or look step, so the fitted
-  face survives). DuncanV3, the raw fit (`DuncanFit`) and the scan level stay for reference.
+  face survives; its `grooms`, `colours` and `body` are still applied). Grooms from the same
+  reference, chosen by trying candidates side by side on the built Blueprint: `Beard_L_Full` (the
+  scan's beard is about 2 cm thick on the jaw and hangs 3-4 cm below the chin), `Mustache_L_Full`
+  (thickened 1.15), `Eyebrows_M_Dense`, `Hair_S_LowPonytail`, all dark brown (melanin 0.85-0.88,
+  redness 0.2). DuncanV3, the raw fit (`DuncanFit`) and the scan level stay for reference.
 
 Unreal's local cache (Zen) is moved to `E:/UnrealDDC` in `DefaultEngine.ini`: with C:
 full, groom bindings and shaders silently failed to cache (Duncan's hair stayed in its rest

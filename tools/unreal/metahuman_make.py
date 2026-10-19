@@ -6,7 +6,7 @@ A recipe: {"name", "mix": {preset: weight}, "grooms": {slot: groom}, "skin": {"i
            "colours": {slot: {param: value}}, "body": {measure: cm}, "sculpt": {landmark: [dx,dy,dz]},
            "passes": n, "quality": "MEDIUM"|"LOW"}
 "existing": true builds a character already in /Game/MetaHumans/<name> (e.g. a hand-fitted face):
-no create and no look step, only face rig, textures, assembly and strands.
+no create step, so its face survives; "grooms", "colours" and "body", if given, are applied to it.
 """
 import json, os, subprocess, sys, time, urllib.request
 import ue, pyrun
@@ -86,6 +86,21 @@ def wait_log(start, needles, fail, timeout):
     return "timeout"
 
 
+GROOMS = r'''
+for slot, name in R.get("grooms", {}).items():
+    path = "__G__" + {"Hair": "Hair", "Beard": "Beards", "Mustache": "Mustaches", "Eyebrows": "Eyebrows"}[slot] + "/WI_" + name
+    if not name:  # remove the preset's groom (clean-shaven)
+        try:
+            inst.set_single_slot_selection(slot, unreal.MetaHumanPaletteItemKey())
+        except Exception as e:
+            OUT.setdefault("unset_failed", []).append(slot + ": " + str(e)[:80])
+        continue
+    wi = unreal.load_asset(path + ".WI_" + name)
+    if wi is None:
+        raise RuntimeError("no groom " + name)
+    inst.set_single_slot_selection(slot, coll.try_add_item_from_wardrobe_item(slot, wi))
+'''
+
 CREATE = r'''
 R = __R__
 eal = unreal.EditorAssetLibrary
@@ -102,18 +117,7 @@ eal.duplicate_asset("/MetaHumanCharacter/Optional/Presets/" + base, A)
 c = unreal.load_asset(A)
 coll = c.internal_collection
 inst = coll.default_instance
-for slot, name in R.get("grooms", {}).items():
-    path = "__G__" + {"Hair": "Hair", "Beard": "Beards", "Mustache": "Mustaches", "Eyebrows": "Eyebrows"}[slot] + "/WI_" + name
-    if not name:  # remove the preset's groom (clean-shaven)
-        try:
-            inst.set_single_slot_selection(slot, unreal.MetaHumanPaletteItemKey())
-        except Exception as e:
-            OUT.setdefault("unset_failed", []).append(slot + ": " + str(e)[:80])
-        continue
-    wi = unreal.load_asset(path + ".WI_" + name)
-    if wi is None:
-        raise RuntimeError("no groom " + name)
-    inst.set_single_slot_selection(slot, coll.try_add_item_from_wardrobe_item(slot, wi))
+__GROOMS__
 co = {}
 for n in R["mix"]:
     p = unreal.load_asset("/MetaHumanCharacter/Optional/Presets/%s.%s" % (n, n))
@@ -143,7 +147,18 @@ try:
 finally:
     sub.remove_object_to_edit(c)
 OUT["saved"] = eal.save_asset(A, only_if_is_dirty=False)
-'''.replace("__G__", G)
+'''.replace("__GROOMS__", GROOMS).replace("__G__", G)
+
+REGROOM = r'''
+R = __R__
+eal = unreal.EditorAssetLibrary
+A = "/Game/MetaHumans/%s/MHC_%s" % (R["name"], R["name"])
+c = unreal.load_asset(A)
+coll = c.internal_collection
+inst = coll.default_instance
+__GROOMS__
+OUT["saved"] = eal.save_asset(A, only_if_is_dirty=False)
+'''.replace("__GROOMS__", GROOMS).replace("__G__", G)
 
 OPEN = r'''
 R = __R__
@@ -209,10 +224,15 @@ def make(R):
         print("  create", r, flush=True)
         if "error" in r:
             return False
+    elif R.get("grooms"):
+        r = pyrun.run(REGROOM.replace("__R__", repr(R)), 300)
+        print("  grooms", r, flush=True)
+        if "error" in r:
+            return False
     r = pyrun.run(OPEN.replace("__R__", repr(R)), 300)
     print("  open", r, flush=True)
     time.sleep(12)
-    if not R.get("existing"):
+    if not R.get("existing") or R.get("colours") or R.get("body"):
         look = {"asset": A, "params": R.get("colours", {}), "body": R.get("body", {})}
         body = LOOK.replace("__LOOK__", repr(look)) + '\nsub.on_edit_preview_collection(c)\nOUT["saved"] = unreal.EditorAssetLibrary.save_asset(LOOK["asset"], only_if_is_dirty=False)\n'
         r = pyrun.run(body, 300)
