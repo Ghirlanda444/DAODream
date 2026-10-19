@@ -176,6 +176,20 @@ OUT["editing"] = unreal.get_editor_subsystem(unreal.MetaHumanCharacterEditorSubs
 '''
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# Strands read as a volume, not specks, in dialogue close-ups when they are a little wider, fuller at the tip
+# and sparser, with a rougher, less shiny material (docs/CHARACTERS.md). Used unless a recipe sets its own.
+DEFAULT_THICKEN = {"Hair": {"width": 1.2, "tip": 0.6, "density": 0.85}, "Beard": {"width": 1.3, "tip": 0.7, "density": 0.75},
+                   "Mustache": {"width": 1.3, "tip": 0.7, "density": 0.8}, "Eyebrows": {"width": 1.2, "tip": 0.6}}
+DEFAULT_GROOM_MATERIAL = {"Roughness": 0.72, "RoughnessOverall": 0.62, "HairRoughness": 0.5,
+                          "Spec0": 0.3, "Spec1": 0.5, "SpecEdge": 0.35, "SpecFront": 0.35}
+
+
+def strands_body(R):
+    """Inputs for metahuman_strands.body.py from a recipe (with the defaults above)."""
+    n = R["name"]
+    return "NAMES = [%r]\nTHICKEN = {%r: %r}\nLAYERS = {%r: %r}\nMATERIAL = {%r: %r}\n" % (
+        n, n, R.get("thicken") or DEFAULT_THICKEN, n, R.get("layers") or {}, n, R.get("groom_material") or DEFAULT_GROOM_MATERIAL) + \
+        open(os.path.join(HERE, "metahuman_strands.body.py"), encoding="utf-8").read()
 LOOK = open(os.path.join(HERE, "mh_look.body.py"), encoding="utf-8").read()
 
 RIG = r'''
@@ -261,10 +275,7 @@ def make(R):
     r = pyrun.run(BUILD.replace("__N__", repr(name)).replace("__Q__", repr(R.get("quality", "MEDIUM"))), 1500)
     print("  build", r, flush=True)
     if r.get("bp"):  # the build's groom copies are cards only: put the strand grooms back (and thicken them)
-        body = "NAMES = [%r]\nTHICKEN = {%r: %r}\nLAYERS = {%r: %r}\nMATERIAL = {%r: %r}\n" % (
-            name, name, R.get("thicken") or {}, name, R.get("layers") or {}, name, R.get("groom_material") or {}) + \
-            open(os.path.join(HERE, "metahuman_strands.body.py"), encoding="utf-8").read()
-        print("  strands", str(pyrun.run(body, 900).get("strands"))[:300], flush=True)
+        print("  strands", str(pyrun.run(strands_body(R), 900).get("strands"))[:300], flush=True)
     return bool(r.get("bp"))
 
 

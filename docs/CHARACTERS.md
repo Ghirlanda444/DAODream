@@ -292,6 +292,8 @@ cards and meshes only. Epic's grooms hold strands at LOD 0-1, cards at 2-4, mesh
   `"groom_material"` sets roughness/specular on the groom materials (softer, less shiny). Duncan:
   beard x1.3 width, tips 0.7, 75% of strands; hair x1.2, 85%; roughness 0.72, Spec0/1 0.3/0.5.
   The dialogue key light is a large soft source (110 cm, intensity 18) with the rim behind.
+  The same tuning is the batch maker's default (`DEFAULT_THICKEN`, `DEFAULT_GROOM_MATERIAL`),
+  applied to all 22 MetaHumans in use on 2026-10-19; a recipe's own values replace it.
 - Under the very bright blockout light, the edge strands facing it read white (strong
   specular); the shaded side is clean. To revisit when the castle gets its real lighting.
 
