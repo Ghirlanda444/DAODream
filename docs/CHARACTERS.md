@@ -229,6 +229,14 @@ parts (hairstyles, noses, mouths, skin tones mixed per head), so:
   the original portrait, kept in git-ignored `extracted/refs/`). Quick previews first
   (`"preview_only": true` in a recipe: no rig, textures or assembly), then the full build.
   Done one at a time: Bryce, then Duncan (V3: MetaHuman ponytail and beard, nose and brows from preset weights, brown eyes copied from a preset with `"eyes_from"`). Strong landmark sculpting distorts the face; small moves only.
+  Duncan in game is now `DuncanH` (2026-10-19): a copy of DuncanV3 whose face the Creator fitted
+  (`conform_to_target_meshes`, head only, brows to under the nose) to a 3D head generated locally
+  from the user's front reference; the generator and its meshes stay outside the repo. The photo
+  was projected onto that head and tracked from a front camera. The fit matched the front but gave
+  a sloped forehead and a protruding mouth and chin, so the profile line (forehead, brows, nose,
+  lips, chin) was moved back to DuncanV3's depths with landmark moves, the ring around mouth and
+  nose halfway. Built with `"existing": true` in its recipe (no create or look step, so the fitted
+  face survives). DuncanV3, the raw fit (`DuncanFit`) and the scan level stay for reference.
 
 Unreal's local cache (Zen) is moved to `E:/UnrealDDC` in `DefaultEngine.ini`: with C:
 full, groom bindings and shaders silently failed to cache (Duncan's hair stayed in its rest

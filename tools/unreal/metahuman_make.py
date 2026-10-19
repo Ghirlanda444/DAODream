@@ -5,6 +5,8 @@ python mh_make.py recipes.json Name [Name ...]
 A recipe: {"name", "mix": {preset: weight}, "grooms": {slot: groom}, "skin": {"idx", "u", "v"},
            "colours": {slot: {param: value}}, "body": {measure: cm}, "sculpt": {landmark: [dx,dy,dz]},
            "passes": n, "quality": "MEDIUM"|"LOW"}
+"existing": true builds a character already in /Game/MetaHumans/<name> (e.g. a hand-fitted face):
+no create and no look step, only face rig, textures, assembly and strands.
 """
 import json, os, subprocess, sys, time, urllib.request
 import ue, pyrun
@@ -202,17 +204,19 @@ def make(R):
     A = "/Game/MetaHumans/%s/MHC_%s" % (name, name)
     print("==", name, flush=True)
     restart()
-    r = pyrun.run(CREATE.replace("__R__", repr(R)), 900)
-    print("  create", r, flush=True)
-    if "error" in r:
-        return False
+    if not R.get("existing"):
+        r = pyrun.run(CREATE.replace("__R__", repr(R)), 900)
+        print("  create", r, flush=True)
+        if "error" in r:
+            return False
     r = pyrun.run(OPEN.replace("__R__", repr(R)), 300)
     print("  open", r, flush=True)
     time.sleep(12)
-    look = {"asset": A, "params": R.get("colours", {}), "body": R.get("body", {})}
-    body = LOOK.replace("__LOOK__", repr(look)) + '\nsub.on_edit_preview_collection(c)\nOUT["saved"] = unreal.EditorAssetLibrary.save_asset(LOOK["asset"], only_if_is_dirty=False)\n'
-    r = pyrun.run(body, 300)
-    print("  look", "error" not in r, r.get("error", "")[:300], flush=True)
+    if not R.get("existing"):
+        look = {"asset": A, "params": R.get("colours", {}), "body": R.get("body", {})}
+        body = LOOK.replace("__LOOK__", repr(look)) + '\nsub.on_edit_preview_collection(c)\nOUT["saved"] = unreal.EditorAssetLibrary.save_asset(LOOK["asset"], only_if_is_dirty=False)\n'
+        r = pyrun.run(body, 300)
+        print("  look", "error" not in r, r.get("error", "")[:300], flush=True)
     time.sleep(8)
     try:
         import wshot
