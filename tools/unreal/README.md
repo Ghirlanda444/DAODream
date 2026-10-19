@@ -13,6 +13,9 @@ editor's MCP server (`localhost:8000/mcp`, the ModelContextProtocol plugin):
   `docs/CHARACTERS.md`. `mh_look.body.py` is its colours-and-body step;
   `metahuman_strands.body.py` its last step (real hair strands instead of the build's
   cards-only grooms; also runs alone with `NAMES = [...]` and optional `THICKEN`).
+- `booth_shot.py`: front, three-quarter and side pictures of a built MetaHuman in the portrait booth
+  level (`Content/Cousland/Dev/L_PortraitBooth`: grey backdrop, key/fill/rim lights, fixed exposure),
+  to compare faces with reference pictures under the same light.
 - `duncan_groom_apply.py`: run inside the editor after building Duncan, puts his custom groom back.
 
 The MetaHumans they make stay out of git (`Content/MetaHumans/`).

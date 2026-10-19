@@ -241,6 +241,11 @@ parts (hairstyles, noses, mouths, skin tones mixed per head), so:
   scan's beard is about 2 cm thick on the jaw and hangs 3-4 cm below the chin), `Mustache_L_Full`
   (thickened 1.15), `Eyebrows_M_Dense`, `Hair_S_LowPonytail`, all dark brown (melanin 0.85-0.88,
   redness 0.2). DuncanV3, the raw fit (`DuncanFit`) and the scan level stay for reference.
+  A second fit, `DuncanS`, used a clean-shaven version of the same reference (front, side): its
+  generated head shows the real jaw and chin, so the fit took the mouth, chin and jaw too; its profile
+  matched the shaved side view except the brow ridge, pushed 0.4-0.8 cm forward (the face model
+  stops there). Same grooms and colours as DuncanH. Compared in the portrait booth
+  (`tools/unreal/booth_shot.py`).
 
 Unreal's local cache (Zen) is moved to `E:/UnrealDDC` in `DefaultEngine.ini`: with C:
 full, groom bindings and shaders silently failed to cache (Duncan's hair stayed in its rest

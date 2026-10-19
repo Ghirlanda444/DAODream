@@ -4992,5 +4992,77 @@
    "Neck": 43,
    "Forearm": 30
   }
+ },
+ {
+  "name": "DuncanS",
+  "existing": true,
+  "quality": "MEDIUM",
+  "thicken": {
+   "Mustache": 1.15
+  },
+  "note": "DuncanV3 fitted to a 3D head generated from the user's clean-shaven front reference (mouth, chin and jaw included), brow ridge pushed forward to the shaved side view; same grooms and colours as DuncanH (docs/CHARACTERS.md)",
+  "grooms": {
+   "Hair": "Hair_S_LowPonytail",
+   "Beard": "Beard_L_Full",
+   "Mustache": "Mustache_L_Full",
+   "Eyebrows": "Eyebrows_M_Dense"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.85,
+    "Whiteness": 0.03,
+    "Redness": 0.2
+   },
+   "Beard": {
+    "Melanin": 0.88,
+    "Whiteness": 0.04,
+    "Redness": 0.22
+   },
+   "Mustache": {
+    "Melanin": 0.88,
+    "Whiteness": 0.04,
+    "Redness": 0.22
+   },
+   "Eyebrows": {
+    "Melanin": 1.0,
+    "Whiteness": 0.0,
+    "Redness": 0.1
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.05,
+     0.07,
+     0.13,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.04,
+     0.04,
+     0.05,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.05,
+     0.05,
+     0.06,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "body": {
+   "Height": 185,
+   "Chest": 112,
+   "Waist": 94,
+   "Across Shoulder": 41,
+   "Bicep": 36,
+   "Neck": 43,
+   "Forearm": 30
+  }
  }
 ]
