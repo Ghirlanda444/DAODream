@@ -5229,5 +5229,79 @@
    }
   },
   "note": "Eleanor fitted to a 3D head generated from the user's Eleanor sheet (mouth, chin and jaw included); grey hair pulled back to a low ponytail (no MetaHuman groom has her low braided bun) (docs/CHARACTERS.md)"
+ },
+ {
+  "name": "FergusW",
+  "existing": true,
+  "quality": "MEDIUM",
+  "grooms": {
+   "Hair": "Hair_S_LowPonytail",
+   "Beard": "Beard_S_Full",
+   "Mustache": "Mustache_S_Full",
+   "Eyebrows": "Eyebrows_M_Dense"
+  },
+  "body": {
+   "Height": 185,
+   "Chest": 108,
+   "Waist": 88,
+   "Across Shoulder": 40,
+   "Bicep": 34,
+   "Neck": 41
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.84,
+    "Whiteness": 0.0,
+    "Redness": 0.24
+   },
+   "Eyebrows": {
+    "Melanin": 0.84,
+    "Whiteness": 0.0,
+    "Redness": 0.24
+   },
+   "Beard": {
+    "Melanin": 0.84,
+    "Whiteness": 0.0,
+    "Redness": 0.24
+   },
+   "Mustache": {
+    "Melanin": 0.84,
+    "Whiteness": 0.0,
+    "Redness": 0.24
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.06,
+     0.09,
+     0.05,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "layers": {
+   "BeardBase": [
+    "Beard_S_Stubble",
+    "Beard"
+   ]
+  },
+  "note": "DuncanV3 face fitted to a 3D head generated from the user's Fergus sheet (no side hair or fringe in the fit area); Fergus's skin and body, DuncanV3's brown eyes (docs/CHARACTERS.md)"
  }
 ]
