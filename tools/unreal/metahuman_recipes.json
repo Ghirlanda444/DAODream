@@ -5175,5 +5175,59 @@
    ]
   },
   "note": "DuncanV3 face fitted to a 3D head generated from the user's Bryce reference (face area without the side hair), chin and brow pushed to the side view; Bryce's skin, eyes, body and grooms (docs/CHARACTERS.md)"
+ },
+ {
+  "name": "EleanorS",
+  "existing": true,
+  "quality": "MEDIUM",
+  "grooms": {
+   "Hair": "Hair_S_LowPonytail",
+   "Eyebrows": "Eyebrows_M_SlightArch"
+  },
+  "body": {
+   "Height": 168,
+   "Chest": 92,
+   "Waist": 74,
+   "Hip": 98
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.6,
+    "Whiteness": 0.7,
+    "Redness": 0.03
+   },
+   "Eyebrows": {
+    "Melanin": 0.55,
+    "Whiteness": 0.3,
+    "Redness": 0.05
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.05,
+     0.08,
+     0.04,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "note": "Eleanor fitted to a 3D head generated from the user's Eleanor sheet (mouth, chin and jaw included); grey hair pulled back to a low ponytail (no MetaHuman groom has her low braided bun) (docs/CHARACTERS.md)"
  }
 ]
