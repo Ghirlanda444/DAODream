@@ -281,10 +281,17 @@ cards and meshes only. Epic's grooms hold strands at LOD 0-1, cards at 2-4, mesh
   beard); `metahuman_strands.body.py` binds them like the others.
 - `DefaultEngine.ini [SystemSettings]`: strands on, 8 visibility samples per pixel with a
   full sample budget, and TSR's flicker rejection kept on at every scalability level.
-  TSR stays the anti-aliasing method: it is the one hair strands are built for, and
-  Unreal has no per-camera anti-aliasing (it is the global `r.AntiAliasingMethod`, not a
-  post-process setting), so TAA only for dialogue cameras is not possible without
-  switching the whole renderer at runtime.
+  Also `r.HairStrands.RasterizationScale=1.0` (strands at least a pixel wide, default 0.5),
+  `Voxelization=1`, `DeepShadow.Resolution=4096` and `DeepShadow.SuperSampling=1` (cleaner hair
+  self-shadows). Anti-aliasing is not a post-process or camera setting in UE 5.8 (it is the global
+  `r.AntiAliasingMethod`; post-process screen percentage is deprecated), so
+  `BP_PlotManager.ConversationStarted/Ended` switch to TAA at 100% screen percentage for the
+  conversation and back to TSR after: side by side, TAA gave the cleanest beard.
+- Groom tuning per recipe (2026-10-19): `"thicken"` takes `{"width", "tip", "density"}` per groom
+  (wider strands, fuller tips, fewer strands close up, so hair reads as a volume, not specks) and
+  `"groom_material"` sets roughness/specular on the groom materials (softer, less shiny). Duncan:
+  beard x1.3 width, tips 0.7, 75% of strands; hair x1.2, 85%; roughness 0.72, Spec0/1 0.3/0.5.
+  The dialogue key light is a large soft source (110 cm, intensity 18) with the rim behind.
 - Under the very bright blockout light, the edge strands facing it read white (strong
   specular); the shaded side is clean. To revisit when the castle gets its real lighting.
 

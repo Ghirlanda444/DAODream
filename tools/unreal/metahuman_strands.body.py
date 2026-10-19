@@ -8,7 +8,8 @@
 # overrides (same slot names), and maps LODSync so its closest level uses strands:
 #   3 levels (named characters): strands -> cards -> meshes;  2 levels (crowd faces): strands -> cards.
 # NAMES: list of MetaHuman names (BP_MHC_<Name>); THICKEN: {name: {slot: factor}} (optional);
-# LAYERS: {name: {component: [groom, like_slot]}} (optional, see below).
+# LAYERS: {name: {component: [groom, like_slot]}} (optional, see below);
+# THICKEN values may be {"width", "tip", "density"} (see tuned); MATERIAL: {name: {parameter: value}}.
 SLOTS = ("Hair", "Beard", "Mustache", "Eyebrows")
 MAPS = {3: [0, 3, 7], 2: [0, 3]}
 CARDS = {3: [3, 5, 7], 2: [5, 7]}   # the assembly's own mapping (cards and meshes only)
@@ -25,7 +26,50 @@ for a in eal.list_assets(TEMPLATES, recursive=True, include_folder=False):
         templates[n[:-len("_Binding")] if n.endswith("_Binding") else n] = a.split(".")[0]
 THICKEN = globals().get("THICKEN") or {}
 LAYERS = globals().get("LAYERS") or {}
+MATERIAL = globals().get("MATERIAL") or {}
 report = {}
+
+
+def tuned(src, base, spec, dst):
+    """Epic's groom, or a copy in dst (<base>_Thick) with wider/fuller/sparser strands. spec is a width factor
+    or {"width": factor, "tip": tip scale (0-1, thin tips read as specks), "density": share of strands kept
+    close up (curve decimation of the strand LODs)}."""
+    if not spec:
+        return unreal.load_asset(src)
+    spec = spec if isinstance(spec, dict) else {"width": spec}
+    path = "%s/%s_Thick" % (dst, base)
+    if eal.does_asset_exist(path):
+        eal.delete_asset(path)
+    g = eal.duplicate_asset(src, path)
+    rg = list(g.get_editor_property("hair_groups_rendering"))
+    for i, x in enumerate(rg):
+        gs = x.get_editor_property("geometry_settings")
+        gs.set_editor_property("hair_width_override", True)
+        gs.set_editor_property("hair_width", gs.hair_width * spec.get("width", 1.0))
+        if "tip" in spec:
+            gs.set_editor_property("hair_tip_scale", spec["tip"])
+        x.set_editor_property("geometry_settings", gs); rg[i] = x
+    g.modify(); g.set_editor_property("hair_groups_rendering", rg)
+    if "density" in spec:
+        groups = list(g.get_editor_property("hair_groups_lod"))
+        for gi, grp in enumerate(groups):
+            lods = list(grp.get_editor_property("lods"))
+            for li, l in enumerate(lods):
+                if l.get_editor_property("geometry_type") == unreal.GroomGeometryType.STRANDS:
+                    l.set_editor_property("curve_decimation", min(l.get_editor_property("curve_decimation"), spec["density"])); lods[li] = l
+            grp.set_editor_property("lods", lods); groups[gi] = grp
+        g.set_editor_property("hair_groups_lod", groups)
+    eal.save_asset(path, only_if_is_dirty=False)
+    return g
+
+
+def soften(o, params):
+    """Set scalar parameters (e.g. roughness, specular) on a groom component's override materials."""
+    for m in o.get_editor_property("override_materials"):
+        if isinstance(m, unreal.MaterialInstanceConstant):
+            for p, v in params.items():
+                unreal.MaterialEditingLibrary.set_material_instance_scalar_parameter_value(m, p, v)
+            eal.save_asset(m.get_path_name().split(".")[0], only_if_is_dirty=False)
 
 
 def comps(bp):
@@ -54,22 +98,7 @@ for name in NAMES:
         if not src:
             r[slot] = "no original for " + n
             continue
-        factor = THICKEN.get(name, {}).get(slot)
-        if factor:
-            path = "%s/%s_Thick" % (dst, base)
-            if eal.does_asset_exist(path):
-                eal.delete_asset(path)
-            g = eal.duplicate_asset(src, path)
-            rg = list(g.get_editor_property("hair_groups_rendering"))
-            for i, x in enumerate(rg):
-                gs = x.get_editor_property("geometry_settings")
-                gs.set_editor_property("hair_width_override", True)
-                gs.set_editor_property("hair_width", gs.hair_width * factor)
-                x.set_editor_property("geometry_settings", gs); rg[i] = x
-            g.modify(); g.set_editor_property("hair_groups_rendering", rg)
-            eal.save_asset(path, only_if_is_dirty=False)
-        else:
-            g = unreal.load_asset(src)
+        g = tuned(src, base, THICKEN.get(name, {}).get(slot), dst)
         bind = "%s/%s_Binding" % (dst, g.get_name())
         if eal.does_asset_exist(bind):
             eal.delete_asset(bind)
@@ -105,8 +134,8 @@ for name in NAMES:
                 parent_handle=handles["Face"], new_class=unreal.GroomComponent, blueprint_context=bp))
             sds.rename_subobject(h, unreal.Text(comp))
             handles[comp] = h
-        g = unreal.load_asset(originals[gname])
-        bind = "%s/%s_Binding" % (dst, gname)
+        g = tuned(originals[gname], gname, THICKEN.get(name, {}).get(comp), dst)
+        bind = "%s/%s_Binding" % (dst, g.get_name())
         if eal.does_asset_exist(bind):
             eal.delete_asset(bind)
         head = unreal.load_asset(templates[gname]).get_editor_property("target_skeletal_mesh")
@@ -120,6 +149,11 @@ for name in NAMES:
             o.set_editor_property("override_materials", [mat])
             unreal.BlueprintEditorLibrary.compile_blueprint(bp)
         made[comp] = (g, b)
+    if MATERIAL.get(name):   # softer, less shiny strands: shared by every groom (the layers wear the beard's)
+        for slot, o in comps(bp):
+            if slot in SLOTS and isinstance(o, unreal.GroomComponent) and o.groom_asset:
+                soften(o, MATERIAL[name])
+        r["material"] = MATERIAL[name]
     for slot, o in comps(bp):
         if slot in made:
             r[slot] = [o.groom_asset.get_name(), o.binding_asset.get_name() if o.binding_asset else None]
