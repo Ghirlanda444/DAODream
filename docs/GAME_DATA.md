@@ -255,7 +255,8 @@ py -m daotools pull "<game>" "hrt201d*" --out extracted/layouts/hrt201d_pull
 py -m daotools unreal area extracted/human_noble/json/al_bhn01al_castle_cousland/bhn100ar_castle_cousland.are.json `
   --layout "<game>/packages/core/env/hrt201d.arl" --pull extracted `
   --rooms extracted/layouts/hrt201d_pull/json --game "<game>" `
-  --start bhn100wp_start --out extracted/ue/areas/bhn100ar_castle_cousland.json
+  --start bhn100wp_start --fill-lights 0.3 --warm-fills `
+  --out extracted/ue/areas/bhn100ar_castle_cousland.json
 ```
 
 ### Walls from the level kit

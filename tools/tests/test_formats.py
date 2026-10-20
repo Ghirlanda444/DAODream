@@ -566,6 +566,8 @@ class KitTests(unittest.TestCase):
         self.assertEqual(fills[4:], [0.15, 0.175, 0.25])        # ...cool, at the asked brightness
         self.assertGreater(area.light_reach(fills, 3900.0, 150.0, 100.0), 0.0)
         self.assertEqual(area.fill_lights(torch, lit, 0.25), [])
+        warm = area.fill_lights(torch, lit + corridor, 0.25, tint=area.WARM_FILL_COLOUR)
+        self.assertEqual(warm[4:], [0.25, 0.2, 0.15])           # by day: warm instead
 
     def test_cut_doorway(self):
         wall = [0.0, 0.0, 250.0, 200.0, 20.0, 250.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0]

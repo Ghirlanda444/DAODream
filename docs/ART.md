@@ -88,11 +88,34 @@ lamps, fireplaces and fill lights, and `BP_AreaLoader.SpawnLights` adds a
 movable point light per light (`PlaceLight`) at its position, with its radius
 as attenuation radius. The game's colour carries the brightness too: the light
 gets that colour divided by its largest channel and an intensity of that
-channel times the loader's `LightScale` (candelas), and lights at least 0.8
-bright (lamps and fireplaces rather than fills) cast shadows. `LightScale` is
-12 in `L_CastleCousland`, where auto exposure adapts to the dark rooms, and 20
-in `L_CastleNight`, whose exposure is fixed at -1.5 EV. Lamps that the flat
-greybox ceilings would hide are moved just under them (`area.tuck_lights`).
+channel times a scale (candelas). Lights at least 0.8 bright (lamps and
+fireplaces) use the loader's `LightScale` and cast shadows; dimmer ones (fills)
+use `FillScale`. Lamps that the flat greybox ceilings would hide are moved just
+under them (`area.tuck_lights`).
+
+The game also lit its rooms with baked ambient light, which a movable-light
+remake lacks, so the area export can add its own fills where no game light
+reaches the floor (`--fill-lights`, `area.fill_lights`): cool ones at night,
+warm ones by day (`--warm-fills`).
+
+| Level | `LightScale` | `FillScale` | Export fills | Exposure |
+| --- | --- | --- | --- | --- |
+| `L_CastleCousland` | 72 | 144 | 0.3, warm (162 lights) | auto, -3 to 6 EV100 |
+| `L_CastleNight` | 20 | 20 | 0.25, cool | fixed, -1.5 EV |
+
+The day castle's lighting pass (2026-10-20) fixed three things:
+
+- Blue fog: the template's height fog (density 0.044 from 0 m) filled every room,
+  and the sky light (intensity 1, lit from below too) tinted it blue. The fog is
+  now 0.003 from 25 m, so only distant views get haze, and the sky light 0.3 with
+  a black lower hemisphere.
+- Orange glare: with no post-process volume, auto exposure ran unclamped and
+  blew the saturated game lamps (about 2300 K) up to orange walls. The unbound
+  `CastleExposure` volume clamps exposure to -3..6 EV100 and sets white balance
+  to 4200 K, so firelight reads warm rather than orange.
+- Dark rooms: lamps are 6 times and fills 12 times brighter than before, and the
+  export's warm fills light the upper floor (the family's rooms), which has no
+  game light within 14 m.
 
 The day castle keeps its sun and sky; with roofs on, they light only what is
 still open (the outer rims and a few uncovered patches).

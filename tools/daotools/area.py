@@ -537,6 +537,7 @@ def tuck_lights(lights: list[float], solids: list[float], below: float = 30.0) -
 
 
 FILL_COLOUR = (0.6, 0.7, 1.0)  # a cool, moonlit tint; scaled by the brightness asked for
+WARM_FILL_COLOUR = (1.0, 0.8, 0.6)  # candle- and hearth-lit rooms by day
 
 
 def light_reach(lights: list[float], x: float, y: float, z: float) -> float:
@@ -553,15 +554,17 @@ def light_reach(lights: list[float], x: float, y: float, z: float) -> float:
 
 
 def fill_lights(lights: list[float], floors: list[float], brightness: float, *, spacing: float = 500.0,
-                height: float = 220.0, radius: float = 900.0, enough: float = 0.03) -> list[float]:
+                height: float = 220.0, radius: float = 900.0, enough: float = 0.03,
+                tint: tuple[float, float, float] = FILL_COLOUR) -> list[float]:
     """Dim fill lights for the walkable floor the area's lights do not reach.
     The game lit its areas with baked ambient light as well as its lamps; without it
     corridors with no lamp are black at night. Every `spacing` cm on each floor box
     (7 numbers each, kind 0), a point 1 m up that gets less than `enough` from the
     lights (and the fills placed so far) gets a fill light `height` cm above the
-    floor, of `radius` cm, coloured FILL_COLOUR x `brightness`."""
+    floor, of `radius` cm, coloured `tint` (FILL_COLOUR, or WARM_FILL_COLOUR by day)
+    x `brightness`."""
     fills: list[float] = []
-    colour = [round(c * brightness, 3) for c in FILL_COLOUR]
+    colour = [round(c * brightness, 3) for c in tint]
     for i in range(0, len(floors), 7):
         x0, y0, _, x1, y1, z, kind = floors[i:i + 7]
         if kind != 0:
@@ -579,11 +582,12 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
          solids: dict | None = None, door_models: dict[str, tuple[float, float, float]] | None = None,
          creature_stats=None, player: dict | None = None, ambient_tables: dict | None = None,
          trigger_templates: dict[str, dict] | None = None, extra_creatures: list[tuple[str, str]] = (),
-         lights: list[float] | None = None, fill: float = 0.0) -> dict:
+         lights: list[float] | None = None, fill: float = 0.0, fill_tint=FILL_COLOUR) -> dict:
     """The runtime area file. `solids` (kit.solids, from the layout's rooms) replaces
     the navigation grid's walls with the level kit's walls, props, blockers and
     ceilings; `lights` (kit.lights) are the rooms' point lights, and `fill` above 0
-    adds dim fill lights of that brightness where they do not reach (fill_lights).
+    adds dim fill lights of that brightness and `fill_tint` where they do not reach
+    (fill_lights).
     `creature_stats` (utc -> stats.stats() dict) and `player` add the game's combat
     numbers (see stats.py). `ambient_tables` (ambient.load_tables) adds what each
     creature does on its own (see ambient.py); creatures with ambient behaviour are
@@ -708,7 +712,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         lid_boxes, lidded = lids(boxes, solid_boxes)
         solid_boxes += lid_boxes
     lights = list(lights or [])
-    filled = fill_lights(lights, boxes, fill) if fill > 0 else []
+    filled = fill_lights(lights, boxes, fill, tint=fill_tint) if fill > 0 else []
     lights, tucked = tuck_lights(lights + filled, solid_boxes)
     return {
         "Format": FORMAT,

@@ -419,7 +419,8 @@ def cmd_unreal_area(args) -> int:
                     solids=solids, door_models=door_models, creature_stats=creature_stats, player=player,
                     ambient_tables=ambient_tables, trigger_templates=area.trigger_templates(args.pull),
                     extra_creatures=[tuple(x.split("@", 1)) for x in args.add_creature or []], lights=lights,
-                    fill=args.fill_lights)
+                    fill=args.fill_lights,
+                    fill_tint=area.WARM_FILL_COLOUR if args.warm_fills else area.FILL_COLOUR)
     s = out["Summary"]
     print(f"{out['Area']}: {s['Floors']} floor boxes, {s['Walls']} grid walls, {s['Solids']} kit solids "
           f"({s['DoorwaysCut']} doorways cut, {s['DoorFrames']} door frames, "
@@ -576,8 +577,10 @@ def build_parser() -> argparse.ArgumentParser:
                    help="spawn a creature the game brings along (a party member) at a waypoint; repeatable")
     s.add_argument("--area-level", type=int, default=1, help="the level the area scales creatures to (default 1)")
     s.add_argument("--fill-lights", type=float, default=0.0, metavar="BRIGHTNESS",
-                   help="add dim, cool fill lights of this brightness (e.g. 0.25) where the rooms' lights do not "
+                   help="add dim fill lights (cool, see --warm-fills) of this brightness (e.g. 0.25) where the rooms' lights do not "
                         "reach the floor, standing in for the game's baked ambient light (night areas)")
+    s.add_argument("--warm-fills", action="store_true",
+                   help="make those fill lights warm (candle- and hearth-lit rooms by day) instead of cool")
     s.add_argument("--placeable-types", help="placeable_types.gda (else read from --game), to size doors from "
                                              "their models")
     s.add_argument("--out")
