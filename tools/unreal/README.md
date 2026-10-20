@@ -14,6 +14,8 @@ editor's MCP server (`localhost:8000/mcp`, the ModelContextProtocol plugin):
   `metahuman_strands.body.py` its last step (real hair strands instead of the build's
   cards-only grooms; also runs alone with `NAMES = [...]` and optional `THICKEN`).
   `elf_ears.body.py` points the ears of a built face mesh (recipes with `"elf_ears"`).
+  `custom_groom.body.py` puts a Blender-made groom (`tools/blender/*_hair.py`) on the Hair slot
+  (recipes with `"custom_hair"`).
 - `booth_shot.py`: front, three-quarter and side pictures of a built MetaHuman in the portrait booth
   level (`Content/Cousland/Dev/L_PortraitBooth`: grey backdrop, key/fill/rim lights, fixed exposure),
   to compare faces with reference pictures under the same light.

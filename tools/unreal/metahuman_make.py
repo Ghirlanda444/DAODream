@@ -7,7 +7,8 @@ A recipe: {"name", "mix": {preset: weight}, "grooms": {slot: groom}, "skin": {"i
            "passes": n, "quality": "MEDIUM"|"LOW"}
 "layers": {component: [groom, like_slot]} adds groom layers (e.g. stubble under a beard);
 "thicken": {slot: factor or {"width", "tip", "density"}}; "groom_material": {parameter: value}.
-"elf_ears": true or {"LIFT", "BACK", "OUTWARD"} points the ears after the build (elf_ears.body.py).
+"elf_ears": true or {"LIFT", "BACK", "OUTWARD"} points the ears after the build (elf_ears.body.py);
+"custom_hair": {"abc": file, "width": cm} puts a Blender-made groom on the Hair slot (custom_groom.body.py).
 "existing": true builds a character already in /Game/MetaHumans/<name> (e.g. a hand-fitted face):
 no create step, so its face survives; "grooms", "colours" and "body", if given, are applied to it.
 """
@@ -282,6 +283,13 @@ def make(R):
             body = "NAME = %r\n" % name + "".join("%s = %r\n" % kv for kv in ears.items()) + \
                 open(os.path.join(HERE, "elf_ears.body.py"), encoding="utf-8").read()
             print("  elf ears", pyrun.run(body, 900).get("ears"), flush=True)
+        if R.get("custom_hair"):   # a groom made in Blender (tools/blender/<name>_hair.py) on the Hair slot
+            ch = R["custom_hair"]
+            body = "NAME = %r
+ABC = %r
+WIDTH = %r
+" % (name, ch["abc"], ch.get("width", 0.012)) +                 open(os.path.join(HERE, "custom_groom.body.py"), encoding="utf-8").read()
+            print("  custom hair", pyrun.run(body, 1500).get("custom"), flush=True)
     return bool(r.get("bp"))
 
 

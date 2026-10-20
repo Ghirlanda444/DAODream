@@ -5440,7 +5440,7 @@
    "Vivian": 0.3
   },
   "grooms": {
-   "Hair": "Hair_S_LowPonytail",
+   "Hair": "Hair_S_Updo",
    "Eyebrows": "Eyebrows_M_SlightArch",
    "Beard": "",
    "Mustache": ""
@@ -5496,6 +5496,10 @@
   },
   "quality": "MEDIUM",
   "note": "Iona, elven servant: young slim preset mix (the fitted IonaT read too heavy), honey-blonde hair pulled back so the pointed ears show (elf_ears.body.py) (docs/CHARACTERS.md); green eyes copied from EleanorS; built from the existing character (sculpt already applied)",
-  "existing": true
+  "existing": true,
+  "custom_hair": {
+   "abc": "E:/DAODream/Unreal/Cousland/Saved/claude/hair/iona_hair.abc",
+   "width": 0.014
+  }
  }
 ]
