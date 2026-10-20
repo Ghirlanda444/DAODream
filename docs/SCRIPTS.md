@@ -294,7 +294,7 @@ move whole teams with `UT_TeamAppears(team, bool)` and
 `bhn_constants_h`. `daotools unreal area` now also exports creatures that
 have no conversation but belong to a team, with their team and a stand-in
 size (`NpcTeam`, `NpcScale`: animals such as the giant rats are 35% mannequins,
-dwarves 80%). The translator turns the team calls into the existing `active`
+dwarves 80%, children (`kn_*` heads: Oren, the squires) 67%). The translator turns the team calls into the existing `active`
 and `walk` actions with the target `team:<id>`, and `BP_AreaLoader` tags every
 spawned team member with `team:<id>`, so `BP_PlotManager` needed no change.
 `UT_TeamAppears` on placeable teams (the mouse holes) is still skipped, and

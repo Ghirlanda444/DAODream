@@ -215,8 +215,10 @@ Howe's knight, Landra, Oriana, Mother Mallol, the cook, and crowd faces
 `CrowdM1`-`5`, `CrowdF0`-`1` (the first Howe soldier is `crowd_m_0`).
 
 Still to do in this castle, each needing more than MetaHuman: elves (Iona,
-the servants, Howe's mage) need pointed ears made in Blender; children (Oren,
-the squires) need a child body. Later modules will also need dwarves (a short,
+the servants, Howe's mage) need pointed ears made in Blender. Children (Oren,
+the squires) stand at 67% in game (`area.CHILD_SCALE`, from their `kn_*` heads), since
+MetaHuman has no child body; Oren's face (recipe `Oren`) is a young adult mix, and landmark
+sculpting toward child proportions read as an adult, so it was dropped. Later modules will also need dwarves (a short,
 stocky MetaHuman body) and Qunari (tall, grey skin, horns made in Blender).
 
 Two kinds of faces (the user's direction, 2026-10-18). DAO built its NPCs from shared

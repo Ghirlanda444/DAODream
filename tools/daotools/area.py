@@ -174,6 +174,19 @@ def door_size(template: str) -> tuple[float, float]:
     return (160.0, 260.0) if "_sm_" in name or "pantry" in name else (300.0, 360.0)
 
 
+CHILD_SCALE = 0.67  # children (head morphs kn_*) stand about 120 cm against the 180 cm mannequin
+
+
+def stand_in_scale(race, rank: int, morph: str) -> float:
+    """Scale of a creature's greybox stand-in (and the MetaHuman look that follows it): smaller for
+    dwarves, children and animals (critters such as giant rats smallest, others such as the mabari bigger)."""
+    if race == RACE_ANIMAL:
+        return 0.35 if rank == RANK_CRITTER else 0.6
+    if race == RACE_DWARF:
+        return 0.8
+    return CHILD_SCALE if morph.startswith("kn_") else 1.0
+
+
 def look_keys(look: dict, race, tag: str) -> tuple[str, str]:
     """(head morph name, crowd face key) for a creature's MetaHuman look. Crowd faces go to adult
     humans only (children's heads are kn_*); the key is a stable hash of the tag and position, so a
@@ -616,16 +629,14 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         # Bodies: the game kills a creature whose template or instance sets CREATURE_SPAWN_DEAD.
         spawn_dead = {v.get("Name"): v.get("Value") for src in (utc, c) for v in src.get("VarTable") or []}
         npc_dead.append(1 if spawn_dead.get("CREATURE_SPAWN_DEAD") == 1 else 0)
-        # Greybox stand-ins: a mannequin, smaller for dwarves and animals (critters such as
-        # giant rats smallest, other animals such as the mabari bigger).
+        # Greybox stand-ins: a mannequin, scaled by stand_in_scale.
         race, rank = utc.get("Race"), int(utc.get("Rank") or 0)
-        npc_scale.append((0.35 if rank == RANK_CRITTER else 0.6) if race == RACE_ANIMAL
-                         else 0.8 if race == RACE_DWARF else 1.0)
-        npc_hostile.append(1 if utc.get("GroupId") in (GROUP_HOSTILE, GROUP_HOSTILE_ON_GROUND) else 0)
-        npc_ally.append(1 if armed_ally(utc, str(c.get("TemplateResRef", ""))) else 0)
         # Look keys: the head morph names the same character in every module (hm_gen_duncan), so a
         # MetaHuman made once is found again later; other adult humans get a stable crowd face.
         morph, crowd = look_keys(look, race, "%s@%d,%d" % (c.get("Tag") or "", round(float(c.get("XPosition") or 0)), round(float(c.get("YPosition") or 0))))
+        npc_scale.append(stand_in_scale(race, rank, morph))
+        npc_hostile.append(1 if utc.get("GroupId") in (GROUP_HOSTILE, GROUP_HOSTILE_ON_GROUND) else 0)
+        npc_ally.append(1 if armed_ally(utc, str(c.get("TemplateResRef", ""))) else 0)
         npc_morph.append(morph)
         npc_crowd.append(crowd)
         npc_rank.append(rank)

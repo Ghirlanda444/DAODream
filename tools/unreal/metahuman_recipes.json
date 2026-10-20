@@ -5303,5 +5303,75 @@
    ]
   },
   "note": "DuncanV3 face fitted to a 3D head generated from the user's Fergus sheet (no side hair or fringe in the fit area); Fergus's skin and body, DuncanV3's brown eyes (docs/CHARACTERS.md)"
+ },
+ {
+  "name": "Oren",
+  "mix": {
+   "Victor": 0.5,
+   "Vivian": 0.3,
+   "Orlando": 0.2
+  },
+  "grooms": {
+   "Hair": "Hair_S_Messy",
+   "Eyebrows": "Eyebrows_S_FlatThin",
+   "Beard": "",
+   "Mustache": ""
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.7,
+    "Whiteness": 0.0,
+    "Redness": 0.22
+   },
+   "Eyebrows": {
+    "Melanin": 0.65,
+    "Whiteness": 0.0,
+    "Redness": 0.2
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.16,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "skin": {
+   "idx": 28,
+   "u": 0.2,
+   "v": 0.45
+  },
+  "eyes_from": "Victor",
+  "body": {
+   "Height": 136,
+   "Chest": 76,
+   "Waist": 58,
+   "Hip": 77,
+   "Across Shoulder": 30,
+   "Neck": 31,
+   "Bicep": 20
+  },
+  "quality": "MEDIUM",
+  "note": "Oren, Fergus's young son: generic noble boy (the user's direction), soft young preset mix, pale young skin, brown hair; scaled to a child in game (kn_* heads, area.CHILD_SCALE); landmark sculpting toward child proportions was tried and dropped (it read as an adult, East Asian-looking)",
+  "replace": true
  }
 ]

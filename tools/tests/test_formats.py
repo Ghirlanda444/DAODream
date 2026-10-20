@@ -446,6 +446,9 @@ class AreaTests(unittest.TestCase):
         self.assertEqual(out["NpcMorph"], ["hm_bhn100_father", "", "hm_bhn100_father", ""])
         self.assertEqual([k[:8] for k in out["NpcCrowd"]], ["crowd_m_", "crowd_m_", "crowd_m_", ""])
         self.assertEqual(out["NpcCrowd"][0], area.look_keys({}, 3, "bryce@10,20")[1])
+        # Children (kn_* heads) stand smaller, and get no crowd face.
+        self.assertEqual(area.stand_in_scale(3, 0, "kn_bhn100_oren"), area.CHILD_SCALE)
+        self.assertEqual(area.look_keys({"HeadMorph": "kn_bhn100_oren.mor"}, 3, "oren@0,0"), ("kn_bhn100_oren", ""))
         # Only doors, with their state (1 = locked) and a small door's greybox size.
         self.assertEqual((out["DoorTags"], out["DoorPose"], out["DoorState"], out["DoorSize"], out["DoorActive"]),
                          (["bhn_door_cellar"], [1200.0, -2000.0, 0.0, -90.0], [1], [160.0, 260.0], [1]))
