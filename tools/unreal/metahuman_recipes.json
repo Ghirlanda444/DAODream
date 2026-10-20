@@ -5432,5 +5432,70 @@
    "OUTWARD": 1.3
   },
   "note": "Iona, elven servant: Eleanor's base fitted to a 3D head generated from the user's Iona sheet (fit area clear of the braids), jaw and lower cheeks slimmed, young skin (Vivian preset), honey-blonde straight bob, pointed elf ears shaped on the face mesh after the build (docs/CHARACTERS.md)"
+ },
+ {
+  "name": "Iona",
+  "mix": {
+   "Jelena": 0.7,
+   "Vivian": 0.3
+  },
+  "grooms": {
+   "Hair": "Hair_S_LowPonytail",
+   "Eyebrows": "Eyebrows_M_SlightArch",
+   "Beard": "",
+   "Mustache": ""
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.42,
+    "Whiteness": 0.0,
+    "Redness": 0.32
+   },
+   "Eyebrows": {
+    "Melanin": 0.48,
+    "Whiteness": 0.0,
+    "Redness": 0.28
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.05,
+     0.08,
+     0.04,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "body": {
+   "Height": 165,
+   "Chest": 86,
+   "Waist": 66,
+   "Hip": 92
+  },
+  "elf_ears": {
+   "LIFT": 4.4,
+   "BACK": 3.2,
+   "OUTWARD": 1.3
+  },
+  "quality": "MEDIUM",
+  "note": "Iona, elven servant: young slim preset mix (the fitted IonaT read too heavy), honey-blonde hair pulled back so the pointed ears show (elf_ears.body.py) (docs/CHARACTERS.md); green eyes copied from EleanorS; built from the existing character (sculpt already applied)",
+  "existing": true
  }
 ]
