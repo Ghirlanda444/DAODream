@@ -223,9 +223,9 @@ def wall_lamp(dm):
 def torch(dm):
     """A wall torch: plate on the wall (+X), an arm and ring holding a wooden torch that leans out."""
     P.append_box(dm, opts(IRON), xf((-1, 0, 0)), 2.0, 9.0, 18.0, 0, 0, 0, unreal.GeometryScriptPrimitiveOriginMode.CENTER)
-    rod(dm, (-1, 0, 0), (-15, 0, 0), 0.9, IRON)
-    torus(dm, (-16, 0, 0), None, 3.4, 0.7, IRON, (12, 5))
-    bottom, top = (-10.0, 0.0, -24.0), (-26.0, 0.0, 22.0)
+    rod(dm, (-1, 0, 0), (-14.5, 0, 0), 0.9, IRON)
+    torus(dm, (-17.8, 0, 0), None, 3.4, 0.7, IRON, (12, 5))
+    bottom, top = (-12.0, 0.0, -24.0), (-36.0, 0.0, 26.0)  # the game burns its torches 41 cm out, 37 cm up
     rod(dm, bottom, top, 2.0, WOOD, 8)
     d = unreal.Vector(top[0] - bottom[0], 0, top[2] - bottom[2]).normal()
     rot = unreal.MathLibrary.make_rot_from_z(d)
@@ -241,6 +241,22 @@ def candle_holder(dm):
     P.append_cylinder(dm, opts(EMBERS), xf((0, 0, 26)), 0.25, 1.2, 4, 0, True)
 
 
+def candle(dm):
+    """A 37 cm church candle on a dish, its flame at the top."""
+    P.append_cylinder(dm, opts(IRON), xf((0, 0, 0)), 6.0, 1.2, 16, 0, True)
+    P.append_cylinder(dm, opts(WAX), xf((0, 0, 1.2)), 3.3, 34.3, 16, 0, True)
+    P.append_cylinder(dm, opts(EMBERS), xf((0, 0, 35.5)), 0.3, 1.4, 4, 0, True)
+
+
+def candle_stand(dm):
+    """A 48 cm iron candle stand: a foot, a stem, a drip pan and a candle."""
+    P.append_cone(dm, opts(IRON), xf((0, 0, 0)), 7.0, 1.6, 4.0, 16, 1, True)
+    P.append_cylinder(dm, opts(IRON), xf((0, 0, 4)), 1.3, 36.0, 8, 0, True)
+    P.append_cylinder(dm, opts(IRON), xf((0, 0, 40)), 5.5, 1.0, 16, 0, True)
+    P.append_cylinder(dm, opts(WAX), xf((0, 0, 41)), 2.0, 6.0, 12, 0, True)
+    P.append_cylinder(dm, opts(EMBERS), xf((0, 0, 47)), 0.25, 1.0, 4, 0, True)
+
+
 def logs(dm):
     """A hearth fire's logs: a bed of coals and four logs leaning into a cone, base at the origin."""
     P.append_cone(dm, opts(EMBERS), xf((0, 0, -2)), 38.0, 20.0, 7.0, 20, 1, True)
@@ -251,7 +267,8 @@ def logs(dm):
 
 
 MESHES = {"SM_FireBowl": lambda dm: fire_bowl(dm, 45.0), "SM_Chain": chain, "SM_WallLamp": wall_lamp,
-          "SM_Torch": torch, "SM_CandleHolder": candle_holder, "SM_HearthLogs": logs}
+          "SM_Torch": torch, "SM_CandleHolder": candle_holder, "SM_Candle": candle,
+          "SM_CandleStand": candle_stand, "SM_HearthLogs": logs}
 for name, build in MESHES.items():
     dm = unreal.DynamicMesh()
     build(dm)

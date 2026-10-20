@@ -134,14 +134,17 @@ in the editor with `pyrun`, then `tools/unreal/flame_build.py`):
 | `SM_FireBowl` | hanging lamp: an iron bowl of coals on three rods meeting at a ring, its fire at the origin |
 | `SM_Chain` | 1 m of chain, scaled to reach from the ring to the ceiling |
 | `SM_WallLamp` | the same bowl on a bracket; the wall is at +X, which the export's yaw turns to the model's back |
-| `SM_Torch` | wall plate, arm and ring holding a wooden torch (unlit, as in the game) |
-| `SM_CandleHolder` | iron stand with a candle (unlit) |
+| `SM_Torch` | wall plate, arm and ring holding a wooden torch that leans out to where the game burns it (lit only at night) |
+| `SM_CandleHolder` | small iron holder with a candle |
+| `SM_Candle` | a 37 cm church candle on a dish |
+| `SM_CandleStand` | a 48 cm iron candle stand |
 | `SM_HearthLogs` | a bed of coals and five logs, under medium (0.9x) and large (1.4x) fires |
 | `M_FixtureIron`, `M_FixtureWood`, `M_FixtureWax` | two tints mottled by world-space noise |
 | `M_FixtureEmbers` | charred wood and coals whose cracks glow and flicker (`Glow`) |
 | `M_Flame` | a flame tongue for Niagara sprites: a teardrop that licks over time, orange-red edges, yellow core |
 | `M_Spark` | a soft ember speck |
-| `NS_FireSmall`, `NS_FireMedium`, `NS_FireLarge` | flame tongues rising on buoyancy and fading, plus embers on curl noise (from Epic's Fountain template) |
+| `NS_FireSmall`, `NS_FireMedium`, `NS_FireLarge` | flame tongues rising on buoyancy and fading, plus embers on curl noise (from Epic's Fountain template): lamp bowls and torches, medium and large hearths or burning rubble |
+| `NS_FireCandle`, `NS_FireWall` | a tiny, brighter candle flame; a wide, low spread of flames for the night's burning walls (no logs) |
 
 The fixtures cast no shadows (the game's lamp lights sit in their bowls). The
 light still comes from the game's point lights (`PlaceLight`); the flames are

@@ -329,14 +329,19 @@ cm, colour), from the `*_ll.mmh.json` that `pull` writes into `--rooms`.
 
 The rooms also place the lamps themselves and their fires. By day the castle
 has 40 hanging lamps (`prp_ferlamp_01_0`: an iron bowl on a 2.09 m chain, its
-fire at the model's origin), 11 bracket lamps (`prp_ferlamp_03_0`), 3 candle
-holders and 2 wall torches (unlit), and 52 fire effects: 49
+fire at the model's origin), 11 bracket lamps (`prp_ferlamp_03_0`), 17 church
+candles (`prp_cndl_01_0`, 37 cm), 7 candle stands (`prp_cndlhldrl_01_0`,
+48 cm), 3 candle holders and 2 wall torches, and 52 fire effects: 49
 `fxe_fire_small_p` in the lamps' bowls (within 4 cm of each lamp's origin) and
-three hearths (`fxe_fire_m_ns_p`, `fxe_fire_medium_p`, `fxe_fire_l_ns_p`).
+three hearths (`fxe_fire_m_ns_p`, `fxe_fire_medium_p`, `fxe_fire_l_ns_p`); the
+candles and torches are unlit. The night castle (96 lamps, 95 fires) lights
+them: 17 candle flames (`fxe_fire_cnd_p`, 37 cm above each candle's origin),
+the two torches, and the siege's fires, 10 `fxe_fire_large_p` on rubble and 7
+`fxe_fire_wall_p` on burning walls.
 `kit.fixtures` exports their positions as `Fixtures` (position, the yaw of the
 model's local +Y, which faces the wall for torches and brackets, kind, and the
 chain length up to the ceiling that `area.hang_fixtures` works out) and `Fires`
-(position and size). The night castle has 65 lamps and 95 fires.
+(position and size: small, medium, large, candle, wall).
 
 Doors come from their own model: a placeable template's `Appearance` is a row
 of `placeable_types.gda` (in `packages/core/data/2da.erf`), whose `ModelName`

@@ -4,7 +4,7 @@
   (bind _rot (Matematica|Rotatore|MakeRotator 0.0 0.0 (Utilità|Array|Ottieni(unacopia) _f (Utility|Operatori|Aggiungi B 3))))
   (bind _kind (Matematica|Float|Truncate (Utilità|Array|Ottieni(unacopia) _f (Utility|Operatori|Aggiungi B 4))))
   (bind _chain (Utilità|Array|Ottieni(unacopia) _f (Utility|Operatori|Aggiungi B 5)))
-  (bind _name (Utilità|Stringa|SelectString (Utilità|Stringa|SelectString "SM_FireBowl" "SM_WallLamp" (Utility|Operatori|Uguale(==) _kind 0)) (Utilità|Stringa|SelectString "SM_CandleHolder" "SM_Torch" (Utility|Operatori|Uguale(==) _kind 2)) (Utility|Operatori|Minore(<) _kind 2)))
+  (bind _name (Utilità|Stringa|SelectString (Utilità|Stringa|SelectString (Utilità|Stringa|SelectString "SM_FireBowl" "SM_WallLamp" (Utility|Operatori|Uguale(==) _kind 0)) (Utilità|Stringa|SelectString "SM_CandleHolder" "SM_Torch" (Utility|Operatori|Uguale(==) _kind 2)) (Utility|Operatori|Minore(<) _kind 2)) (Utilità|Stringa|SelectString "SM_Candle" "SM_CandleStand" (Utility|Operatori|Uguale(==) _kind 4)) (Utility|Operatori|Minore(<) _kind 4)))
   (bind _mesh (Utilità|Casting|CastToStaticMesh (Utilità|LoadAssetBlocking (Utilità|ToSoftObjectReference (Utilità|MakeSoftObjectPath (Utilità|Stringa|Append (Utilità|Stringa|Append (Utilità|Stringa|Append "/Game/Cousland/Fixtures/" _name) ".") _name))))))
   (bind _c (Aggiungicomponente|Rendering|AggiungiComponenteconmeshstatica :bManualAttachment "false" :RelativeTransform (Matematica|Trasforma|MakeTransform _loc _rot)))
   (Componenti|StaticMesh|SetStaticMesh _c _mesh)

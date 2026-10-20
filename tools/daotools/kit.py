@@ -218,21 +218,25 @@ def lights(rml_roots: list[dict], light_models: dict[str, dict]) -> list[float]:
     return out
 
 
-HANGING_LAMP, WALL_LAMP, CANDLE_HOLDER, TORCH = 0, 1, 2, 3
+HANGING_LAMP, WALL_LAMP, CANDLE_HOLDER, TORCH, CANDLE, CANDLE_STAND = 0, 1, 2, 3, 4, 5
 FIXTURE_MODELS = {"prp_ferlamp_01_0": HANGING_LAMP, "prp_ferlamp_03_0": WALL_LAMP,
-                  "prp_candlehold01_0": CANDLE_HOLDER, "prp_ferelden_torch_0": TORCH}
-SMALL_FIRE, MEDIUM_FIRE, LARGE_FIRE, CANDLE_FIRE = 0, 1, 2, 3
+                  "prp_candlehold01_0": CANDLE_HOLDER, "prp_ferelden_torch_0": TORCH,
+                  "prp_cndl_01_0": CANDLE, "prp_cndlhldrl_01_0": CANDLE_STAND}
+SMALL_FIRE, MEDIUM_FIRE, LARGE_FIRE, CANDLE_FIRE, WALL_FIRE = 0, 1, 2, 3, 4
 FIRE_WORDS = (("cnd", CANDLE_FIRE), ("small", SMALL_FIRE), ("medium", MEDIUM_FIRE), ("m_ns", MEDIUM_FIRE),
-              ("wall", MEDIUM_FIRE), ("large", LARGE_FIRE), ("l_ns", LARGE_FIRE))
+              ("wall", WALL_FIRE), ("large", LARGE_FIRE), ("l_ns", LARGE_FIRE))
 
 
 def fixtures(rml_roots: list[dict]) -> dict:
     """{"Fixtures": 5 numbers each: position xyz (Unreal cm), yaw (degrees, the
     direction, 0-360, of the model's local +Y, its back: the wall side of torches and wall
     lamps) and kind (FIXTURE_MODELS); "Fires": 4 numbers each: position xyz and
-    size (SMALL_FIRE..CANDLE_FIRE, from the effect's name)}. The game's hanging
+    size (SMALL_FIRE..WALL_FIRE, from the effect's name: wall fires burn on a
+    wall, with no hearth under them)}. The game's hanging
     lamps (prp_ferlamp_01) are iron bowls on a chain, their fire in the bowl at
-    the model's origin; prp_ferlamp_03 hangs from a wall bracket."""
+    the model's origin; prp_ferlamp_03 hangs from a wall bracket. prp_cndl_01 is a
+    37 cm candle on a dish (lit at night: a candle fire at its top), prp_cndlhldrl_01
+    a 48 cm candle stand."""
     found: list[float] = []
     fires: list[float] = []
     for room in rml_roots:

@@ -2,7 +2,7 @@
   (bind _f (Variabili|Predefinito|OttieniFires))
   (bind _loc (Matematica|Vettore|MakeVector (Utilità|Array|Ottieni(unacopia) _f B) (Utilità|Array|Ottieni(unacopia) _f (Utility|Operatori|Aggiungi B 1)) (Utilità|Array|Ottieni(unacopia) _f (Utility|Operatori|Aggiungi B 2))))
   (bind _size (Matematica|Float|Truncate (Utilità|Array|Ottieni(unacopia) _f (Utility|Operatori|Aggiungi B 3))))
-  (bind _name (Utilità|Stringa|SelectString (Utilità|Stringa|SelectString "NS_FireSmall" "NS_FireMedium" (Utility|Operatori|Uguale(==) _size 0)) (Utilità|Stringa|SelectString "NS_FireLarge" "NS_FireSmall" (Utility|Operatori|Uguale(==) _size 2)) (Utility|Operatori|Minore(<) _size 2)))
+  (bind _name (Utilità|Stringa|SelectString (Utilità|Stringa|SelectString "NS_FireSmall" "NS_FireMedium" (Utility|Operatori|Uguale(==) _size 0)) (Utilità|Stringa|SelectString "NS_FireLarge" (Utilità|Stringa|SelectString "NS_FireCandle" "NS_FireWall" (Utility|Operatori|Uguale(==) _size 3)) (Utility|Operatori|Uguale(==) _size 2)) (Utility|Operatori|Minore(<) _size 2)))
   (bind _sys (Utilità|Casting|CastToNiagaraSystem (Utilità|LoadAssetBlocking (Utilità|ToSoftObjectReference (Utilità|MakeSoftObjectPath (Utilità|Stringa|Append (Utilità|Stringa|Append (Utilità|Stringa|Append "/Game/Cousland/Fixtures/" _name) ".") _name))))))
   (Niagara|SpawnSystematLocation :SystemTemplate _sys :Location _loc :bAutoDestroy "false" :bAutoActivate "true")
   (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ANDBoolean (Utility|Operatori|Maggiore(>) _size 0) (Utility|Operatori|Minore(<) _size 3))
