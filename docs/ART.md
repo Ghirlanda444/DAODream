@@ -40,6 +40,34 @@ The material is flagged for instanced static meshes (the castle is drawn
 with them); without that flag Unreal silently falls back to its default grid
 material.
 
+## Castle surfaces (Megascans, optional)
+
+When the free Megascans surfaces are in the project, they replace the
+procedural ones at load time; a clone without them keeps the procedural look.
+They come from Fab (Quixel Megascans, Fab Standard License, free) and, like the
+MetaHumans, stay out of git: 2K texture sets unpacked in `extracted/fab/`,
+imported to `Content/ThirdParty/Megascans/Castle/<Kind>/T_<Kind>_<Map>`
+(BaseColor, Normal, Roughness, AO).
+
+| Kind | Fab listing | Used on |
+| --- | --- | --- |
+| Wall | Stone Wall (tinifauaw) | Walls, Blockers |
+| Floor | Stone Floor (xbmgeba) | Floors |
+| Ceiling | Wooden Planks (wckqdbvs) | Ceilings |
+| Door | Wooden Planks (vjisagn) | `BP_Door` Panel |
+| Prop | Wooden Planks (vlzhdbwdy) | Props |
+| Plaster | Damaged Wall Plaster (uc2lddzcw) | not used yet |
+
+`/Game/Cousland/Materials/M_CastleScan` (committed, engine functions only)
+projects a texture set on the three world planes (`WorldAlignedTexture`,
+`WorldAlignedNormal`), so the scaled-cube castle needs no UVs; parameters
+`TexBaseColor/Normal/Roughness/AO`, `TileSize` (cm per repeat), `Tint`,
+`RoughnessScale`. The instances `MI_Castle_<Kind>` live with the textures.
+`BP_AreaLoader.BuildSolids` ends with `ApplyScanArt`, which calls
+`SetScan(component, path)` per component: it loads the instance by its path
+and sets it only if it exists. `BP_Door.Setup` calls `ScanArt` the same way.
+No committed asset references the Megascans directly.
+
 ## Ceilings
 
 The rooms have roofs now (`docs/GAME_DATA.md`, "Walls from the level kit"):
