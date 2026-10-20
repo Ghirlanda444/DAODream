@@ -269,7 +269,9 @@ parts (hairstyles, noses, mouths, skin tones mixed per head), so:
   back braid, and two front braids with tassels; `tools/unreal/custom_groom.body.py` puts it on
   her Hair slot after every build (recipe `"custom_hair"`). Under the castle's dim blockout light,
   hair (MetaHuman grooms too) goes almost black where no light reaches it; the dialogue key and rim
-  lights fix it during conversations, and the castle's lighting pass should fix it for good.
+  lights fix it during conversations. Fixed for all characters by `r.HairStrands.SkyLighting.
+  IntegrationType=1` (uniform ambient integration, DefaultEngine.ini); MetaHuman's hair-material
+  "fill light" was tried first and has no effect on strands (it is for hair cards).
 
 Unreal's local cache (Zen) is moved to `E:/UnrealDDC` in `DefaultEngine.ini`: with C:
 full, groom bindings and shaders silently failed to cache (Duncan's hair stayed in its rest
