@@ -5197,9 +5197,9 @@
     "Redness": 0.03
    },
    "Eyebrows": {
-    "Melanin": 0.55,
-    "Whiteness": 0.3,
-    "Redness": 0.05
+    "Melanin": 0.72,
+    "Whiteness": 0.15,
+    "Redness": 0.08
    },
    "Outfits": {
     "PrimaryColorShirt": [
@@ -5228,7 +5228,7 @@
     ]
    }
   },
-  "note": "Eleanor fitted to a 3D head generated from the user's Eleanor sheet (mouth, chin and jaw included); grey hair pulled back to a low ponytail (no MetaHuman groom has her low braided bun) (docs/CHARACTERS.md)"
+  "note": "Eleanor fitted to a 3D head generated from the user's Eleanor sheet (mouth, chin and jaw included); grey hair pulled back to a low ponytail (no MetaHuman groom has her low braided bun) (docs/CHARACTERS.md); smoky green-grey eye makeup and mauve lips set on the character (commit_makeup_settings)"
  },
  {
   "name": "FergusW",

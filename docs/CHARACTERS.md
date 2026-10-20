@@ -251,6 +251,13 @@ parts (hairstyles, noses, mouths, skin tones mixed per head), so:
   shifted the head off the neck, so the fit starts from DuncanV3 (79 points) and takes Bryce's
   skin, eyes, body and grooms; the fit area leaves out the hair hanging beside his cheeks, then the
   chin and brow are pushed toward the side view. Ash grey-brown hair and a stubble layer.
+  Fergus (`FergusW`) and Eleanor (`EleanorS`) followed on 2026-10-20, each from the user's sheet
+  (front, three-quarter, side). Fergus also has the 125-point layout, so he is fitted on DuncanV3's
+  base (fit area clear of his fringe and side hair), with his skin and body, brown eyes, a chestnut
+  low ponytail and a short beard over stubble. Eleanor fitted on her own copy (81-point layout,
+  small shift); grey hair pulled back to a low ponytail (no MetaHuman groom has her low braided bun),
+  darker brows, and makeup set on the character with `commit_makeup_settings`: soft smoky
+  green-grey eyes and natural mauve lips. The looks table loads both.
 
 Unreal's local cache (Zen) is moved to `E:/UnrealDDC` in `DefaultEngine.ini`: with C:
 full, groom bindings and shaders silently failed to cache (Duncan's hair stayed in its rest
