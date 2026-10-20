@@ -285,10 +285,8 @@ def make(R):
             print("  elf ears", pyrun.run(body, 900).get("ears"), flush=True)
         if R.get("custom_hair"):   # a groom made in Blender (tools/blender/<name>_hair.py) on the Hair slot
             ch = R["custom_hair"]
-            body = "NAME = %r
-ABC = %r
-WIDTH = %r
-" % (name, ch["abc"], ch.get("width", 0.012)) +                 open(os.path.join(HERE, "custom_groom.body.py"), encoding="utf-8").read()
+            body = "NAME = %r\nABC = %r\nWIDTH = %r\n" % (name, ch["abc"], ch.get("width", 0.012)) + \
+                open(os.path.join(HERE, "custom_groom.body.py"), encoding="utf-8").read()
             print("  custom hair", pyrun.run(body, 1500).get("custom"), flush=True)
     return bool(r.get("bp"))
 
