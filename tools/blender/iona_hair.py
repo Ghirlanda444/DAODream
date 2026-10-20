@@ -157,7 +157,8 @@ strands = []
 for k in range(N):
     root, nrm = sample_root()
     layer = random.random()
-    off = 0.0025 + 0.013 * layer * (0.45 + 0.55 * min(1.0, max(0.0, (root.z - (TOP - 0.10)) / 0.08)))   # volume, most on top
+    top = min(1.0, max(0.0, (root.z - (TOP - 0.09)) / 0.08)); top = top * top * (3 - 2 * top)
+    off = 0.003 + layer * (0.006 + 0.020 * top)                                # volume, most on the crown
     end = END_Z + random.gauss(0, 0.004) + 0.006 * layer
     pts = grow(root + nrm * 0.0005, nrm, off, end)
     jit = Vector((random.gauss(0, 1), random.gauss(0, 1), 0)) * 0.0012
@@ -216,15 +217,15 @@ for s in (1, -1):
     # side braid: from the front hairline, above the ear, round to the back of the head
     side_path = [on_head(s * math.radians(a), math.radians(e), 0.010)
                  for a, e in ((38, 30), (60, 26), (85, 22), (110, 18), (135, 14), (158, 10), (176, 8))]
-    braids += braid([q + (q - C).normalized() * 0.010 for q in side_path], 0.013, 90)   # on top of the hair
+    braids += braid([q + (q - C).normalized() * 0.016 for q in side_path], 0.013, 90)   # on top of the hair
     # front braid: from the hairline beside the parting, down in front of the ear, tied at the chin
-    top_ = on_head(s * math.radians(30), math.radians(38), 0.016)
-    temple = keep_out(Vector((s * 0.084, FRONT.y + 0.075, HAIRLINE - 0.03)), 0.016)
-    front_path = [top_, temple] + drape(temple, FRONT.z - 0.09, 0.016)[1:]
-    braids += braid(front_path, 0.009, 60, end_tassel=0.03)
+    top_ = on_head(s * math.radians(30), math.radians(38), 0.028)
+    temple = keep_out(Vector((s * 0.086, FRONT.y + 0.072, HAIRLINE - 0.03)), 0.020)
+    front_path = [top_, temple] + drape(temple, FRONT.z - 0.09, 0.020)[1:]
+    braids += braid(front_path, 0.0125, 95, end_tassel=0.032)
 # the side braids meet at the back and hang as one
-back0 = on_head(math.pi, math.radians(8), 0.021)
-braids += braid([back0] + drape(back0, END_Z + 0.03, 0.021)[1:], 0.014, 100, end_tassel=0.03)
+back0 = on_head(math.pi, math.radians(8), 0.026)
+braids += braid([back0] + drape(back0, END_Z + 0.03, 0.026)[1:], 0.014, 100, end_tassel=0.03)
 print("braid hairs", len(braids))
 
 def curves_object(name, cs, colour):

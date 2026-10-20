@@ -214,8 +214,8 @@ Made: Duncan (V2, Fergus's square jaw, custom hair), Fergus, Eleanor, Gilmore, D
 Howe's knight, Landra, Oriana, Mother Mallol, the cook, and crowd faces
 `CrowdM1`-`5`, `CrowdF0`-`1` (the first Howe soldier is `crowd_m_0`).
 
-Still to do in this castle, each needing more than MetaHuman: elves (Iona,
-the servants, Howe's mage) need pointed ears made in Blender. Children (Oren,
+Still to do in this castle: the elven servants and Howe's mage (template faces plus
+`"elf_ears"`, as for Iona). Children (Oren,
 the squires) stand at 67% in game (`area.CHILD_SCALE`, from their `kn_*` heads), since
 MetaHuman has no child body; Oren's face (recipe `Oren`) is a young adult mix, and landmark
 sculpting toward child proportions read as an adult, so it was dropped. The user chose this face for now;
@@ -261,6 +261,15 @@ parts (hairstyles, noses, mouths, skin tones mixed per head), so:
   small shift); grey hair pulled back to a low ponytail (no MetaHuman groom has her low braided bun),
   darker brows, and makeup set on the character with `commit_makeup_settings`: soft smoky
   green-grey eyes and natural mauve lips. The looks table loads both.
+  Iona (`Iona`, 2026-10-20) is an elf: a slim young preset mix (Jelena/Vivian, jaw slimmed; a fit
+  to her sheet read too heavy and was dropped), green eyes, and pointed ears shaped on the built
+  face mesh by `tools/unreal/elf_ears.body.py` (MetaHuman has no elf ears). Her hair is a custom
+  groom from `tools/blender/iona_hair.py`, after the user's sheet: straight, centre-parted,
+  shoulder length, hugging the skull and tucked behind the ears, side braids meeting in a hanging
+  back braid, and two front braids with tassels; `tools/unreal/custom_groom.body.py` puts it on
+  her Hair slot after every build (recipe `"custom_hair"`). Under the castle's dim blockout light,
+  hair (MetaHuman grooms too) goes almost black where no light reaches it; the dialogue key and rim
+  lights fix it during conversations, and the castle's lighting pass should fix it for good.
 
 Unreal's local cache (Zen) is moved to `E:/UnrealDDC` in `DefaultEngine.ini`: with C:
 full, groom bindings and shaders silently failed to cache (Duncan's hair stayed in its rest
