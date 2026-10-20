@@ -7,6 +7,7 @@ A recipe: {"name", "mix": {preset: weight}, "grooms": {slot: groom}, "skin": {"i
            "passes": n, "quality": "MEDIUM"|"LOW"}
 "layers": {component: [groom, like_slot]} adds groom layers (e.g. stubble under a beard);
 "thicken": {slot: factor or {"width", "tip", "density"}}; "groom_material": {parameter: value}.
+"elf_ears": true or {"LIFT", "BACK", "OUTWARD"} points the ears after the build (elf_ears.body.py).
 "existing": true builds a character already in /Game/MetaHumans/<name> (e.g. a hand-fitted face):
 no create step, so its face survives; "grooms", "colours" and "body", if given, are applied to it.
 """
@@ -276,6 +277,11 @@ def make(R):
     print("  build", r, flush=True)
     if r.get("bp"):  # the build's groom copies are cards only: put the strand grooms back (and thicken them)
         print("  strands", str(pyrun.run(strands_body(R), 900).get("strands"))[:300], flush=True)
+        if R.get("elf_ears"):   # MetaHuman has no elf ears: point them on the built face mesh
+            ears = R["elf_ears"] if isinstance(R["elf_ears"], dict) else {}
+            body = "NAME = %r\n" % name + "".join("%s = %r\n" % kv for kv in ears.items()) + \
+                open(os.path.join(HERE, "elf_ears.body.py"), encoding="utf-8").read()
+            print("  elf ears", pyrun.run(body, 900).get("ears"), flush=True)
     return bool(r.get("bp"))
 
 

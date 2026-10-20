@@ -5373,5 +5373,64 @@
   "quality": "MEDIUM",
   "note": "Oren, Fergus's young son: generic noble boy (the user's direction), soft young preset mix, pale young skin, brown hair; scaled to a child in game (kn_* heads, area.CHILD_SCALE); landmark sculpting toward child proportions was tried and dropped (it read as an adult, East Asian-looking)",
   "replace": true
+ },
+ {
+  "name": "IonaT",
+  "existing": true,
+  "quality": "MEDIUM",
+  "grooms": {
+   "Hair": "Hair_M_BobStraight",
+   "Eyebrows": "Eyebrows_M_SlightArch"
+  },
+  "colours": {
+   "Hair": {
+    "Melanin": 0.3,
+    "Whiteness": 0.0,
+    "Redness": 0.28
+   },
+   "Eyebrows": {
+    "Melanin": 0.42,
+    "Whiteness": 0.0,
+    "Redness": 0.25
+   },
+   "Outfits": {
+    "PrimaryColorShirt": [
+     0.05,
+     0.08,
+     0.04,
+     1
+    ],
+    "SecondaryColorShirt": [
+     0.05,
+     0.045,
+     0.04,
+     1
+    ],
+    "PrimaryColorShort": [
+     0.06,
+     0.05,
+     0.04,
+     1
+    ],
+    "SecondaryColorShort": [
+     0.04,
+     0.04,
+     0.04,
+     1
+    ]
+   }
+  },
+  "body": {
+   "Height": 165,
+   "Chest": 86,
+   "Waist": 66,
+   "Hip": 92
+  },
+  "elf_ears": {
+   "LIFT": 4.4,
+   "BACK": 3.2,
+   "OUTWARD": 1.3
+  },
+  "note": "Iona, elven servant: Eleanor's base fitted to a 3D head generated from the user's Iona sheet (fit area clear of the braids), jaw and lower cheeks slimmed, young skin (Vivian preset), honey-blonde straight bob, pointed elf ears shaped on the face mesh after the build (docs/CHARACTERS.md)"
  }
 ]
