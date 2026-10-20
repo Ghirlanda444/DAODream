@@ -19,6 +19,10 @@ editor's MCP server (`localhost:8000/mcp`, the ModelContextProtocol plugin):
 - `booth_shot.py`: front, three-quarter and side pictures of a built MetaHuman in the portrait booth
   level (`Content/Cousland/Dev/L_PortraitBooth`: grey backdrop, key/fill/rim lights, fixed exposure),
   to compare faces with reference pictures under the same light.
+- `fixtures_build.body.py` (run with `pyrun`, Play/Simulate stopped) and then `flame_build.py`: the
+  castle's lamp meshes, materials and fire effects in `Content/Cousland/Fixtures` (`docs/ART.md`).
+- `dsl_write.py <Blueprint> <graph> <file>`: writes a Blueprint graph from a staged DSL file; `dsl/` holds
+  the loader's fixture graphs (`BP_AreaLoader.BuildFixtures` and the functions it calls).
 - `duncan_groom_apply.py`: run inside the editor after building Duncan, puts his custom groom back.
 
 The MetaHumans they make stay out of git (`Content/MetaHumans/`).

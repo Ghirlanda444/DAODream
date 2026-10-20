@@ -376,7 +376,7 @@ def cmd_toolset_scripts(args) -> int:
 def cmd_unreal_area(args) -> int:
     are_root = json.loads(Path(args.file).read_text(encoding="utf-8"))["root"]
     layout_root = to_jsonable(GFF4.open(args.layout).root, NAMES)
-    solids, lights = None, None
+    solids, lights, fixtures = None, None, None
     if args.rooms:
         rooms = [json.loads(f.read_text(encoding="utf-8"))["root"] for f in sorted(Path(args.rooms).rglob("*.rml.json"))]
         names = kit.placed_models(rooms)
@@ -386,6 +386,7 @@ def cmd_unreal_area(args) -> int:
         solids = kit.solids(rooms, kit.load_kit(args.kit, names))
         print(f"kit: {solids['Summary']}", file=sys.stderr)
         lights = kit.lights(rooms, kit.load_light_models(args.rooms))
+        fixtures = kit.fixtures(rooms)
     door_models = None
     if args.game or args.placeable_types:
         if args.game:
@@ -420,13 +421,13 @@ def cmd_unreal_area(args) -> int:
                     ambient_tables=ambient_tables, trigger_templates=area.trigger_templates(args.pull),
                     extra_creatures=[tuple(x.split("@", 1)) for x in args.add_creature or []], lights=lights,
                     fill=args.fill_lights,
-                    fill_tint=area.WARM_FILL_COLOUR if args.warm_fills else area.FILL_COLOUR)
+                    fill_tint=area.WARM_FILL_COLOUR if args.warm_fills else area.FILL_COLOUR, fixtures=fixtures)
     s = out["Summary"]
     print(f"{out['Area']}: {s['Floors']} floor boxes, {s['Walls']} grid walls, {s['Solids']} kit solids "
           f"({s['DoorwaysCut']} doorways cut, {s['DoorFrames']} door frames, "
           f"{s['HangingPropsDropped']} hanging props dropped, {s['Ceilings']} ceilings, {s['Lids']} of them lids), "
           f"{s['Lights']} lights ({s['FillLights']} of them fills, {s['LightsTucked']} moved under a ceiling), "
-          f"{s['TalkingCreatures']} talking "
+          f"{s['Fixtures']} lamps, {s['Fires']} fires, {s['TalkingCreatures']} talking "
           f"creatures and {s['TeamOnly']} more in {s['Teams']} teams ({s['Inactive']} hidden at first, "
           f"{s['OtherCreatures']} others, {s['Ambient']} with ambient behaviour), "
           f"{s['Waypoints']} waypoints, {s['Doors']} doors, {len(out['Labels'])} room labels", file=sys.stderr)

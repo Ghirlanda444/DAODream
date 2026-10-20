@@ -536,6 +536,37 @@ def tuck_lights(lights: list[float], solids: list[float], below: float = 30.0) -
     return out, moved
 
 
+CHAIN = 209.0  # cm; the game's hanging lamp model reaches 2.09 m above its bowl
+CHAIN_MAX = 600.0  # cm; chains reach a ceiling up to this far above the bowl (the game's vaults are higher)
+
+
+def hang_fixtures(fixtures: list[float], fires: list[float], solids: list[float],
+                  below: float = 30.0) -> tuple[list[float], list[float]]:
+    """Fixtures (5 numbers each, see kit.fixtures) gain a sixth: the chain length,
+    for hanging lamps, from the bowl up to the ceiling box (kind 3) above it, at
+    most CHAIN_MAX, or CHAIN with no ceiling there (0 for other fixtures). A fixture that sits inside or just above
+    a ceiling is moved `below` cm under it like the lights (tuck_lights), and so are
+    fires within 30 cm of it, which burn in its bowl."""
+    grid = _Grid([solids[i:i + 13] for i in range(0, len(solids), 13) if solids[i + 12] == 3])
+    fires = list(fires)
+    out: list[float] = []
+    for i in range(0, len(fixtures), 5):
+        x, y, z, yaw, kind = fixtures[i:i + 5]
+        over = [_bottom(b) for b in grid.at(x, y) if _inside(b, (x, y, b[2])) and _bottom(b) < z + CHAIN_MAX]
+        ceiling = min(over) if over else None
+        if ceiling is not None and z > ceiling - below:
+            nz = round(ceiling - below, 1)
+            for j in range(0, len(fires), 4):
+                if math.dist(fires[j:j + 3], (x, y, z)) < 30.0:
+                    fires[j + 2] = round(fires[j + 2] + nz - z, 1)
+            z = nz
+        chain = 0.0
+        if kind == 0:
+            chain = round(ceiling - z, 1) if ceiling is not None else CHAIN
+        out += [x, y, z, yaw, kind, chain]
+    return out, fires
+
+
 FILL_COLOUR = (0.6, 0.7, 1.0)  # a cool, moonlit tint; scaled by the brightness asked for
 WARM_FILL_COLOUR = (1.0, 0.8, 0.6)  # candle- and hearth-lit rooms by day
 
@@ -582,12 +613,14 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
          solids: dict | None = None, door_models: dict[str, tuple[float, float, float]] | None = None,
          creature_stats=None, player: dict | None = None, ambient_tables: dict | None = None,
          trigger_templates: dict[str, dict] | None = None, extra_creatures: list[tuple[str, str]] = (),
-         lights: list[float] | None = None, fill: float = 0.0, fill_tint=FILL_COLOUR) -> dict:
+         lights: list[float] | None = None, fill: float = 0.0, fill_tint=FILL_COLOUR,
+         fixtures: dict | None = None) -> dict:
     """The runtime area file. `solids` (kit.solids, from the layout's rooms) replaces
     the navigation grid's walls with the level kit's walls, props, blockers and
     ceilings; `lights` (kit.lights) are the rooms' point lights, and `fill` above 0
     adds dim fill lights of that brightness and `fill_tint` where they do not reach
-    (fill_lights).
+    (fill_lights). `fixtures` (kit.fixtures) are the rooms' lamps and fires
+    (hang_fixtures).
     `creature_stats` (utc -> stats.stats() dict) and `player` add the game's combat
     numbers (see stats.py). `ambient_tables` (ambient.load_tables) adds what each
     creature does on its own (see ambient.py); creatures with ambient behaviour are
@@ -714,6 +747,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     lights = list(lights or [])
     filled = fill_lights(lights, boxes, fill, tint=fill_tint) if fill > 0 else []
     lights, tucked = tuck_lights(lights + filled, solid_boxes)
+    hung, fires = hang_fixtures((fixtures or {}).get("Fixtures", []), (fixtures or {}).get("Fires", []), solid_boxes)
     return {
         "Format": FORMAT,
         "Area": are_root.get("Tag") or "",
@@ -761,6 +795,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "Solids": solid_boxes,
         # Per light: position xyz, radius (cm), colour rgb (the game's, may exceed 1).
         "Lights": lights,
+        "Fixtures": hung,
+        "Fires": fires,
         **triggers(are_root, trigger_templates or {}),
         "Labels": labels,
         "LabelPos": label_pos,
@@ -774,6 +810,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
                     "Solids": len(solid_boxes) // 13, "DoorwaysCut": cut,
                     "HangingPropsDropped": dropped, "DoorFrames": fitted,
                     "Ceilings": sum(1 for k in solid_boxes[12::13] if k == 3), "Lids": lidded,
-                    "Lights": len(lights) // 7, "FillLights": len(filled) // 7, "LightsTucked": tucked},
+                    "Lights": len(lights) // 7, "FillLights": len(filled) // 7, "LightsTucked": tucked,
+                    "Fixtures": len(hung) // 6, "Fires": len(fires) // 4},
         "Warnings": warnings,
     }

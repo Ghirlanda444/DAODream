@@ -11,6 +11,10 @@ meshes, drawn from below and hidden from above, and their bounding box stands in
 for them. This turns all of it into oriented boxes in Unreal coordinates. Only
 box sizes and poses come out; no model geometry.
 
+Rooms also place lamps (`prp_ferlamp_*`, candle holders, torches) and fire
+effects (`fxe_fire_*`); `fixtures` lists where, so Unreal can put its own lamp
+meshes and flames there.
+
 Each room also places a light model (`<layout>_<room>_ll`, its `.mmh` in the
 layout's room archive) whose point-light nodes are the room's lamps, fireplaces
 and fill lights; `lights` places them like any other model.
@@ -30,6 +34,7 @@ Game coordinates are metres, right-handed, Z up; see area.py for Unreal's.
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 from .erf import ERF
@@ -211,6 +216,41 @@ def lights(rml_roots: list[dict], light_models: dict[str, dict]) -> list[float]:
                 out += [round(world[0] * 100, 1), round(-world[1] * 100, 1), round(world[2] * 100, 1),
                         round(radius * 100, 1), *(round(v, 3) for v in (light.get("6007") or [1, 1, 1])[:3])]
     return out
+
+
+HANGING_LAMP, WALL_LAMP, CANDLE_HOLDER, TORCH = 0, 1, 2, 3
+FIXTURE_MODELS = {"prp_ferlamp_01_0": HANGING_LAMP, "prp_ferlamp_03_0": WALL_LAMP,
+                  "prp_candlehold01_0": CANDLE_HOLDER, "prp_ferelden_torch_0": TORCH}
+SMALL_FIRE, MEDIUM_FIRE, LARGE_FIRE, CANDLE_FIRE = 0, 1, 2, 3
+FIRE_WORDS = (("cnd", CANDLE_FIRE), ("small", SMALL_FIRE), ("medium", MEDIUM_FIRE), ("m_ns", MEDIUM_FIRE),
+              ("wall", MEDIUM_FIRE), ("large", LARGE_FIRE), ("l_ns", LARGE_FIRE))
+
+
+def fixtures(rml_roots: list[dict]) -> dict:
+    """{"Fixtures": 5 numbers each: position xyz (Unreal cm), yaw (degrees, the
+    direction, 0-360, of the model's local +Y, its back: the wall side of torches and wall
+    lamps) and kind (FIXTURE_MODELS); "Fires": 4 numbers each: position xyz and
+    size (SMALL_FIRE..CANDLE_FIRE, from the effect's name)}. The game's hanging
+    lamps (prp_ferlamp_01) are iron bowls on a chain, their fire in the bowl at
+    the model's origin; prp_ferlamp_03 hangs from a wall bracket."""
+    found: list[float] = []
+    fires: list[float] = []
+    for room in rml_roots:
+        room_pos, room_rot = room.get("4") or [0, 0, 0], room.get("5") or [0, 0, 0, 1]
+        for m in room.get("3050") or []:
+            name = str(m.get("3063") or "").lower()
+            fixture = FIXTURE_MODELS.get(name)
+            size = next((k for w, k in FIRE_WORDS if w in name), None) if name.startswith("fxe_fire_") else None
+            if fixture is None and size is None:
+                continue
+            world = [room_pos[i] + v for i, v in enumerate(_qrot(room_rot, m["4"]))]
+            pos = [round(world[0] * 100, 1), round(-world[1] * 100, 1), round(world[2] * 100, 1)]
+            if fixture is None:
+                fires += [*pos, size]
+                continue
+            back = _qrot(_qmul(room_rot, m.get("5") or [0, 0, 0, 1]), (0.0, 1.0, 0.0))
+            found += [*pos, round(math.degrees(math.atan2(-back[1], back[0])) % 360, 1), fixture]
+    return {"Fixtures": found, "Fires": fires}
 
 
 def load_light_models(rooms_dir: str | Path) -> dict[str, dict]:

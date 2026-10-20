@@ -1,0 +1,7 @@
+(fn BuildFixtures ()
+  (bind _path (Utilità|Stringa|Append (Utilità|Stringa|Append (Utilità|Percorsi|GetProjectDirectory) "../../extracted/ue/areas/") (Utilità|Stringa|Append (Variabili|Predefinito|OttieniAreaName) ".json")))
+  (bind _json (Json|LoadJsonfromFile (Utilità|Struttura|MakeFilePath _path)))
+  (Variabili|Predefinito|ImpostaFixtures (Json|GetField _json "Fixtures"))
+  (Variabili|Predefinito|ImpostaFires (Json|GetField _json "Fires"))
+  (Funzionedichiamata|SpawnFixtureMeshes)
+  (Funzionedichiamata|SpawnFires))

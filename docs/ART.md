@@ -120,8 +120,35 @@ The day castle's lighting pass (2026-10-20) fixed three things:
 The day castle keeps its sun and sky; with roofs on, they light only what is
 still open (the outer rims and a few uncovered patches).
 
+## Lamps and fires
+
+Where the game hangs a lamp or lights a fire, the loader puts one of ours
+(`BP_AreaLoader.BuildFixtures`, after the solids: `PlaceFixture` per
+`Fixtures` entry, `PlaceFire` per `Fires` entry). Everything in
+`/Game/Cousland/Fixtures` is built by script from engine primitives and
+procedural materials, no textures (`tools/unreal/fixtures_build.body.py`, run
+in the editor with `pyrun`, then `tools/unreal/flame_build.py`):
+
+| Asset | What |
+| --- | --- |
+| `SM_FireBowl` | hanging lamp: an iron bowl of coals on three rods meeting at a ring, its fire at the origin |
+| `SM_Chain` | 1 m of chain, scaled to reach from the ring to the ceiling |
+| `SM_WallLamp` | the same bowl on a bracket; the wall is at +X, which the export's yaw turns to the model's back |
+| `SM_Torch` | wall plate, arm and ring holding a wooden torch (unlit, as in the game) |
+| `SM_CandleHolder` | iron stand with a candle (unlit) |
+| `SM_HearthLogs` | a bed of coals and five logs, under medium (0.9x) and large (1.4x) fires |
+| `M_FixtureIron`, `M_FixtureWood`, `M_FixtureWax` | two tints mottled by world-space noise |
+| `M_FixtureEmbers` | charred wood and coals whose cracks glow and flicker (`Glow`) |
+| `M_Flame` | a flame tongue for Niagara sprites: a teardrop that licks over time, orange-red edges, yellow core |
+| `M_Spark` | a soft ember speck |
+| `NS_FireSmall`, `NS_FireMedium`, `NS_FireLarge` | flame tongues rising on buoyancy and fading, plus embers on curl noise (from Epic's Fountain template) |
+
+The fixtures cast no shadows (the game's lamp lights sit in their bowls). The
+light still comes from the game's point lights (`PlaceLight`); the flames are
+only seen, they do not light.
+
 ## Next
 
 Normal detail (bevelled joints), vaulted rather than flat ceilings,
-separate looks for the kitchen, chapel and cellars, banners and rugs, and
-flame effects at the lamps.
+separate looks for the kitchen, chapel and cellars, banners and rugs,
+flickering lamp light and smoke.

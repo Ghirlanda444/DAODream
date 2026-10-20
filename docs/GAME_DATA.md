@@ -327,6 +327,17 @@ the floor. One level-wide `sun_fake` (radius 2,250 m) is left out.
 `kit.lights` exports them as `Lights` (7 numbers each: position and radius in
 cm, colour), from the `*_ll.mmh.json` that `pull` writes into `--rooms`.
 
+The rooms also place the lamps themselves and their fires. By day the castle
+has 40 hanging lamps (`prp_ferlamp_01_0`: an iron bowl on a 2.09 m chain, its
+fire at the model's origin), 11 bracket lamps (`prp_ferlamp_03_0`), 3 candle
+holders and 2 wall torches (unlit), and 52 fire effects: 49
+`fxe_fire_small_p` in the lamps' bowls (within 4 cm of each lamp's origin) and
+three hearths (`fxe_fire_m_ns_p`, `fxe_fire_medium_p`, `fxe_fire_l_ns_p`).
+`kit.fixtures` exports their positions as `Fixtures` (position, the yaw of the
+model's local +Y, which faces the wall for torches and brackets, kind, and the
+chain length up to the ceiling that `area.hang_fixtures` works out) and `Fires`
+(position and size). The night castle has 65 lamps and 95 fires.
+
 Doors come from their own model: a placeable template's `Appearance` is a row
 of `placeable_types.gda` (in `packages/core/data/2da.erf`), whose `ModelName`
 is the door model, and its `.mmh` bounding box gives the panel. The origin is

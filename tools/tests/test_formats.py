@@ -516,6 +516,31 @@ class KitTests(unittest.TestCase):
         # The room turns the lamp's +1 m X into +1 m Y: (10, 21, 3) m, Y flipped for Unreal.
         self.assertEqual(kit.lights([room], {"lay_10_ll": mmh}), [1000.0, -2100.0, 300.0, 600.0, 1.8, 0.96, 0.3])
 
+    def test_fixtures(self):
+        # A hanging lamp with its fire, a torch turned 90 degrees (its back, local +Y, now facing -X) and a hearth.
+        q90 = [0.0, 0.0, math.sqrt(0.5), math.sqrt(0.5)]
+        room = {"4": [10.0, 20.0, 0.0], "5": [0.0, 0.0, 0.0, 1.0], "3050": [
+            {"3063": "prp_ferlamp_01_0", "4": [1.0, 0.0, 3.0], "5": [0.0, 0.0, 0.0, 1.0]},
+            {"3063": "fxe_fire_small_p", "4": [1.0, 0.0, 3.03], "5": [0.0, 0.0, 0.0, 1.0]},
+            {"3063": "prp_ferelden_torch_0", "4": [0.0, 2.0, 2.0], "5": q90},
+            {"3063": "fxe_fire_l_ns_p", "4": [5.0, 0.0, 0.5], "5": [0.0, 0.0, 0.0, 1.0]},
+            {"3063": "FCA_Wall01_0", "4": [0.0, 0.0, 0.0], "5": [0.0, 0.0, 0.0, 1.0]}]}
+        out = kit.fixtures([room])
+        self.assertEqual(out["Fixtures"], [1100.0, -2000.0, 300.0, 270.0, kit.HANGING_LAMP,
+                                           1000.0, -2200.0, 200.0, 180.0, kit.TORCH])
+        self.assertEqual(out["Fires"], [1100.0, -2000.0, 303.0, kit.SMALL_FIRE, 1500.0, -2000.0, 50.0, kit.LARGE_FIRE])
+
+    def test_hang_fixtures(self):
+        ceiling = [0.0, 0.0, 600.0, 600.0, 600.0, 50.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, kit.CEILING]   # bottom at 550
+        lamps = [0.0, 0.0, 400.0, 0.0, kit.HANGING_LAMP,      # chain up to the ceiling
+                 100.0, 0.0, 560.0, 0.0, kit.HANGING_LAMP,    # inside the slab: moved under it with its fire
+                 0.0, 0.0, 300.0, 0.0, kit.WALL_LAMP,
+                 2000.0, 0.0, 300.0, 0.0, kit.HANGING_LAMP]   # no ceiling: the full chain
+        fires = [100.0, 0.0, 563.0, kit.SMALL_FIRE, 500.0, 0.0, 100.0, kit.LARGE_FIRE]
+        out, fires = area.hang_fixtures(lamps, fires, ceiling)
+        self.assertEqual([out[i + 5] for i in range(0, len(out), 6)], [150.0, 30.0, 0.0, area.CHAIN])
+        self.assertEqual((out[8], fires[2], fires[6]), (520.0, 523.0, 100.0))
+
     def test_lids(self):
         # A 10 x 10 m room of 5 m walls (and a pillar, looked past) around an 8 x 8 m floor.
         def wall(x, y, hx, hy, h=500.0):
