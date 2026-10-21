@@ -16,14 +16,37 @@ BLENDER = r"E:/Tools/blender-5.2.2-windows-x64/blender.exe"
 HERE = os.path.dirname(os.path.abspath(__file__))
 WORK = "E:/DAODream/Unreal/Cousland/Saved/claude/outfits"
 O = "/Game/Cousland/Outfits/"
+CHAIN = {"Main": "MI_Cloth_CouslandBlue", "Second": "MI_Cloth_GreyWool", "Leather": "MI_Leather_Brown",
+         "Metal": "MI_Metal_Chain"}
+HOWE_LEATHER = {"Main": "MI_Cloth_HoweRed", "Second": "MI_Cloth_BrownWool", "Leather": "MI_Leather_Brown",
+                "Metal": "MI_Metal_Chain"}
+
+
+def clothes(main, second="MI_Cloth_BrownWool", leather="MI_Leather_Brown", metal="MI_Metal_Gold"):
+    return {"Main": main, "Second": second, "Leather": leather, "Metal": metal}
+
+
 MATERIALS = {
-    "arm_cht_med_chn": {"Main": "MI_Cloth_CouslandBlue", "Second": "MI_Cloth_GreyWool", "Leather": "MI_Leather_Brown",
-                        "Metal": "MI_Metal_Chain"},
-    "cth_nob_c01": {"Main": "MI_Cloth_BryceBlue", "Second": "MI_Cloth_BrownWool", "Leather": "MI_Leather_Dark",
-                    "Metal": "MI_Metal_Gold"},
-    "cth_nob_af0": {"Main": "MI_Cloth_EleanorWine", "Second": "MI_Cloth_BrownWool", "Leather": "MI_Leather_Dark",
-                    "Metal": "MI_Metal_Gold"},
+    "arm_cht_med_chn": CHAIN,  # castle guards, Gilmore
+    "arm_cht_hvy_hch": CHAIN,  # Fergus
+    "arm_cht_med_scl": {"Main": "MI_Cloth_HoweRed", "Second": "MI_Cloth_BlackWool", "Leather": "MI_Leather_Dark",
+                        "Metal": "MI_Metal_Scale"},  # Howe's knight
+    "arm_cht_lgt_ltr": HOWE_LEATHER, "arm_cht_lgt_rlr": HOWE_LEATHER,  # Howe's soldiers and archers
+    "cth_nob_c01": clothes("MI_Cloth_BryceBlue", leather="MI_Leather_Dark"),  # Bryce
+    "cth_nob_af0": clothes("MI_Cloth_EleanorWine", leather="MI_Leather_Dark"),  # Eleanor
+    "cth_nob_b02": clothes("MI_Cloth_HoweRed", "MI_Cloth_BlackWool", "MI_Leather_Dark"),  # Arl Howe
+    "cth_nob_c00": clothes("MI_Cloth_NobleGreen", leather="MI_Leather_Dark"),  # Dairren
+    "cth_nob_e01": clothes("MI_Cloth_NobleGreen", leather="MI_Leather_Dark"),  # Lady Landra
+    "cth_nob_b00": clothes("MI_Cloth_NobleGold", leather="MI_Leather_Dark"),  # Oriana
+    "cth_nob_f01": clothes("MI_Cloth_PaleBlue", leather="MI_Leather_Dark", metal="MI_Metal_Silver"),  # Iona
+    "cth_com_a00": clothes("MI_Cloth_Undyed"), "cth_com_c00": clothes("MI_Cloth_RustWool", "MI_Cloth_Undyed"),
+    "cth_com_c02": clothes("MI_Cloth_BlueGrey"), "cth_com_b00": clothes("MI_Cloth_MossWool"),
+    "cth_mag_tra": clothes("MI_Cloth_ScholarBrown", leather="MI_Leather_Dark"),  # Aldous
+    "cth_cha_a00": clothes("MI_Cloth_ChantryWhite", "MI_Cloth_ChantryRed"),  # Mother Mallol
+    "duncan_robe": clothes("MI_Cloth_WardenBlue", "MI_Cloth_GreyWool", "MI_Leather_Dark"),  # Duncan
 }
+# Looks that are women: the same common clothes make a dress for them (tools/blender/outfit.py).
+FEMALE = {"EleanorS", "Cook", "Mallol", "Oriana", "Landra", "Iona", "CrowdF0", "CrowdF1"}
 
 EXPORT = r'''
 for name, path in ((LOOK + "_body", "/Game/MetaHumans/MHC_%s/Body/SKM_MHC_%s_BodyMesh" % (LOOK, LOOK)),
@@ -54,8 +77,11 @@ OUT["slots"] = [(str(m.material_slot_name), m.material_interface.get_name() if m
 def make(look: str, kind: str):
     print(look, kind, pyrun.run("LOOK = %r\nWORK = %r\n" % (look, WORK) + EXPORT, 300))
     out = "%s/%s_%s.fbx" % (WORK, look, kind)
+    if os.path.exists(out):
+        os.remove(out)  # so a failed Blender run cannot leave an old outfit to import
     r = subprocess.run([BLENDER, "-b", "--factory-startup", "-P", os.path.join(HERE, "..", "blender", "outfit.py"), "--",
-                        "%s/%s_body.fbx" % (WORK, look), "%s/%s_default.fbx" % (WORK, look), out, kind],
+                        "%s/%s_body.fbx" % (WORK, look), "%s/%s_default.fbx" % (WORK, look), out, kind,
+                        "f" if look in FEMALE else "m"],
                        capture_output=True, text=True)
     line = [l for l in r.stdout.splitlines() if l.startswith("OUTFIT") or "Error" in l or "Traceback" in l]
     print("  blender:", line[-3:])
@@ -69,5 +95,10 @@ def make(look: str, kind: str):
 
 
 if __name__ == "__main__":
+    failed = []
     for job in sys.argv[1:]:
-        make(*job.split(":"))
+        try:
+            make(*job.split(":"))
+        except Exception as e:  # keep going: report at the end
+            failed.append((job, str(e)[-300:]))
+    print("FAILED", failed if failed else "none")

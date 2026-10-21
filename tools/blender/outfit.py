@@ -1,6 +1,6 @@
 """An outfit fitted to one MetaHuman body (Blender 5.2, run headless):
 
-blender -b --factory-startup -P outfit.py -- <body.fbx> <default.fbx> <out.fbx> <kind>
+blender -b --factory-startup -P outfit.py -- <body.fbx> <default.fbx> <out.fbx> <kind> [f|m]
 
 <body.fbx> is the character's body mesh exported from Unreal (its skeleton, skin weights and UVs come
 with it) and <default.fbx> its default clothes (the build's T-shirt and shorts, MHC_<Name>_Outfits):
@@ -23,7 +23,9 @@ from collections import defaultdict, deque
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
-BODY, DEFAULT, OUT, KIND = sys.argv[-4:]
+ARGS = sys.argv[sys.argv.index("--") + 1:]
+BODY, DEFAULT, OUT, KIND = ARGS[:4]
+FEMALE = len(ARGS) > 4 and ARGS[4].lower().startswith("f")  # the same item can dress a man or a woman
 TRIM = 0.035  # m
 MAIN, SECOND, LEATHER, METAL = 0, 1, 2, 3
 
@@ -194,9 +196,10 @@ def outline(z, regions, samples=48, slab=0.025):
 
 
 def loft(name, z_top, z_hem, offset, mat, flare=0.0, samples=48, step=0.02, regions=("torso", "thigh", "calf", "foot"),
-         thickness=0.004):
+         thickness=0.004, arc=None):
     """A tube round the body from z_top down to z_hem: each ring the body's outline plus `offset`,
-    widening by `flare` (m) towards the hem, never narrower than the ring above (cloth hangs)."""
+    widening by `flare` (m) towards the hem, never narrower than the ring above (cloth hangs). With
+    `arc` (degrees from +x, anticlockwise; the front is 270) only that part of the tube: an apron."""
     p = Part(name, mat, loft=True)
     zs = []
     z = z_top
@@ -232,10 +235,13 @@ def loft(name, z_top, z_hem, offset, mat, flare=0.0, samples=48, step=0.02, regi
     for j in range(len(grid) - 1):
         circ = sum(sm[j][1]) / samples * 2 * math.pi  # u: around, v: down, at the body's UV density
         for i in range(samples):
+            if arc and not (arc[0] <= 360.0 * i / samples and 360.0 * (i + 1) / samples <= arc[1]):
+                continue
             corners = ((j, i), (j + 1, i), (j + 1, i + 1), (j, i + 1))
             f = p.bm.faces.new([grid[jj][ii % samples] for jj, ii in corners])
             for l, (jj, ii) in zip(f.loops, corners):
                 l[p.uv].uv = (ii / samples * circ * UVD, (z_top - sm[jj][0]) * UVD)
+    bmesh.ops.delete(p.bm, geom=[v for v in p.bm.verts if not v.link_faces], context="VERTS")
     p.thickness = thickness
     p.offset = offset
     return p
@@ -248,24 +254,45 @@ def band(name, z, width, offset, mat, regions=("torso", "thigh")):
 
 # --- recipes --------------------------------------------------------------------------------------------
 
-def guard_chain():
-    """Castle guard (gen_im_arm_cht_med_chn and its boots and gloves): a mail hauberk with sleeves to
-    the wrist and a skirt to mid-thigh, a sleeveless surcoat to the knee in the house's colour, belt,
-    hose, leather boots and gloves."""
-    mid_thigh = Z_HIP - 0.55 * (Z_HIP - Z_KNEE)
+def mid_thigh():
+    return Z_HIP - 0.55 * (Z_HIP - Z_KNEE)
+
+
+def guard_chain(long=False):
+    """Mail (gen_im_arm_cht_med_chn, castle guards and Gilmore; long for heavy mail and scale, Fergus and
+    Howe's knight): a hauberk with sleeves to the wrist and a skirt to mid-thigh (to the knee when long),
+    a sleeveless surcoat in the house's colour, belt, hose, leather boots and gloves."""
     return [shell("hauberk", {"torso", "upperarm", "forearm", "neck"}, 0.010, METAL, z_min=Z_HIP - 0.04),
-            loft("mail_skirt", Z_HIP + 0.02, mid_thigh, 0.012, METAL, flare=0.03),
+            loft("mail_skirt", Z_HIP + 0.02, Z_KNEE + 0.03 if long else mid_thigh(), 0.012, METAL, flare=0.03),
             shell("surcoat_top", {"torso"}, 0.019, MAIN, z_min=Z_HIP - 0.02, z_max=Z_CHEST + 0.10),
-            loft("surcoat_skirt", Z_HIP + 0.06, Z_KNEE + 0.02, 0.026, MAIN, flare=0.07),
+            loft("surcoat_skirt", Z_HIP + 0.06, Z_KNEE - (0.06 if long else -0.02), 0.026, MAIN, flare=0.07),
             band("belt", Z_HIP + 0.03, 0.045, 0.030, LEATHER),
             shell("hose", {"thigh", "calf"}, 0.005, SECOND, z_min=Z_ANKLE + 0.06),
             shell("boots", {"thigh", "calf", "foot"}, 0.012, LEATHER, z_max=Z_KNEE - 0.08, smooth=12),
             shell("gloves", {"hand"}, 0.004, LEATHER, smooth=3)]
 
 
+def leather(reinforced=False):
+    """Howe's men (gen_im_arm_cht_lgt_ltr, _rlr): a padded gambeson in the house's colour with a skirt to
+    mid-thigh, a sleeveless leather jerkin over it, belt, hose, boots and gloves; reinforced leather adds
+    mail on the forearms and metal shoulders."""
+    parts = [shell("gambeson", {"torso", "upperarm", "forearm", "neck"}, 0.009, MAIN, z_min=Z_HIP - 0.04),
+             loft("gambeson_skirt", Z_HIP + 0.02, mid_thigh(), 0.014, MAIN, flare=0.04),
+             shell("jerkin", {"torso"}, 0.018, LEATHER, z_min=Z_HIP - 0.03, z_max=Z_CHEST + 0.12),
+             loft("jerkin_skirt", Z_HIP + 0.05, Z_HIP - 0.16, 0.022, LEATHER, flare=0.03),
+             band("belt", Z_HIP + 0.03, 0.04, 0.028, LEATHER),
+             shell("hose", {"thigh", "calf"}, 0.005, SECOND, z_min=Z_ANKLE + 0.06),
+             shell("boots", {"thigh", "calf", "foot"}, 0.012, LEATHER, z_max=Z_KNEE - 0.08, smooth=12),
+             shell("gloves", {"hand"}, 0.004, LEATHER, smooth=3)]
+    if reinforced:
+        parts += [shell("mail_sleeves", {"forearm"}, 0.013, METAL),
+                  shell("shoulders", {"upperarm", "torso"}, 0.026, METAL, z_min=Z_CHEST + 0.04, smooth=8)]
+    return parts
+
+
 def noble_man():
-    """Teyrn Bryce (gen_im_cth_nob_c01): a long-sleeved doublet, a coat to the knee over it, belt,
-    hose and boots."""
+    """A nobleman (gen_im_cth_nob_*: Bryce, Howe, Dairren): a long-sleeved doublet, a coat to the knee
+    over it, belt, hose and boots."""
     return [shell("doublet", {"torso", "upperarm", "forearm", "neck"}, 0.007, SECOND, z_min=Z_HIP - 0.04),
             shell("coat_top", {"torso", "upperarm"}, 0.014, MAIN, z_min=Z_HIP - 0.02, z_max=Z_CHEST + 0.12),
             loft("coat_skirt", Z_HIP + 0.06, Z_KNEE - 0.02, 0.020, MAIN, flare=0.06),
@@ -275,15 +302,60 @@ def noble_man():
 
 
 def noble_woman():
-    """Teyrna Eleanor (gen_im_cth_nob_af0): a gown with long sleeves, a fitted bodice and a full skirt
-    to the floor, a girdle, and shoes."""
+    """A noblewoman (gen_im_cth_nob_*: Eleanor, Oriana, Landra, Iona): a gown with long sleeves, a
+    fitted bodice and a full skirt to the floor, a girdle, and shoes."""
     return [shell("bodice", {"torso", "upperarm", "forearm", "neck"}, 0.006, MAIN, z_min=Z_HIP - 0.06),
             loft("skirt", Z_HIP + 0.05, Z_FLOOR + 0.03, 0.015, MAIN, flare=0.16),
             band("girdle", Z_HIP + 0.04, 0.030, 0.020, METAL),
             shell("shoes", {"foot"}, 0.010, LEATHER, smooth=12)]
 
 
-RECIPES = {"arm_cht_med_chn": guard_chain, "cth_nob_c01": noble_man, "cth_nob_af0": noble_woman}
+def commoner():
+    """Servants, the cook, the librarian (gen_im_cth_com_*). A man: a wool tunic with long sleeves to
+    mid-thigh, belt, hose and short boots. A woman: a long dress, an apron, belt and shoes."""
+    if FEMALE:
+        return [shell("bodice", {"torso", "upperarm", "forearm", "neck"}, 0.007, MAIN, z_min=Z_HIP - 0.06),
+                loft("skirt", Z_HIP + 0.05, Z_FLOOR + 0.05, 0.015, MAIN, flare=0.10),
+                loft("apron", Z_HIP + 0.04, Z_KNEE - 0.12, 0.028, SECOND, flare=0.06, arc=(215, 325)),
+                band("belt", Z_HIP + 0.04, 0.03, 0.032, LEATHER),
+                shell("shoes", {"foot"}, 0.010, LEATHER, smooth=12)]
+    return [shell("tunic", {"torso", "upperarm", "forearm", "neck"}, 0.008, MAIN, z_min=Z_HIP - 0.04),
+            loft("tunic_skirt", Z_HIP + 0.04, mid_thigh() - 0.04, 0.014, MAIN, flare=0.05),
+            band("belt", Z_HIP + 0.03, 0.035, 0.022, LEATHER),
+            shell("hose", {"thigh", "calf"}, 0.005, SECOND, z_min=Z_ANKLE + 0.06),
+            shell("boots", {"thigh", "calf", "foot"}, 0.011, LEATHER, z_max=Z_ANKLE + 0.14, smooth=12)]
+
+
+def robe(stole=False, gloves=False):
+    """A long robe (gen_im_cth_mag_tra Aldous, gen_im_cth_cha_a00 Mother Mallol, gen_im_duncan_robe):
+    long sleeves, a skirt from the waist to the floor, a cord belt, shoes; a Chantry stole over the
+    shoulders, or (Duncan) leather gloves."""
+    parts = [shell("robe_top", {"torso", "upperarm", "forearm", "neck"}, 0.010, MAIN, z_min=Z_HIP - 0.06),
+             loft("robe_skirt", Z_HIP + 0.10, Z_FLOOR + 0.03, 0.018, MAIN, flare=0.12),
+             band("cord", Z_HIP + 0.05, 0.022, 0.026, LEATHER),
+             shell("shoes", {"foot"}, 0.010, LEATHER, smooth=12)]
+    if stole:
+        parts.append(shell("stole", {"torso", "neck"}, 0.017, SECOND, z_min=Z_CHEST - 0.02, smooth=8))
+    if gloves:
+        parts.append(shell("gloves", {"hand"}, 0.004, LEATHER, smooth=3))
+    return parts
+
+
+RECIPES = {"arm_cht_med_chn": guard_chain, "arm_cht_hvy_hch": lambda: guard_chain(long=True),
+           "arm_cht_med_scl": lambda: guard_chain(long=True), "arm_cht_lgt_ltr": leather,
+           "arm_cht_lgt_rlr": lambda: leather(reinforced=True),
+           "cth_mag_tra": robe, "cth_cha_a00": lambda: robe(stole=True), "duncan_robe": lambda: robe(gloves=True)}
+
+
+def recipe(kind):
+    """By item; noble and common clothes not listed go to the general recipes, by sex."""
+    if kind in RECIPES:
+        return RECIPES[kind]()
+    if kind.startswith("cth_nob_"):
+        return noble_woman() if FEMALE else noble_man()
+    if kind.startswith("cth_com_"):
+        return commoner()
+    raise SystemExit("no recipe for " + kind)
 
 
 # --- assemble -------------------------------------------------------------------------------------------
@@ -330,7 +402,7 @@ def trim_mask(me):
 
 
 MATS = [bpy.data.materials.new(n) for n in ("Main", "Second", "Leather", "Metal")]
-parts = [to_object(p) for p in RECIPES[KIND]()]
+parts = [to_object(p) for p in recipe(KIND)]
 for ob in parts:
     trim_mask(ob.data)
     # thickness, weights from the body

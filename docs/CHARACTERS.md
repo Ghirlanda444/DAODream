@@ -359,9 +359,17 @@ and back pictures in Blender. Recipes so far:
 
 | Item | Who | Outfit |
 | --- | --- | --- |
-| `arm_cht_med_chn` | castle guards (CrowdM1-5, HoweSoldier) | mail hauberk with sleeves and a skirt to mid-thigh, Cousland-blue surcoat to the knee with silver trim, belt, hose, boots, gloves |
-| `cth_nob_c01` | Bryce (BryceW) | long-sleeved doublet, Cousland-blue coat to the knee with gold trim, belt, hose, boots |
-| `cth_nob_af0` | Eleanor (EleanorS) | gown with long sleeves and a full skirt to the floor, gold girdle, shoes |
+| `arm_cht_med_chn` | castle guards (CrowdM1-5, HoweSoldier), Gilmore | mail hauberk with sleeves and a skirt to mid-thigh, Cousland-blue surcoat to the knee with silver trim, belt, hose, boots, gloves |
+| `arm_cht_hvy_hch`, `arm_cht_med_scl` | Fergus; Howe's knight | the same with the mail to the knee (scale for the knight, in Howe's red and black) |
+| `arm_cht_lgt_ltr`, `arm_cht_lgt_rlr` | Howe's soldiers and archers (CrowdM1-5, HoweSoldier) | Howe-red gambeson with a skirt to mid-thigh, sleeveless leather jerkin, belt, hose, boots, gloves; reinforced: mail forearms and metal shoulders |
+| `cth_nob_*` (men) | Bryce, Arl Howe, Dairren | long-sleeved doublet, coat to the knee in the house's colour (Cousland blue, Howe red, green for Landra's house), belt, hose, boots |
+| `cth_nob_*` (women) | Eleanor, Oriana, Landra, Iona | gown with long sleeves and a full skirt to the floor, girdle, shoes |
+| `cth_com_*` | servants, the cook, the librarian | men: wool tunic to mid-thigh, belt, hose, short boots; women: long dress, apron, belt, shoes |
+| `cth_mag_tra`, `cth_cha_a00`, `duncan_robe` | Aldous, Mother Mallol, Duncan | robe to the floor with long sleeves and a cord belt; Mallol's in Chantry white with a red stole, Duncan's in dark Warden blue with gloves |
+
+The same item can dress a man or a woman (the cook and a servant share
+`cth_com_c00`), so `outfit_make.py` passes the look's sex (`FEMALE`). Still
+undressed: the elven servants and Howe's mage, who have no MetaHuman look yet.
 
 Materials (`/Game/Cousland/Outfits`, committed, procedural from the outfit's
 UVs, about 0.7 UV units per metre): `M_OutfitCloth` (twill rib, two-tone
@@ -378,9 +386,8 @@ shirt and shorts materials, which would otherwise colour the outfit). Looks
 without a matching outfit keep their default clothes.
 
 This replaces an earlier, parked generator (a gambeson, trousers and boots for
-Howe's soldier; commit 5816892 and the git-ignored `/Game/Outfits`). Next:
-recipes for the other items (common clothes, robes, leather, Howe's colours),
-helmets, and the toes, which still show through the boots.
+Howe's soldier; commit 5816892 and the git-ignored `/Game/Outfits`). Next: helmets,
+and the toes, which still show through the boots.
 
 Baseline with the mannequins, Howe's soldiers standing in the night
 castle's main hall around the player (Play in the editor, not throttled):

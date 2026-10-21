@@ -140,10 +140,29 @@ INSTANCES = {
     "MI_Cloth_BrownWool": ("M_OutfitCloth", {"ColorA": (0.08, 0.055, 0.035), "ColorB": (0.115, 0.08, 0.05), "Trim": (0.1, 0.07, 0.045)}, {}),
     "MI_Cloth_GreyWool": ("M_OutfitCloth", {"ColorA": (0.09, 0.09, 0.085), "ColorB": (0.13, 0.125, 0.115), "Trim": (0.12, 0.115, 0.105)}, {}),
     "MI_Cloth_EleanorWine": ("M_OutfitCloth", {"ColorA": (0.2, 0.025, 0.04), "ColorB": (0.28, 0.045, 0.06), "Trim": (0.8, 0.58, 0.22)}, {"TrimMetallic": 0.7}),
+    # Howe's red and black, set apart from Cousland's blue
+    "MI_Cloth_HoweRed": ("M_OutfitCloth", {"ColorA": (0.13, 0.018, 0.018), "ColorB": (0.19, 0.03, 0.028), "Trim": (0.55, 0.4, 0.12)}, {"TrimMetallic": 0.5}),
+    "MI_Cloth_BlackWool": ("M_OutfitCloth", {"ColorA": (0.018, 0.017, 0.017), "ColorB": (0.03, 0.028, 0.027), "Trim": (0.55, 0.4, 0.12)}, {"TrimMetallic": 0.5}),
+    # servants: undyed linen and plain dyed wools
+    "MI_Cloth_Undyed": ("M_OutfitCloth", {"ColorA": (0.33, 0.28, 0.2), "ColorB": (0.4, 0.34, 0.25), "Trim": (0.28, 0.23, 0.16)}, {}),
+    "MI_Cloth_RustWool": ("M_OutfitCloth", {"ColorA": (0.17, 0.06, 0.025), "ColorB": (0.23, 0.085, 0.035), "Trim": (0.12, 0.05, 0.02)}, {}),
+    "MI_Cloth_BlueGrey": ("M_OutfitCloth", {"ColorA": (0.06, 0.075, 0.09), "ColorB": (0.085, 0.1, 0.12), "Trim": (0.05, 0.06, 0.075)}, {}),
+    "MI_Cloth_MossWool": ("M_OutfitCloth", {"ColorA": (0.05, 0.07, 0.03), "ColorB": (0.075, 0.095, 0.045), "Trim": (0.04, 0.055, 0.025)}, {}),
+    # robes: the Chantry's white and red, a scholar's brown, a Grey Warden's dark blue with silver
+    "MI_Cloth_ChantryWhite": ("M_OutfitCloth", {"ColorA": (0.55, 0.53, 0.47), "ColorB": (0.62, 0.6, 0.54), "Trim": (0.32, 0.025, 0.025)}, {}),
+    "MI_Cloth_ChantryRed": ("M_OutfitCloth", {"ColorA": (0.24, 0.02, 0.02), "ColorB": (0.3, 0.03, 0.03), "Trim": (0.8, 0.58, 0.22)}, {"TrimMetallic": 0.7}),
+    "MI_Cloth_ScholarBrown": ("M_OutfitCloth", {"ColorA": (0.075, 0.05, 0.035), "ColorB": (0.1, 0.07, 0.048), "Trim": (0.3, 0.22, 0.1)}, {}),
+    "MI_Cloth_WardenBlue": ("M_OutfitCloth", {"ColorA": (0.025, 0.035, 0.06), "ColorB": (0.04, 0.05, 0.08), "Trim": (0.7, 0.7, 0.68)}, {"TrimMetallic": 0.6}),
+    # the other houses
+    "MI_Cloth_NobleGreen": ("M_OutfitCloth", {"ColorA": (0.02, 0.07, 0.035), "ColorB": (0.035, 0.1, 0.05), "Trim": (0.8, 0.58, 0.22)}, {"TrimMetallic": 0.7}),
+    "MI_Cloth_NobleGold": ("M_OutfitCloth", {"ColorA": (0.3, 0.17, 0.04), "ColorB": (0.4, 0.24, 0.06), "Trim": (0.15, 0.05, 0.02)}, {}),
+    "MI_Cloth_PaleBlue": ("M_OutfitCloth", {"ColorA": (0.2, 0.28, 0.4), "ColorB": (0.26, 0.35, 0.48), "Trim": (0.75, 0.75, 0.72)}, {"TrimMetallic": 0.6}),
     "MI_Leather_Brown": ("M_OutfitLeather", {}, {}),
     "MI_Leather_Dark": ("M_OutfitLeather", {"ColorA": (0.03, 0.02, 0.015), "ColorB": (0.07, 0.045, 0.03)}, {}),
     "MI_Metal_Chain": ("M_OutfitMetal", {}, {}),
     "MI_Metal_Gold": ("M_OutfitMetal", {"Color": (0.83, 0.62, 0.3)}, {"Rings": 0.0}),
+    "MI_Metal_Silver": ("M_OutfitMetal", {"Color": (0.8, 0.8, 0.82)}, {"Rings": 0.0}),
+    "MI_Metal_Scale": ("M_OutfitMetal", {"Color": (0.5, 0.48, 0.45)}, {"RingScale": 60.0}),
 }
 for name, (parent, vectors, scalars) in INSTANCES.items():
     path = DIR + "/" + name
