@@ -541,6 +541,13 @@ class KitTests(unittest.TestCase):
         self.assertEqual([out[i + 5] for i in range(0, len(out), 6)], [150.0, 30.0, 0.0, area.CHAIN])
         self.assertEqual((out[8], fires[2], fires[6]), (520.0, 523.0, 100.0))
 
+    def test_dim_candle_lights(self):
+        candle_light = [0.0, 0.0, 140.0, 300.0, 1.62, 0.94, 0.18]   # 27 cm above the candle's flame
+        torch = [500.0, 0.0, 200.0, 300.0, 1.62, 0.94, 0.18]
+        fires = [0.0, 0.0, 113.0, kit.CANDLE_FIRE, 500.0, 0.0, 190.0, kit.SMALL_FIRE]
+        out, dimmed = area.dim_candle_lights(candle_light + torch, fires)
+        self.assertEqual((dimmed, out[4:7], out[11:14]), (1, [0.405, 0.235, 0.045], [1.62, 0.94, 0.18]))
+
     def test_lids(self):
         # A 10 x 10 m room of 5 m walls (and a pillar, looked past) around an 8 x 8 m floor.
         def wall(x, y, hx, hy, h=500.0):

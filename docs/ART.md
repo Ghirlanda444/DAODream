@@ -93,6 +93,11 @@ fireplaces) use the loader's `LightScale` and cast shadows; dimmer ones (fills)
 use `FillScale`. Lamps that the flat greybox ceilings would hide are moved just
 under them (`area.tuck_lights`).
 
+The game lights each lit candle at night like a torch (1.62, 3 m, 27 cm above
+the flame), and candles stand by walls, so the wall beside one burned white at
+the night's fixed exposure. The export scales those 17 lights to a quarter
+(`area.dim_candle_lights`), which also stops them casting shadows.
+
 The game also lit its rooms with baked ambient light, which a movable-light
 remake lacks, so the area export can add its own fills where no game light
 reaches the floor (`--fill-lights`, `area.fill_lights`): cool ones at night,

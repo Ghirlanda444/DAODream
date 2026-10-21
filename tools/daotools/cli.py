@@ -427,7 +427,7 @@ def cmd_unreal_area(args) -> int:
           f"({s['DoorwaysCut']} doorways cut, {s['DoorFrames']} door frames, "
           f"{s['HangingPropsDropped']} hanging props dropped, {s['Ceilings']} ceilings, {s['Lids']} of them lids), "
           f"{s['Lights']} lights ({s['FillLights']} of them fills, {s['LightsTucked']} moved under a ceiling), "
-          f"{s['Fixtures']} lamps, {s['Fires']} fires, {s['TalkingCreatures']} talking "
+          f"{s['Fixtures']} lamps, {s['Fires']} fires ({s['CandleLightsDimmed']} candle lights dimmed), {s['TalkingCreatures']} talking "
           f"creatures and {s['TeamOnly']} more in {s['Teams']} teams ({s['Inactive']} hidden at first, "
           f"{s['OtherCreatures']} others, {s['Ambient']} with ambient behaviour), "
           f"{s['Waypoints']} waypoints, {s['Doors']} doors, {len(out['Labels'])} room labels", file=sys.stderr)

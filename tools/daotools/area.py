@@ -536,6 +536,28 @@ def tuck_lights(lights: list[float], solids: list[float], below: float = 30.0) -
     return out, moved
 
 
+CANDLE_LIGHT = 0.25  # candles' own lights, scaled: the game lights each lit candle like a torch
+
+
+def dim_candle_lights(lights: list[float], fires: list[float], scale: float = CANDLE_LIGHT,
+                      near: float = 50.0) -> tuple[list[float], int]:
+    """Scale the colour (and so the brightness) of lights within `near` cm of a
+    candle fire (size 3, see kit.fixtures). The game gives each lit candle a light
+    as bright as a torch's (1.62) 27 cm above the flame; candles stand by walls,
+    and at that strength the wall beside one burns white. Scaled, they also drop
+    under 0.8 and stop casting shadows like the lamps."""
+    candles = [fires[i:i + 3] for i in range(0, len(fires), 4) if fires[i + 3] == 3]
+    out: list[float] = []
+    dimmed = 0
+    for i in range(0, len(lights), 7):
+        light = list(lights[i:i + 7])
+        if any(math.dist(light[:3], c) < near for c in candles):
+            light[4:7] = [round(v * scale, 3) for v in light[4:7]]
+            dimmed += 1
+        out += light
+    return out, dimmed
+
+
 CHAIN = 209.0  # cm; the game's hanging lamp model reaches 2.09 m above its bowl
 CHAIN_MAX = 600.0  # cm; chains reach a ceiling up to this far above the bowl (the game's vaults are higher)
 
@@ -748,6 +770,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     filled = fill_lights(lights, boxes, fill, tint=fill_tint) if fill > 0 else []
     lights, tucked = tuck_lights(lights + filled, solid_boxes)
     hung, fires = hang_fixtures((fixtures or {}).get("Fixtures", []), (fixtures or {}).get("Fires", []), solid_boxes)
+    lights, candle_lights = dim_candle_lights(lights, fires)
     return {
         "Format": FORMAT,
         "Area": are_root.get("Tag") or "",
@@ -811,6 +834,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
                     "HangingPropsDropped": dropped, "DoorFrames": fitted,
                     "Ceilings": sum(1 for k in solid_boxes[12::13] if k == 3), "Lids": lidded,
                     "Lights": len(lights) // 7, "FillLights": len(filled) // 7, "LightsTucked": tucked,
-                    "Fixtures": len(hung) // 6, "Fires": len(fires) // 4},
+                    "Fixtures": len(hung) // 6, "Fires": len(fires) // 4,
+                    "CandleLightsDimmed": candle_lights},
         "Warnings": warnings,
     }
