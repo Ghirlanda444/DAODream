@@ -22,7 +22,8 @@ editor's MCP server (`localhost:8000/mcp`, the ModelContextProtocol plugin):
 - `fixtures_build.body.py` (run with `pyrun`, Play/Simulate stopped) and then `flame_build.py`: the
   castle's lamp meshes, materials and fire effects in `Content/Cousland/Fixtures` (`docs/ART.md`).
 - `dsl_write.py <Blueprint> <graph> <file>`: writes a Blueprint graph from a staged DSL file; `dsl/` holds
-  the loader's fixture graphs (`BP_AreaLoader.BuildFixtures` and the functions it calls).
+  the loader's fixture graphs (`BP_AreaLoader.BuildFixtures` and the functions it calls, the lamp flicker
+  `StartFlicker`/`Flicker` among them).
 - `duncan_groom_apply.py`: run inside the editor after building Duncan, puts his custom groom back.
 
 The MetaHumans they make stay out of git (`Content/MetaHumans/`).

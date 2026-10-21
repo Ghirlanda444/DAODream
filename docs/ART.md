@@ -153,10 +153,16 @@ in the editor with `pyrun`, then `tools/unreal/flame_build.py`):
 
 The fixtures cast no shadows (the game's lamp lights sit in their bowls). The
 light still comes from the game's point lights (`PlaceLight`); the flames are
-only seen, they do not light.
+only seen, they do not light. Those lights flicker instead: `StartFlicker`
+(after the fixtures) records every shadow-casting light, the lamps, hearths
+and torches (41 by day), with its intensity and a random phase, and starts a
+0.05 s timer; `Flicker` sets each to its intensity times 1 + 0.45 x Perlin(2.7 t
++ phase) + 0.18 x Perlin(9 t + 1.7 phase): a slow sway and a fast flutter, out
+of step from lamp to lamp. On screen a lit wall moves 5 to 15%; fills (the
+bounce light) stay steady.
 
 ## Next
 
 Normal detail (bevelled joints), vaulted rather than flat ceilings,
 separate looks for the kitchen, chapel and cellars, banners and rugs,
-flickering lamp light and smoke.
+and smoke.

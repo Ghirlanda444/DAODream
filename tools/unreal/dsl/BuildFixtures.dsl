@@ -4,4 +4,5 @@
   (Variabili|Predefinito|ImpostaFixtures (Json|GetField _json "Fixtures"))
   (Variabili|Predefinito|ImpostaFires (Json|GetField _json "Fires"))
   (Funzionedichiamata|SpawnFixtureMeshes)
-  (Funzionedichiamata|SpawnFires))
+  (Funzionedichiamata|SpawnFires)
+  (Funzionedichiamata|StartFlicker))
