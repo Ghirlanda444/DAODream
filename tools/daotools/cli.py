@@ -408,9 +408,10 @@ def cmd_unreal_area(args) -> int:
                  for p in sorted(Path(args.items).rglob("*.uti.json"))} if Path(args.items).exists() else {}
 
         def creature_stats(utc):
-            return stats.stats(tables, package=int(utc.get("Package") or 0), rank=int(utc.get("Rank") or 0),
-                               area_level=args.area_level,
-                               base_item=stats.weapon_base_item(utc.get("Equip_ItemList"), items, tables["itemstats"]))
+            st = stats.stats(tables, package=int(utc.get("Package") or 0), rank=int(utc.get("Rank") or 0),
+                             area_level=args.area_level,
+                             base_item=stats.weapon_base_item(utc.get("Equip_ItemList"), items, tables["itemstats"]))
+            return {**st, **stats.equipment(utc.get("Equip_ItemList"), items, tables)}
 
         # The Human Noble starts as a level 1 human warrior with a longsword (base item 2).
         player = stats.stats(tables, package=0, rank=stats.RANK_PLAYER, area_level=args.area_level,

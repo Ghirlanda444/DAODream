@@ -142,6 +142,27 @@ attributes' bonuses to attack, defense and health, armour, item materials and
 talents. Both sides are missing the same pieces, so the fight keeps its shape,
 but the player is weaker than in the game, where armour soaks most rat bites.
 
+### Armour (exported, not yet used)
+
+What each creature wears is its template's `Equip_ItemList`; `stats.equipment`
+sorts the items into pieces by their base item (`itemstats` label: chest armour
+or clothing, helmet, gloves, boots, shield) and sums their armour as the engine
+does: a piece's `Armor` (itemstats, per base item: light chest 3.0, medium
+4.25, heavy 6.25, helmets 1.0, gloves 0.75, boots 1.0) times its material's
+`Armor` multiplier (`materialtypes`, by the item's `Material`: iron 1.0, steel
+1.25; the hide and leather rows have none and count as 1). Shields give no
+armour but `Defense` and `MissileDeflection` (a kite shield 4 and 3). The area
+export writes `NpcOutfit` ("chest=<item>,helmet=<item>,..."), `NpcArmour` and
+`NpcShieldDefense` per creature. Castle guards in medium chainmail have 7,
+Howe's men in leather 5 or 6, the nobles and servants 0.
+
+combat_damage_h takes the armour off every hit (`DmgGetArmorMitigatedDamage`):
+damage minus (armour rolled 70% fixed, 30% random, less the attacker's armour
+penetration), at least 1. Wiring that into `BP_PlotManager`'s attacks is the
+next combat step. The armour and clothing templates come from
+`py -m daotools pull "<game>" "gen_im_arm_*" --out extracted/items` (and
+`gen_im_cth_*`, `gen_im_duncan_robe*`).
+
 ## Path finding
 
 `L_CastleCousland` has a `NavMeshBoundsVolume` (`CastleNavBounds`) over the

@@ -10,11 +10,14 @@ combat_h (Combat_Damage_GetAttackDamage, Combat_GetAttackResult), reading:
   cla_data       per class: BaseHealth, HealthPerLevel, BaseAttack, BaseDefense,
                  DamagePerLevel, Str/Dex/Will/Mag/Int/ConAdjust
   race_base      per race: the same six adjustments (the player only)
-  itemstats      per base item: Damage, DamageRange
+  itemstats      per base item: Damage, DamageRange, Armor, Defense, MissileDeflection
+  materialtypes  per material: Armor (the multiplier of an armour piece's Armor)
   difficulty     DmgScalingThresh (Normal)
 
 What the engine adds on top (attribute bonuses to attack, defense and health,
-armour, item materials, talents) is not in the scripts and not included.
+talents) is not in the scripts and not included. Armour is summed from the
+equipped pieces as the engine does (`equipment`); combat_damage_h subtracts it
+from each hit (DmgGetArmorMitigatedDamage).
 """
 
 from __future__ import annotations
@@ -42,7 +45,9 @@ _COLUMNS = {
     "cla_data.gda": ["ID", "label", "BaseHealth", "HealthPerLevel", "BaseAttack", "BaseDefense", "DefensePerLevel",
                      "DamagePerLevel", "StrAdjust", "DexAdjust", "WillAdjust", "MagAdjust", "IntAdjust", "ConAdjust"],
     "race_base.gda": ["ID", "label", "StrAdjust", "DexAdjust", "WillAdjust", "MagAdjust", "IntAdjust", "ConAdjust"],
-    "itemstats.gda": ["ID", "label", "Damage", "DamageRange", "Attribute0", "Attribute1"],
+    "itemstats.gda": ["ID", "label", "Damage", "DamageRange", "Attribute0", "Attribute1", "Armor", "Defense",
+                      "MissileDeflection"],
+    "materialtypes.gda": ["ID", "label", "Armor"],
     "difficulty.gda": ["ID", "label", "DmgScalingThresh"],
 }
 
@@ -65,6 +70,39 @@ def weapon_base_item(equip: list[dict], items: dict[str, dict], itemstats: dict[
         if base and float(itemstats.get(base, {}).get("Damage") or 0) > 0:
             return base
     return None
+
+
+# What an equipped item is, from its base item's label in itemstats.
+_PIECES = (("Armor -", "chest"), ("Clothing", "chest"), ("Helmet", "helmet"), ("Gloves", "gloves"),
+           ("Boots", "boots"), ("Shield", "shield"), ("Ambient - Shield", "shield"))
+
+
+def piece(label: str) -> str | None:
+    return next((p for prefix, p in _PIECES if label.startswith(prefix)), None)
+
+
+def equipment(equip: list[dict], items: dict[str, dict], tables: dict) -> dict:
+    """What a creature wears and the armour it gives: {"Outfit": {piece: item
+    template}, "Armour", "ShieldDefense", "MissileDeflection"}. A piece's armour is
+    its base item's Armor times its material's Armor multiplier; the leather and
+    hide materials have none (0) and count as 1. Shields give defense and missile
+    deflection, not armour."""
+    outfit: dict[str, str] = {}
+    armour = defense = deflection = 0.0
+    for e in equip or []:
+        ref = str(e.get("TemplateResRef") or "").lower()
+        uti = items.get(ref)
+        base = tables["itemstats"].get(int((uti or {}).get("BaseItem") or -1))
+        kind = piece(str(base.get("label") or "")) if base else None
+        if kind is None or kind in outfit:
+            continue
+        outfit[kind] = ref
+        material = float(tables["materialtypes"].get(int(uti.get("Material") or 0), {}).get("Armor") or 0.0)
+        armour += float(base.get("Armor") or 0.0) * (material or 1.0)
+        defense += float(base.get("Defense") or 0.0)
+        deflection += float(base.get("MissileDeflection") or 0.0)
+    return {"Outfit": outfit, "Armour": round(armour, 3), "ShieldDefense": round(defense, 3),
+            "MissileDeflection": round(deflection, 3)}
 
 
 def stats(tables: dict, *, package: int, rank: int, area_level: int = 1, race: int | None = None,

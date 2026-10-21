@@ -661,6 +661,21 @@ class StatsTests(unittest.TestCase):
         "difficulty": {1: {"ID": 1, "DmgScalingThresh": 7.0}},
     }
 
+    def test_equipment(self):
+        tables = {"itemstats": {10: {"ID": 10, "label": "Armor - Medium", "Armor": 4.25},
+                                45: {"ID": 45, "label": "Helmet - Medium", "Armor": 1.0},
+                                9: {"ID": 9, "label": "Armor - Light", "Armor": 3.0},
+                                6: {"ID": 6, "label": "Shield - Kite", "Armor": 0.0, "Defense": 4.0, "MissileDeflection": 3.0},
+                                2: {"ID": 2, "label": "Weapon - Longsword", "Damage": 6.0}},
+                  "materialtypes": {1: {"ID": 1, "Armor": 1.0}, 8: {"ID": 8, "Armor": 1.25}, 60: {"ID": 60, "Armor": 0.0}}}
+        items = {"chain": {"BaseItem": 10, "Material": 8}, "helm": {"BaseItem": 45, "Material": 1},
+                 "hide": {"BaseItem": 9, "Material": 60}, "kite": {"BaseItem": 6, "Material": 79},
+                 "sword": {"BaseItem": 2}}
+        out = stats.equipment([{"TemplateResRef": r} for r in ("sword", "chain", "helm", "kite")], items, tables)
+        self.assertEqual(out["Outfit"], {"chest": "chain", "helmet": "helm", "shield": "kite"})   # weapons are not worn
+        self.assertEqual((out["Armour"], out["ShieldDefense"], out["MissileDeflection"]), (6.312, 4.0, 3.0))  # 4.25 x 1.25 + 1, rounded
+        self.assertEqual(stats.equipment([{"TemplateResRef": "hide"}], items, tables)["Armour"], 3.0)  # no multiplier: x1
+
     def test_creature(self):
         # Rank 1 at area level 2 is level 3; STR = 10 + 2 levels x 0.5 x 3 points x (1/1)/3 = 11, +2 class.
         st = stats.stats(self.TABLES, package=5, rank=1, area_level=2)

@@ -655,6 +655,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     npc_team, npc_scale, npc_hostile, npc_rank, npc_dead, npc_ally = [], [], [], [], [], []
     npc_morph, npc_crowd = [], []
     npc_health, npc_attack, npc_defense, npc_damage, npc_dscale = [], [], [], [], []
+    npc_outfit, npc_armour, npc_shield = [], [], []
     npc_ambient, npc_ambient_prefix = [], []
     creatures = list(are_root.get("CreatureList") or [])
     waypoints = {w.get("Tag"): w for w in are_root.get("WaypointList") or []}
@@ -706,6 +707,10 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
             npc_defense.append(st["Defense"])
             npc_damage.extend(st["Damage"])
             npc_dscale.append(st["DamageScale"])
+            outfit = st.get("Outfit") or {}
+            npc_outfit.append(",".join("%s=%s" % (k, outfit[k]) for k in sorted(outfit)))
+            npc_armour.append(st.get("Armour", 0.0))
+            npc_shield.append(st.get("ShieldDefense", 0.0))
         npc_pose.extend([*ue_point(c["XPosition"], c["YPosition"], c["ZPosition"]),
                          ue_yaw(c["XOrientation"], c["YOrientation"], c["ZOrientation"], c["WOrientation"])])
 
@@ -797,6 +802,10 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcDefense": npc_defense,
         "NpcDamage": npc_damage,
         "NpcDamageScale": npc_dscale,
+        # What each one wears ("chest=<item>,helmet=<item>,..."), and its armour and shield defense (stats.equipment).
+        "NpcOutfit": npc_outfit,
+        "NpcArmour": npc_armour,
+        "NpcShieldDefense": npc_shield,
         "Player": player or {},
         # Flat for Blueprint: health, attack, defense, damage min and max, damage scaling threshold.
         "PlayerStats": ([player["Health"], player["Attack"], player["Defense"], *player["Damage"],
