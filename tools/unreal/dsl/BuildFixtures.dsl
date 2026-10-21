@@ -3,6 +3,7 @@
   (bind _json (Json|LoadJsonfromFile (Utilità|Struttura|MakeFilePath _path)))
   (Variabili|Predefinito|ImpostaFixtures (Json|GetField _json "Fixtures"))
   (Variabili|Predefinito|ImpostaFires (Json|GetField _json "Fires"))
+  (Variabili|Predefinito|ImpostaNpcChest (Json|GetField _json "NpcChest"))
   (Funzionedichiamata|SpawnFixtureMeshes)
   (Funzionedichiamata|SpawnFires)
   (Funzionedichiamata|StartFlicker))

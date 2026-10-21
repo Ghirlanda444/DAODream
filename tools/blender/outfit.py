@@ -1,228 +1,393 @@
-"""Medieval base outfit grown on a MetaHuman body (Blender 5.2, run headless):
-a quilted gambeson with a short skirt, trousers and boots.
+"""An outfit fitted to one MetaHuman body (Blender 5.2, run headless):
 
-blender -b --factory-startup -P outfit.py -- <body.fbx> <out.fbx> [preview_prefix]
+blender -b --factory-startup -P outfit.py -- <body.fbx> <default.fbx> <out.fbx> <kind>
 
-The body comes from Unreal (SKM_MHC_<Name>_BodyMesh exported as FBX, with its skeleton). Each garment
-is a copy of part of the body surface, chosen by the bone that drives each vertex most, smoothed and
-pushed out by the garment's thickness. Copies keep the body's skin weights, so the outfit bends with the
-same skeleton (metahuman_base_skel) and needs no weight painting. Output: one skeletal mesh with three
-material slots (Gambeson, Trousers, Boots), to import onto metahuman_base_skel (docs/CHARACTERS.md).
-"""
-import sys
-import bmesh
-import bpy
+<body.fbx> is the character's body mesh exported from Unreal (its skeleton, skin weights and UVs come
+with it) and <default.fbx> its default clothes (the build's T-shirt and shorts, MHC_<Name>_Outfits):
+the build cuts the body away under those, so together they are the whole figure; <kind> is a recipe below, named after the game item it stands for (the chest item's name
+without "gen_im_", e.g. arm_cht_med_chn). The outfit is built from the body itself, so it fits:
+
+- shells: the body's surface over some regions (by the bone that moves each vertex most: torso, arms,
+  hands, legs, feet) pushed out along its normals, smoothed and given thickness;
+- lofts: skirts, coat tails and mail skirts, rings around both legs from a top height down to a hem,
+  each ring the convex outline of the body at that height plus an offset and a flare;
+- weights: copied from the body (nearest face), and smoothed on lofts so a skirt does not split
+  between the legs; UVs at the body's texel density (shells keep the body's UVs);
+- vertex colour R: 1 within TRIM cm of an open edge (hems, cuffs, collars), for the trim band.
+
+Material slots: 0 main cloth, 1 second cloth, 2 leather, 3 metal. The result is exported with the
+body's armature, for import onto the MetaHuman skeleton (metahuman_base_skel).
+Blender frame: metres, the character faces -y, +x is its left; A-pose."""
+import bpy, bmesh, math, sys
+from collections import defaultdict, deque
 from mathutils import Vector
+from mathutils.bvhtree import BVHTree
 
-args = sys.argv[sys.argv.index("--") + 1:]
-BODY, OUT = args[0], args[1]
-PREVIEW = args[2] if len(args) > 2 else ""
+BODY, DEFAULT, OUT, KIND = sys.argv[-4:]
+TRIM = 0.035  # m
+MAIN, SECOND, LEATHER, METAL = 0, 1, 2, 3
+
+
+# --- the body -------------------------------------------------------------------------------------------
+
+def region(bone: str) -> str:
+    b = bone.lower()
+    if b.startswith(("head", "neck_02", "face")):
+        return "head"
+    if b.startswith("neck_01"):
+        return "neck"
+    if b.startswith(("hand_", "thumb", "index", "middle", "ring", "pinky")):
+        return "hand"
+    if b.startswith(("lowerarm", "wrist")):
+        return "forearm"
+    if b.startswith("upperarm"):
+        return "upperarm"
+    if b.startswith(("thigh",)):
+        return "thigh"
+    if b.startswith(("calf",)):
+        return "calf"
+    if b.startswith(("foot", "ball", "toe", "bigtoe", "indextoe", "middletoe", "ringtoe", "littletoe")):
+        return "foot"
+    return "torso"  # pelvis, spine, clavicles
+
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.fbx(filepath=BODY)
-arm = next(o for o in bpy.context.scene.objects if o.type == "ARMATURE")
-body = next(o for o in bpy.context.scene.objects if o.type == "MESH")
+arm = next(o for o in bpy.data.objects if o.type == "ARMATURE")
+body = next(o for o in bpy.data.objects if o.type == "MESH")
+bpy.ops.import_scene.fbx(filepath=DEFAULT)
+extra = [o for o in bpy.data.objects if o.type in ("MESH", "ARMATURE") and o not in (arm, body)]
+bpy.ops.object.select_all(action="DESELECT")
+for o in extra:
+    if o.type == "MESH":
+        o.select_set(True)
+body.select_set(True)
+bpy.context.view_layer.objects.active = body
+bpy.ops.object.join()  # one reference surface; vertex groups merge by bone name
+for o in [o for o in bpy.data.objects if o.type == "ARMATURE" and o is not arm]:
+    bpy.data.objects.remove(o)
+# Unreal's FBX puts the armature under an empty scaled 0.01 (centimetres): work in plain metres, with the
+# armature at scale 1, so the outfit can be parented to it as it is.
+bpy.ops.object.select_all(action="DESELECT")
+arm.select_set(True)
+bpy.context.view_layer.objects.active = arm
+bpy.ops.object.parent_clear(type="CLEAR_KEEP_TRANSFORM")
+bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+for o in [o for o in bpy.data.objects if o.type == "EMPTY"]:
+    bpy.data.objects.remove(o)
 names = {g.index: g.name for g in body.vertex_groups}
-
-
-def dominant(v):
+BM = bmesh.new()
+BM.from_mesh(body.data)
+BM.transform(body.matrix_world)
+BM.verts.ensure_lookup_table()
+BM.faces.ensure_lookup_table()
+BM.normal_update()
+REG = []
+for v in body.data.vertices:
     best = max(v.groups, key=lambda g: g.weight, default=None)
-    return names.get(best.group, "") if best else ""
+    REG.append(region(names[best.group]) if best else "torso")
 
 
-def bone_part(n):
-    if n.startswith(("hand_", "thumb", "index", "middle", "ring", "pinky", "wrist")):
-        return "hand"
-    if n.startswith(("head", "neck_02", "FACIAL")):
-        return "head"
-    if n.startswith(("foot", "ball", "bigtoe", "indextoe", "middletoe", "ringtoe", "littletoe")):
-        return "foot"
-    if n.startswith(("calf", "knee")):
-        return "calf"
-    if n.startswith("thigh"):
-        return "thigh"
-    return "torso"  # pelvis, spine, clavicle, neck_01, upper/lower arm and their correctives
-
-
-mw = body.matrix_world
-
-
-def joint(name):
+def bone_z(name: str) -> float:
     return (arm.matrix_world @ arm.data.bones[name].head_local).z
 
 
-NECK = joint("neck_01")                       # collar height
-PELVIS = joint("pelvis")
-KNEE = (joint("calf_l") + joint("calf_r")) / 2
-ANKLE = (joint("foot_l") + joint("foot_r")) / 2
-SKIRT = KNEE + 0.45 * (PELVIS - KNEE)         # gambeson hem: about mid-thigh
-BOOT = ANKLE + 0.55 * (KNEE - ANKLE)          # boot top: below the calf
-H = NECK                                      # scale reference for the flare
-print("LEVELS neck %.3f pelvis %.3f knee %.3f ankle %.3f skirt %.3f boot %.3f" % (NECK, PELVIS, KNEE, ANKLE, SKIRT, BOOT))
-
-part = {}
-for v in body.data.vertices:
-    p, z = bone_part(dominant(v)), (mw @ v.co).z
-    part[v.index] = p
-    if p == "torso" and z > NECK + 0.015:   # neck above the collar stays bare
-        part[v.index] = "head"
+def bone_pos(name: str) -> Vector:
+    return arm.matrix_world @ arm.data.bones[name].head_local
 
 
-def garment(name, keep, offset, smooth=4, flare=None):
-    """Copy the body faces whose vertices all satisfy keep(index, z), smooth and push them out."""
-    ob = body.copy()
-    ob.data = body.data.copy()
-    ob.name = ob.data.name = name
-    bpy.context.scene.collection.objects.link(ob)
-    bm = bmesh.new()
-    bm.from_mesh(ob.data)
-    bm.verts.ensure_lookup_table()
-    gone = [f for f in bm.faces if not all(keep(v.index, (mw @ v.co).z) for v in f.verts)]
-    bmesh.ops.delete(bm, geom=gone, context="FACES")
-    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+Z_HIP = bone_z("pelvis")
+Z_KNEE = (bone_z("calf_l") + bone_z("calf_r")) / 2
+Z_ANKLE = (bone_z("foot_l") + bone_z("foot_r")) / 2
+Z_CHEST = bone_z("spine_05")
+Z_FLOOR = min(v.co.z for v in BM.verts)
+CENTRE = bone_pos("pelvis")
+SURFACE = BVHTree.FromBMesh(BM)
+uv_layer = BM.loops.layers.uv.active
+
+
+def uv_density() -> float:
+    """UV units per metre on the body, for lofts to match."""
+    total_uv = total_m = 0.0
+    for f in BM.faces[:3000]:
+        for l in f.loops:
+            n = l.link_loop_next
+            total_m += (l.vert.co - n.vert.co).length
+            total_uv += (Vector(l[uv_layer].uv) - Vector(n[uv_layer].uv)).length
+    return total_uv / max(total_m, 1e-6)
+
+
+UVD = uv_density()
+
+
+# --- building blocks ------------------------------------------------------------------------------------
+
+class Part:
+    """Geometry of one material, gathered into one bmesh (then one object per part)."""
+    def __init__(self, name, mat, loft=False):
+        self.name, self.mat, self.loft = name, mat, loft
+        self.bm = bmesh.new()
+        self.uv = self.bm.loops.layers.uv.new("UV")
+
+
+def shell(name, regions, offset, mat, z_min=-1.0, z_max=9.0, smooth=6, thickness=0.004):
+    """The body's faces over `regions` (and between z_min and z_max), pushed out `offset` m."""
+    p = Part(name, mat)
+    keep = [f for f in BM.faces if all(REG[v.index] in regions and z_min <= v.co.z <= z_max for v in f.verts)]
+    vmap = {}
+    for f in keep:
+        for v in f.verts:
+            if v.index not in vmap:
+                vmap[v.index] = p.bm.verts.new(v.co + v.normal * offset)
+    for f in keep:
+        try:
+            nf = p.bm.faces.new([vmap[v.index] for v in f.verts])
+        except ValueError:
+            continue
+        for nl, l in zip(nf.loops, f.loops):
+            nl[p.uv].uv = l[uv_layer].uv
+    bmesh.ops.remove_doubles(p.bm, verts=list(p.bm.verts), dist=0.001)  # the body's UV seams
+    # Smooth away the body's small detail (navel, ribs, knuckles), and relax the cut edges, which follow
+    # the body's triangles, into smooth hems.
     for _ in range(smooth):
-        bmesh.ops.smooth_vert(bm, verts=[v for v in bm.verts if not v.is_boundary], factor=0.5,
+        bmesh.ops.smooth_vert(p.bm, verts=[v for v in p.bm.verts if not v.is_boundary], factor=0.5,
                               use_axis_x=True, use_axis_y=True, use_axis_z=True)
-    bm.normal_update()
+    relax_edges(p.bm, 2 * smooth + 4)
+    p.thickness = thickness
+    p.offset = offset
+    return p
+
+
+def relax_edges(bm, iterations):
+    """Move each open-edge vertex towards the middle of its two neighbours along the edge."""
+    for _ in range(iterations):
+        moves = {}
+        for v in bm.verts:
+            if not v.is_boundary:
+                continue
+            ns = [e.other_vert(v) for e in v.link_edges if e.is_boundary]
+            if len(ns) == 2:
+                moves[v] = v.co * 0.5 + (ns[0].co + ns[1].co) * 0.25
+        for v, co in moves.items():
+            v.co = co
+
+
+def keep_outside(bm, offset):
+    """Push vertices that are inside the body, or nearer than `offset`, out to `offset` from it."""
     for v in bm.verts:
-        d = offset if flare is None else offset + flare((mw @ v.co).z)
-        v.co += v.normal * d
-    bm.to_mesh(ob.data)
-    bm.free()
-    sol = ob.modifiers.new("thickness", "SOLIDIFY")
-    sol.thickness = 0.004
-    sol.offset = -1.0
+        loc, nor, _, _ = SURFACE.find_nearest(v.co)
+        if loc is not None and (v.co - loc).dot(nor) < offset * 0.8:
+            v.co = loc + nor * offset
+
+
+def outline(z, regions, samples=48, slab=0.025):
+    """Distance from the centre line to the body's convex outline at height z, per angle."""
+    pts = [v.co for v in BM.verts if abs(v.co.z - z) < slab and REG[v.index] in regions]
+    if not pts:
+        return None
+    out = []
+    for i in range(samples):
+        a = 2 * math.pi * i / samples
+        u = Vector((math.cos(a), math.sin(a), 0.0))
+        out.append(max((Vector((q.x - CENTRE.x, q.y - CENTRE.y, 0.0))).dot(u) for q in pts))
+    return out
+
+
+def loft(name, z_top, z_hem, offset, mat, flare=0.0, samples=48, step=0.02, regions=("torso", "thigh", "calf", "foot"),
+         thickness=0.004):
+    """A tube round the body from z_top down to z_hem: each ring the body's outline plus `offset`,
+    widening by `flare` (m) towards the hem, never narrower than the ring above (cloth hangs)."""
+    p = Part(name, mat, loft=True)
+    zs = []
+    z = z_top
+    while z > z_hem:
+        zs.append(z)
+        z -= step
+    zs.append(z_hem)
+    rings, prev = [], None
+    for k, z in enumerate(zs):
+        r = outline(z, regions, samples) or prev
+        if r is None:
+            continue
+        t = (z_top - z) / max(z_top - z_hem, 1e-6)
+        mean = sum(r) / len(r)
+        # rounder as it hangs, but never inside the body's outline
+        r = [max(x + (mean - x) * 0.6 * t, x) + offset + flare * t for x in r]
+        if prev and z < Z_HIP:  # below the hips cloth hangs: no narrower than the ring above
+            r = [max(a, b) for a, b in zip(r, prev)]
+        prev = r
+        rings.append((z, r))
+    # Smooth each ring round the body, so it hangs as cloth rather than following every bulge.
+    sm = []
+    for z, r in rings:
+        n = len(r)
+        sm.append((z, [(r[i - 1] + 2 * r[i] + r[(i + 1) % n]) / 4 for i in range(n)]))
+    grid = []
+    for z, r in sm:
+        row = []
+        for i, d in enumerate(r):
+            a = 2 * math.pi * i / samples
+            row.append(p.bm.verts.new((CENTRE.x + d * math.cos(a), CENTRE.y + d * math.sin(a), z)))
+        grid.append(row)
+    for j in range(len(grid) - 1):
+        circ = sum(sm[j][1]) / samples * 2 * math.pi  # u: around, v: down, at the body's UV density
+        for i in range(samples):
+            corners = ((j, i), (j + 1, i), (j + 1, i + 1), (j, i + 1))
+            f = p.bm.faces.new([grid[jj][ii % samples] for jj, ii in corners])
+            for l, (jj, ii) in zip(f.loops, corners):
+                l[p.uv].uv = (ii / samples * circ * UVD, (z_top - sm[jj][0]) * UVD)
+    p.thickness = thickness
+    p.offset = offset
+    return p
+
+
+def band(name, z, width, offset, mat, regions=("torso", "thigh")):
+    """A belt or girdle: a short loft."""
+    return loft(name, z + width / 2, z - width / 2, offset, mat, step=width / 2, regions=regions, thickness=0.006)
+
+
+# --- recipes --------------------------------------------------------------------------------------------
+
+def guard_chain():
+    """Castle guard (gen_im_arm_cht_med_chn and its boots and gloves): a mail hauberk with sleeves to
+    the wrist and a skirt to mid-thigh, a sleeveless surcoat to the knee in the house's colour, belt,
+    hose, leather boots and gloves."""
+    mid_thigh = Z_HIP - 0.55 * (Z_HIP - Z_KNEE)
+    return [shell("hauberk", {"torso", "upperarm", "forearm", "neck"}, 0.010, METAL, z_min=Z_HIP - 0.04),
+            loft("mail_skirt", Z_HIP + 0.02, mid_thigh, 0.012, METAL, flare=0.03),
+            shell("surcoat_top", {"torso"}, 0.019, MAIN, z_min=Z_HIP - 0.02, z_max=Z_CHEST + 0.10),
+            loft("surcoat_skirt", Z_HIP + 0.06, Z_KNEE + 0.02, 0.026, MAIN, flare=0.07),
+            band("belt", Z_HIP + 0.03, 0.045, 0.030, LEATHER),
+            shell("hose", {"thigh", "calf"}, 0.005, SECOND, z_min=Z_ANKLE + 0.06),
+            shell("boots", {"thigh", "calf", "foot"}, 0.012, LEATHER, z_max=Z_KNEE - 0.08, smooth=12),
+            shell("gloves", {"hand"}, 0.004, LEATHER, smooth=3)]
+
+
+def noble_man():
+    """Teyrn Bryce (gen_im_cth_nob_c01): a long-sleeved doublet, a coat to the knee over it, belt,
+    hose and boots."""
+    return [shell("doublet", {"torso", "upperarm", "forearm", "neck"}, 0.007, SECOND, z_min=Z_HIP - 0.04),
+            shell("coat_top", {"torso", "upperarm"}, 0.014, MAIN, z_min=Z_HIP - 0.02, z_max=Z_CHEST + 0.12),
+            loft("coat_skirt", Z_HIP + 0.06, Z_KNEE - 0.02, 0.020, MAIN, flare=0.06),
+            band("belt", Z_HIP + 0.03, 0.040, 0.024, LEATHER),
+            shell("hose", {"thigh", "calf"}, 0.005, SECOND, z_min=Z_ANKLE + 0.06),
+            shell("boots", {"thigh", "calf", "foot"}, 0.012, LEATHER, z_max=Z_KNEE - 0.06, smooth=12)]
+
+
+def noble_woman():
+    """Teyrna Eleanor (gen_im_cth_nob_af0): a gown with long sleeves, a fitted bodice and a full skirt
+    to the floor, a girdle, and shoes."""
+    return [shell("bodice", {"torso", "upperarm", "forearm", "neck"}, 0.006, MAIN, z_min=Z_HIP - 0.06),
+            loft("skirt", Z_HIP + 0.05, Z_FLOOR + 0.03, 0.015, MAIN, flare=0.16),
+            band("girdle", Z_HIP + 0.04, 0.030, 0.020, METAL),
+            shell("shoes", {"foot"}, 0.010, LEATHER, smooth=12)]
+
+
+RECIPES = {"arm_cht_med_chn": guard_chain, "cth_nob_c01": noble_man, "cth_nob_af0": noble_woman}
+
+
+# --- assemble -------------------------------------------------------------------------------------------
+
+def to_object(p: Part):
+    if not p.loft:  # lofts stay outside by construction (the outline)
+        keep_outside(p.bm, p.offset)
+    me = bpy.data.meshes.new(p.name)
+    p.bm.normal_update()
+    p.bm.to_mesh(me)
+    ob = bpy.data.objects.new(p.name, me)
+    bpy.context.collection.objects.link(ob)
+    for m in MATS:
+        me.materials.append(m)
+    for f in me.polygons:
+        f.material_index = p.mat
+        f.use_smooth = True
+    ob["loft"] = p.loft
+    ob["thickness"] = p.thickness
     return ob
 
 
-BELT = PELVIS + 0.03                          # gambeson body stops here; the skirt hangs from it
-coat = garment("Gambeson", lambda i, z: part[i] == "torso" and z > BELT - 0.02, 0.016, smooth=30)
-legs = garment("Trousers", lambda i, z: (part[i] in ("thigh", "calf") or (part[i] == "torso" and z < BELT + 0.02))
-               and z > BOOT - 0.04, 0.006, smooth=10)
-boots = garment("Boots", lambda i, z: part[i] == "foot" or (part[i] == "calf" and z < BOOT), 0.010, smooth=30)
+def trim_mask(me):
+    """Vertex colour R: 1 at open edges fading to 0 at TRIM metres, by distance along the mesh."""
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    dist = {v.index: (0.0 if v.is_boundary else 1e9) for v in bm.verts}
+    q = deque(v for v in bm.verts if v.is_boundary)
+    while q:
+        v = q.popleft()
+        for e in v.link_edges:
+            w = e.other_vert(v)
+            d = dist[v.index] + e.calc_length()
+            if d < dist[w.index] and d < TRIM * 1.5:
+                dist[w.index] = d
+                q.append(w)
+    bm.free()
+    col = me.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
+    for poly in me.polygons:
+        for li in poly.loop_indices:
+            d = dist[me.loops[li].vertex_index]
+            t = max(0.0, 1.0 - d / TRIM)
+            col.data[li].color = (t, 0.0, 0.0, 1.0)
 
 
-def bands():
-    """Tube garments around hips and thighs, sized from the body's outer outline (arms left out):
-    a flared skirt hanging from the waist and a leather belt over the seam."""
-    import math
-    from mathutils.bvhtree import BVHTree
-    from mathutils.kdtree import KDTree
-    dg = bpy.context.evaluated_depsgraph_get()
-    bm0 = bmesh.new(); bm0.from_object(body, dg); bm0.transform(mw)
-    ARMS = ("upperarm", "lowerarm", "hand", "thumb", "index", "middle", "ring", "pinky", "clavicle", "wrist")
-    armv = {v.index for v in body.data.vertices if dominant(v).startswith(ARMS)}
-    bm0.verts.ensure_lookup_table()
-    bmesh.ops.delete(bm0, geom=[f for f in bm0.faces if any(v.index in armv for v in f.verts)], context="FACES")
-    bvh = BVHTree.FromBMesh(bm0)
-    verts = body.data.vertices
-    kd = KDTree(len(verts))
-    for v in verts:
-        kd.insert(mw @ v.co, v.index)
-    kd.balance()
-    axis = arm.matrix_world @ arm.data.bones["pelvis"].head_local
-    A = 48
-
-    def outline(z):
-        c = Vector((axis.x, axis.y, z))
-        rads, dirs = [], []
-        for k in range(A):
-            ang = 2 * math.pi * k / A
-            d = Vector((math.cos(ang), math.sin(ang), 0))
-            hit = bvh.ray_cast(c + d * 0.6, -d, 0.6)
-            rads.append((hit[0] - c).length if hit[0] is not None else 0.15)
-            dirs.append(d)
-        rads = [max(rads[(k + j) % A] for j in range(-5, 6)) for k in range(A)]   # bridge the gap between legs
-        for _ in range(3):                                                         # and round off the dips
-            rads = [max(rads[k], sum(rads[(k + j) % A] for j in range(-4, 5)) / 9) for k in range(A)]
-        return c, rads, dirs
-
-    def tube(name, z0, z1, rings, extra, material, weight_floor):
-        rows = []
-        for r in range(rings + 1):
-            t = r / rings
-            c, rads, dirs = outline(z0 + (z1 - z0) * t)
-            rows.append([c + dirs[k] * (rads[k] + extra(t)) for k in range(A)])
-        vs = [p for row in rows for p in row]
-        fs = [(r * A + k, (r + 1) * A + k, (r + 1) * A + (k + 1) % A, r * A + (k + 1) % A)
-              for r in range(rings) for k in range(A)]
-        me = bpy.data.meshes.new(name)
-        me.from_pydata([tuple(v) for v in vs], [], fs)
-        bm = bmesh.new(); bm.from_mesh(me); bm.normal_update()
-        inward = [f for f in bm.faces if f.normal.dot(f.calc_center_median() - Vector((axis.x, axis.y, f.calc_center_median().z))) < 0]
-        if len(inward) > len(bm.faces) / 2:
-            bmesh.ops.reverse_faces(bm, faces=bm.faces)
-        bm.to_mesh(me); bm.free()
-        for poly in me.polygons:
-            poly.use_smooth = True
-        ob = bpy.data.objects.new(name, me)
-        bpy.context.scene.collection.objects.link(ob)
-        ob.parent = arm
-        ob.matrix_parent_inverse = arm.matrix_world.inverted()
-        for g in body.vertex_groups:
-            ob.vertex_groups.new(name=g.name)
-        for i, p in enumerate(vs):
-            co, idx, dist = kd.find(Vector((p.x, p.y, max(p.z, weight_floor))))
-            for g in verts[idx].groups:
-                ob.vertex_groups[names[g.group]].add([i], g.weight, "REPLACE")
-        md = ob.modifiers.new("Armature", "ARMATURE"); md.object = arm
-        sol = ob.modifiers.new("thickness", "SOLIDIFY"); sol.thickness = 0.005; sol.offset = -1.0
-        ob.data.materials.append(bpy.data.materials.get(material) or bpy.data.materials.new(material))
-        return ob
-
-    sk = tube("Skirt", BELT + 0.05, SKIRT - 0.03, 12, lambda t: 0.020 + 0.05 * t ** 1.4, "Gambeson", SKIRT + 0.04)
-    belt = tube("Belt", BELT - 0.012, BELT + 0.032, 2, lambda t: 0.030, "Boots", BELT - 0.03)
-    bm0.free()
-    return sk, belt
-
-
-for ob in (coat, legs, boots):
-    ob.data.materials.clear()
-    m = bpy.data.materials.get(ob.name) or bpy.data.materials.new(ob.name)
-    ob.data.materials.append(m)
-    for poly in ob.data.polygons:
-        poly.material_index = 0
-    for md in ob.modifiers:
-        if md.type == "ARMATURE":
-            md.object = arm
-
-sk, belt = bands()
-# one skeletal mesh: join the garments (each keeps its own material slot)
-for o in bpy.context.scene.objects:
-    o.select_set(False)
-for ob in (coat, legs, boots, sk, belt):
+MATS = [bpy.data.materials.new(n) for n in ("Main", "Second", "Leather", "Metal")]
+parts = [to_object(p) for p in RECIPES[KIND]()]
+for ob in parts:
+    trim_mask(ob.data)
+    # thickness, weights from the body
+    so = ob.modifiers.new("solid", "SOLIDIFY")
+    so.thickness = ob["thickness"]
+    so.offset = 1.0
+    so.use_rim = True
+    for g in body.vertex_groups:
+        ob.vertex_groups.new(name=g.name)
+    dt = ob.modifiers.new("weights", "DATA_TRANSFER")
+    dt.object = body
+    dt.use_vert_data = True
+    dt.data_types_verts = {"VGROUP_WEIGHTS"}
+    dt.vert_mapping = "POLYINTERP_NEAREST"
+    dt.layers_vgroup_select_src = "ALL"
+    dt.layers_vgroup_select_dst = "NAME"
     bpy.context.view_layer.objects.active = ob
+    for m in list(ob.modifiers):
+        bpy.ops.object.modifier_apply(modifier=m.name)
+    if ob["loft"]:  # skirts: blend the legs' weights so the cloth does not split between them
+        ob.select_set(True)
+        bpy.ops.object.mode_set(mode="WEIGHT_PAINT")
+        bpy.ops.object.vertex_group_smooth(group_select_mode="ALL", factor=0.8, repeat=12, expand=0.2)
+        bpy.ops.object.mode_set(mode="OBJECT")
+        ob.select_set(False)
+    # drop empty groups, keep at most 8 influences
+    bpy.ops.object.vertex_group_clean(group_select_mode="ALL", limit=0.01)
+    bpy.ops.object.vertex_group_limit_total(group_select_mode="ALL", limit=8)
+
+bpy.ops.object.select_all(action="DESELECT")
+for ob in parts:
     ob.select_set(True)
-    bpy.ops.object.modifier_apply(modifier="thickness")
-    ob.select_set(False)
-coat.select_set(True); legs.select_set(True); boots.select_set(True); sk.select_set(True); belt.select_set(True)
-bpy.context.view_layer.objects.active = coat
+bpy.context.view_layer.objects.active = parts[0]
 bpy.ops.object.join()
-coat.name = coat.data.name = "Outfit"
+outfit = bpy.context.view_layer.objects.active
+outfit.name = "Outfit_" + KIND
+cols = outfit.data.color_attributes
+cols.active_color = cols["Col"]  # the FBX exporter writes the active colour attribute
+cols.render_color_index = cols.active_color_index
+mod = outfit.modifiers.new("Armature", "ARMATURE")
+mod.object = arm
+outfit.parent = arm
+outfit.matrix_parent_inverse = arm.matrix_world.inverted()
 bpy.data.objects.remove(body)
-print("OUTFIT verts", len(coat.data.vertices), "materials", [m.name for m in coat.data.materials])
-
-if PREVIEW:
-    scn = bpy.context.scene
-    scn.render.engine = "BLENDER_WORKBENCH"
-    scn.display.shading.light = "STUDIO"
-    scn.display.shading.color_type = "MATERIAL"
-    for m, c in (("Gambeson", (0.35, 0.08, 0.06, 1)), ("Trousers", (0.15, 0.11, 0.08, 1)), ("Boots", (0.06, 0.04, 0.03, 1))):
-        bpy.data.materials[m].diffuse_color = c
-    scn.render.resolution_x, scn.render.resolution_y = 500, 900
-    cd = bpy.data.cameras.new("cam"); cd.lens = 50
-    cam = bpy.data.objects.new("cam", cd); scn.collection.objects.link(cam); scn.camera = cam
-    aim = Vector((0, 0, 0.55 * NECK))
-    for name, loc in (("front", (0, -4.2, 0.6 * NECK)), ("side", (4.2, 0, 0.6 * NECK)), ("back", (0, 4.2, 0.6 * NECK))):
-        cam.location = loc
-        cam.rotation_euler = (aim - Vector(loc)).to_track_quat("-Z", "Y").to_euler()
-        scn.render.filepath = "%s_%s.png" % (PREVIEW, name)
-        bpy.ops.render.render(write_still=True)
-
-for o in bpy.context.scene.objects:
-    o.select_set(o in (arm, coat))
+# Export in centimetres, bones and vertices alike (as Unreal wrote the body): scale the rig up 100 times,
+# apply, and declare 1 unit = 1 cm. With the bones left in metres the outfit's bind pose would not match
+# the skeleton it follows in game, and it would be drawn a hundred times too big.
+bpy.ops.object.select_all(action="DESELECT")
+arm.select_set(True)
+outfit.select_set(True)
 bpy.context.view_layer.objects.active = arm
-bpy.ops.export_scene.fbx(filepath=OUT, use_selection=True, object_types={"ARMATURE", "MESH"},
-                         add_leaf_bones=False, bake_anim=False, mesh_smooth_type="FACE",
-                         use_armature_deform_only=False, apply_unit_scale=True)
-print("DONE", OUT)
+arm.scale = (100.0, 100.0, 100.0)
+bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+bpy.context.scene.unit_settings.scale_length = 0.01
+bpy.ops.object.select_all(action="DESELECT")
+outfit.select_set(True)
+arm.select_set(True)
+bpy.ops.export_scene.fbx(filepath=OUT, use_selection=True, object_types={"ARMATURE", "MESH"}, add_leaf_bones=False,
+                         bake_anim=False, mesh_smooth_type="FACE", colors_type="LINEAR")
+print("OUTFIT", KIND, len(outfit.data.vertices), "verts", "->", OUT)

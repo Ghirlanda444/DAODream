@@ -323,26 +323,64 @@ cards and meshes only. Epic's grooms hold strands at LOD 0-1, cards at 2-4, mesh
 - Under the very bright blockout light, the edge strands facing it read white (strong
   specular); the shaded side is clean. To revisit when the castle gets its real lighting.
 
-### Outfits (started, parked)
+### Outfits (2026-10-21)
 
-`tools/blender/outfit.py` grows a medieval base outfit on a MetaHuman's full
-body: a padded gambeson with long sleeves, a belt and a flared skirt to
-mid-thigh, trousers and boots. Each piece is cut from the body surface by the
-bone that drives it, smoothed and pushed out, so it keeps the body's skin
-weights; the skirt and belt are tubes sized from the hips' outline. Input is
-the uncut body (`export_geometry` with `body_skeletal_mesh`, since the
-assembled body has the skin under the default clothes removed); output is one
-skeletal mesh on `metahuman_base_skel` with three slots. Howe's soldier has
-one imported (`/Game/Outfits/HoweSoldier/SKM_HoweSoldier_Outfit`) with
-`M_Cloth` (colour, roughness, quilting lines) and Howe's red, brown and dark
-leather instances. Not yet worn: the remaining step is to swap it into the
-built Blueprint's clothing component after each build. Parked so that all the
-humans are made first.
+Everyone wears what the game gives them: the area export lists each
+creature's equipped items (`NpcOutfit`) and its chest item without
+`gen_im_` (`NpcChest`, e.g. `cth_nob_c01`; `docs/COMBAT.md`, "Armour"). An
+outfit is made per look and chest item, fitted to that MetaHuman's own body:
 
-Armour and weapons should also drive combat: `stats.py` already takes damage
-from the equipped weapon's base item, but armour is not modelled yet (hits are
-computed against no armour). Outfits will follow each creature's equipped
-chest item, and its armour value will go into the hit and damage rolls.
+```powershell
+cd tools/unreal
+py outfit_make.py BryceW:cth_nob_c01 EleanorS:cth_nob_af0 CrowdM1:arm_cht_med_chn
+```
+
+`outfit_make.py` exports the look's body (`SKM_MHC_<Look>_BodyMesh`) and its
+default clothes (`MHC_<Look>_Outfits`, the build's T-shirt and shorts: the
+build cuts the body away under them, so together they are the whole figure),
+runs `tools/blender/outfit.py` on them, imports the result as
+`/Game/MetaHumans/MHC_<Look>/DAO/SKM_<Look>_<item>` on `metahuman_base_skel`
+(`outfit_import.body.py`, legacy FBX importer, vertex colours kept) and sets
+its material slots to the item's colours (`MATERIALS`). The outfits are
+shaped from the MetaHuman bodies, so like them they stay out of git.
+
+`outfit.py` builds each garment from the body itself, so it fits: shells (the
+body's surface over some regions, by the bone that moves each vertex most,
+pushed out along its normals, smoothed, cut edges relaxed into hems, kept
+outside the body), lofts (skirts and coat tails: rings round both legs, each
+the body's convex outline at that height plus an offset and a flare, rounder
+towards the hem), and bands (belts). Weights are copied from the body and
+smoothed on lofts so a skirt does not split between the legs; vertex colour R
+marks 3.5 cm along every hem and cuff for the trim band. The rig is exported
+in centimetres, bones and vertices alike: with the bones left in metres the
+outfit's bind pose does not match the skeleton and it is drawn a hundred
+times too big, nowhere near the body. `outfit_preview.py` renders front, side
+and back pictures in Blender. Recipes so far:
+
+| Item | Who | Outfit |
+| --- | --- | --- |
+| `arm_cht_med_chn` | castle guards (CrowdM1-5, HoweSoldier) | mail hauberk with sleeves and a skirt to mid-thigh, Cousland-blue surcoat to the knee with silver trim, belt, hose, boots, gloves |
+| `cth_nob_c01` | Bryce (BryceW) | long-sleeved doublet, Cousland-blue coat to the knee with gold trim, belt, hose, boots |
+| `cth_nob_af0` | Eleanor (EleanorS) | gown with long sleeves and a full skirt to the floor, gold girdle, shoes |
+
+Materials (`/Game/Cousland/Outfits`, committed, procedural from the outfit's
+UVs, about 0.7 UV units per metre): `M_OutfitCloth` (twill rib, two-tone
+mottle, trim band from the vertex colour; `MI_Cloth_*` colour sets),
+`M_OutfitLeather` and `M_OutfitMetal` (riveted rings in staggered rows, or
+plain metal with `Rings` 0).
+
+In game `BP_AreaLoader.GiveNpcLook` calls `BP_DlgNPC.ApplyOutfit` with the
+NPC's `NpcChest`: it takes the look's name from its body mesh
+(`SKM_MHC_<Look>_BodyMesh`), loads the matching outfit if one was made, puts
+it on the look's clothing component (`SkeletalMesh`, which already follows
+the body's pose) and clears that component's material overrides (the default
+shirt and shorts materials, which would otherwise colour the outfit). Looks
+without a matching outfit keep their default clothes.
+
+This replaces an earlier, parked generator (a gambeson, trousers and boots for
+Howe's soldier; commit 5816892 and the git-ignored `/Game/Outfits`). Next:
+recipes for the other items (common clothes, robes, leather, Howe's colours),
+helmets, and the toes, which still show through the boots.
 
 Baseline with the mannequins, Howe's soldiers standing in the night
 castle's main hall around the player (Play in the editor, not throttled):
