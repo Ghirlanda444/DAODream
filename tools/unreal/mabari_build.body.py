@@ -4,6 +4,9 @@
 # M_Mabari takes the coat texture as a parameter (MI_Mabari gives it the wolf's dark coat, which keeps the
 # teeth, tongue and eyes coloured), darkens it, adds brindle stripes from the pre-skinned position (so they
 # stay on the body as it moves) and paints the kaddis where the mesh's vertex colour R is 1.
+# Each dog can have its own coat through its component's custom primitive data (one material for all):
+#   0-2 coat colour (all 0: the wolf's dark coat, as it is), 3 brindle (0 faint .. 1 strong),
+#   4 no kaddis (1 hides the war paint). COATS in tools/unreal/mabari_coats.py names the colours.
 if unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_game_world():
     raise RuntimeError("stop Play/Simulate first")
 AT = unreal.AssetToolsHelpers.get_asset_tools()
@@ -75,15 +78,32 @@ MEL.connect_material_expressions(pos0, "", pos, "")
 vc = expr(m, unreal.MaterialExpressionVertexColor, -1400, 750)
 brindle = vec(m, "Brindle", (0.075, 0.055, 0.038), -1400, 900)
 paint = vec(m, "Kaddis", (0.30, 0.018, 0.012), -1400, 1050)
+# Per-dog values: parameters read from the component's custom primitive data, their defaults when unset.
+coat_p = vec(m, "CoatColor", (0.0, 0.0, 0.0), -1700, 1200)  # rgb + alpha: brindle
+coat_p.set_editor_property("default_value", unreal.LinearColor(0.0, 0.0, 0.0, 0.0))
+coat_p.set_editor_property("use_custom_primitive_data", True)
+coat_p.set_editor_property("primitive_data_index", 0)
+nopaint = expr(m, unreal.MaterialExpressionScalarParameter, -1700, 1400)
+nopaint.set_editor_property("parameter_name", "NoKaddis")
+nopaint.set_editor_property("default_value", 0.0)
+nopaint.set_editor_property("use_custom_primitive_data", True)
+nopaint.set_editor_property("primitive_data_index", 4)
+cpd = [(coat_p, "R"), (coat_p, "G"), (coat_p, "B"), (coat_p, "A"), nopaint]
 base = custom(m, "float3 p = P * float3(0.03, 0.22, 0.02); float n;" + NOISE + """
-float b = smoothstep(0.62, 0.78, n) * 0.6;        // brindle: faint, irregular stripes across the flanks
+float b = smoothstep(0.62, 0.78, n) * lerp(0.6, 1.0, C3);   // brindle: irregular stripes across the flanks
 float l = dot(T, float3(0.3, 0.59, 0.11));
-float3 coat = T * 0.55;                               // the wolf's dark coat, darker still
-coat = lerp(coat, B * (0.6 + l), b * saturate(1.0 - abs(l - 0.08) * 6.0));  // stripes only on the coat, not teeth/eyes
+float3 tint = float3(C0, C1, C2);
+float fur = 1.0 - smoothstep(0.22, 0.38, l);                 // the coat (not the brighter teeth, tongue, eyes)
+float3 coat = T * 0.55;                                       // the wolf's dark coat, darker still
+if (dot(tint, 1) > 0.0)                                       // a chosen colour, the coat's own detail kept
+    coat = lerp(T, tint * (0.45 + saturate(l * 10.0) * 0.9), fur);
+float3 stripe = dot(tint, 1) > 0.0 ? tint * 0.35 : B * (0.6 + l);
+coat = lerp(coat, stripe, b * fur);
 p = P * 0.25 + 7.0;""" + NOISE + """
-float k = step(0.5, VC) * smoothstep(0.25, 0.45, n);  // kaddis, brushed: ragged where the paint thins
-return lerp(coat, K, k);""", [("T", (tex, "RGB")), ("P", pos), ("VC", (vc, "R")), ("B", (brindle, "RGB")), ("K", (paint, "RGB"))], F3, -900, 0)
-rough = custom(m, "return lerp(0.55, 0.8, step(0.5, VC));", [("VC", (vc, "R"))], F1, -900, 300)
+float k = step(0.5, VC) * smoothstep(0.25, 0.45, n) * (1.0 - C4);  // kaddis, brushed: ragged where it thins
+return lerp(coat, K, k);""", [("T", (tex, "RGB")), ("P", pos), ("VC", (vc, "R")), ("B", (brindle, "RGB")), ("K", (paint, "RGB"))]
+                     + [("C%d" % i, e) for i, e in enumerate(cpd)], F3, -900, 0)
+rough = custom(m, "return lerp(0.55, 0.8, step(0.5, VC) * (1.0 - C4));", [("VC", (vc, "R")), ("C4", cpd[4])], F1, -900, 300)
 MEL.connect_material_property(base, "", P.MP_BASE_COLOR)
 MEL.connect_material_property(nrm, "RGB", P.MP_NORMAL)
 MEL.connect_material_property(rough, "", P.MP_ROUGHNESS)

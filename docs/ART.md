@@ -90,7 +90,10 @@ as attenuation radius. The game's colour carries the brightness too: the light
 gets that colour divided by its largest channel and an intensity of that
 channel times a scale (candelas). Lights at least 0.8 bright (lamps and
 fireplaces) use the loader's `LightScale` and cast shadows; dimmer ones (fills)
-use `FillScale`. Lamps that the flat greybox ceilings would hide are moved just
+use `FillScale`. Fills have no specular (`SetSpecularScale` 0): a shadowless
+light shines through a head of hair strand by strand, and its highlights turned
+every NPC's hair near white (a ginger guard read blond). Walls and faces look the
+same without it. Lamps that the flat greybox ceilings would hide are moved just
 under them (`area.tuck_lights`).
 
 The game lights each lit candle at night like a torch (1.62, 3 m, 27 cm above

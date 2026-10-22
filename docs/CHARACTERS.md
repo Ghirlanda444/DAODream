@@ -347,6 +347,14 @@ skeleton and `MI_Mabari` with the wolf's dark coat textures. `dog_shot.py` takes
 booth pictures of it posed by any of the animations. Visual reference: the
 Bestiarum mabari plate (Rich Longmore), looked at only.
 
+Every mabari shares the one material, and each dog gets its own coat through its
+mesh component's custom primitive data: 0-2 the coat colour (all 0 keeps the
+wolf's dark coat), 3 how strong the brindle is, 4 set to 1 to leave off the
+kaddis. `tools/unreal/mabari_coats.py` names the coats: the hero's dog is fawn
+(light brown); the war dogs of Howe's men take black, brindle, red, grey, tan or
+black without paint, picked from their tag so a dog always looks the same.
+`mabari_lineup.py` stands every coat side by side in the booth.
+
 Next: in game (an animation Blueprint, replacing the stand-in that follows and
 fights), a stud collar, short strand fur for close-ups, and a heavier, blockier
 head.
