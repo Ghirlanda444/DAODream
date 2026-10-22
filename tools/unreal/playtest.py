@@ -27,6 +27,8 @@ import ue
 
 OT = "editor_toolset.toolsets.object.ObjectTools"
 PERF = "/Script/UnrealEd.Default__EditorPerformanceSettings"
+# Blueprint runtime errors as the editor logs them (Italian and English), not map checks ("0 Errori").
+RUNTIME_ERRORS = "Errore di runtime Blueprint|Blueprint Runtime Error|Accesso nullo|Accessed None|LogScript: Error"
 OUT_ROOT = os.path.join(game.ROOT, "Unreal", "Cousland", "Saved", "claude", "playtest")
 
 # Python run inside the game world: the NPC actor for an index, and its look.
@@ -41,7 +43,7 @@ class Run:
     def __init__(self, command, area):
         self.dir = os.path.join(OUT_ROOT, "%s-%s" % (command, time.strftime("%Y%m%d-%H%M%S")))
         os.makedirs(self.dir)
-        self.area, self.shots, self.t0 = area, [], time.strftime("%Y.%m.%d-%H.%M.%S")
+        self.area, self.shots, self.t0 = area, [], time.strftime("%Y.%m.%d-%H.%M.%S", time.gmtime())  # the log is in UTC
         ue.init()
         level = game.AREAS[area][0]
         r = pyrun.run('''
@@ -95,7 +97,8 @@ if look:
             pie.stop()
         finally:
             ue.call(OT, "set_properties", {"instance": {"refPath": PERF}, "values": json.dumps({"bThrottleCPUWhenNotForeground": True})})
-        errors = [l for l in json.loads(pie.log("Error|Accessed None|Accesso nullo", 40))["returnValue"] if l[1:20] >= self.t0]
+        found = json.loads(pie.log(RUNTIME_ERRORS, 60))["returnValue"]
+        errors = [l for l in found if l.startswith("[") and l[1:20] >= self.t0]
         print("script errors during the run:", len(errors))
         for l in errors[-10:]:
             print("  ", l[:220])
