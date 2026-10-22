@@ -316,8 +316,22 @@ cards and meshes only. Epic's grooms hold strands at LOD 0-1, cards at 2-4, mesh
   It also switches on two hidden rect lights on looks within 6 m (`DlgKey`, `DlgRim` on
   BP_DlgNPC, found by name at runtime): a soft key from the viewer's left and a rim behind,
   placed from the head toward the player camera at the conversation's start, off at its end.
-  The effect is modest while conversations use the normal third-person camera (about 5 m
-  away) under the bright blockout light; close-up dialogue cameras would make it count.
+- Dialogue camera (2026-10-22): every spoken line cuts to a close-up of its speaker.
+  `BPC_DialogueRunner.ShowNode` calls `FocusLine` after the line's voice starts: the
+  speaker `OWNER` is the runner's NPC, any other speaker tag the first `BP_DlgNPC` with that
+  tag (`PLAYER` and captions find none and keep the shot). `BP_PlotManager.FocusSpeaker`
+  takes the speaker's head (`HeadOf`: the stand-in's `head` bone, which the MetaHuman
+  follows, or the mabari's `Wolf_-Head`), then turns `BP_DlgCam` toward it from halfway
+  between the player and the way the speaker faces, so the face shows three-quarter
+  even when the speaker turns to someone else, and the player stands out of the shot.
+  `BP_DlgCam` is a spring arm (220 cm, 6 degrees from above, 16 cm to one side, probing the
+  Camera channel so walls pull it in) and a 30-degree camera tilted 3 degrees down, which
+  puts the face above the dialogue panel. A speaker that is hidden (inactive, ticking off:
+  the night's warning servant, who talks before his plot shows him) keeps the previous shot.
+  `ConversationEnded` blends back to the player's camera in 0.35 s unless another
+  conversation has already started. NPC capsules ignore the Camera channel
+  (`InitNPC`), so neither this arm nor the gameplay camera's stops at a body.
+  Checked in Play: Bryce and Howe in the day castle's opening, the mabari at night.
 - Groom layers: a recipe's `"layers"` adds extra groom components (e.g. Duncan's
   `BeardBase`, `Beard_S_Stubble` under `Beard_L_Full`, so skin does not show through the
   beard); `metahuman_strands.body.py` binds them like the others.

@@ -1,0 +1,12 @@
+(fn FocusSpeaker (Speaker)
+  (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ANDBoolean (Matematica|Booleano|ANDBoolean (Utilità|IsValid (Utilità|Casting|CastToBP_DlgNPC Speaker)) (Utilità|IsValid (Gioco|GetPlayerPawn 0))) (Spunta|attore|IsActorTickEnabled Speaker))
+    (:then
+      (Funzionedichiamata|HeadOf :A (Gioco|GetPlayerPawn 0))
+      (Variabili|Predefinito|ImpostaListenerHead (Variabili|Predefinito|OttieniTmpHead))
+      (Funzionedichiamata|HeadOf :A Speaker)
+      (Funzionedichiamata|EnsureDlgCam)
+      (bind _toward (Matematica|Vettore|Normalize (Utility|Operatori|Sottrai (Variabili|Predefinito|OttieniListenerHead) (Variabili|Predefinito|OttieniTmpHead))))
+      (bind _side (Matematica|Vettore|Normalize (Utility|Operatori|Aggiungi _toward (Trasformazione|GetActorForwardVector Speaker))))
+      (bind (_roll _pitch _yaw) (Matematica|Rotatore|BreakRotator (Matematica|Rotatore|FindLookAtRotation (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniTmpHead) _side) (Variabili|Predefinito|OttieniTmpHead))))
+      (Trasformazione|SetActorLocationAndRotation (Variabili|Predefinito|OttieniDlgCam) (Variabili|Predefinito|OttieniTmpHead) (Matematica|Rotatore|MakeRotator 0.0 -6.0 _yaw) "false" "true")
+      (Partita|Giocatore|SetViewTargetwithBlend (Gioco|GetPlayerController 0) (Variabili|Predefinito|OttieniDlgCam) 0.0))))
