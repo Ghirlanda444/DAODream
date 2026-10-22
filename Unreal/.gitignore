@@ -18,3 +18,5 @@
 */Content/ThirdParty/
 # MetaHuman outfits (MetaHuman SDK's default Outfits path), Fab ones included.
 */Content/Outfits/
+# Fab packs added through the editor's Fab panel land in their own Content folder.
+*/Content/AnimalVarietyPack/

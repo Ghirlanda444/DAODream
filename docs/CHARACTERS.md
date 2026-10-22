@@ -323,6 +323,34 @@ cards and meshes only. Epic's grooms hold strands at LOD 0-1, cards at 2-4, mesh
 - Under the very bright blockout light, the edge strands facing it read white (strong
   specular); the shaded side is clean. To revisit when the castle gets its real lighting.
 
+### The mabari (2026-10-22, started)
+
+The hero's mabari is made from the wolf in Epic's free ANIMAL VARIETY PACK
+(Protofactor, Fab, Standard Licence; added through the editor's Fab panel at its
+5.5 version, which loads in 5.8, into the git-ignored `Content/AnimalVarietyPack`).
+The wolf brings a 33-bone skeleton and 29 animations: bite, jump and running
+bites, hits from the front, left and right, death, an aggressive idle, howl, walk
+and run with turns (each also with root motion), rest, sleep and getting up.
+
+`tools/blender/mabari.py` reshapes the wolf's body into a mastiff and keeps its
+skeleton and skin weights, so every animation still plays: the fur cards go (a
+short coat), the seams are welded, neck, chest and legs thicken round the line
+from each joint to the next (the shoulders grow out and down, so the back stays
+level), the chest deepens, the bushy tail thins to a whip, the muzzle is
+shortened by half and broadened, the skull widened and the ears cropped; one
+subdivision smooths it. Vertex colour R marks the kaddis (a blaze on the head, a
+stripe along the spine, two slashes on each shoulder). `mabari_build.body.py`
+makes `/Game/Cousland/Mabari/M_Mabari` (committed: the coat texture darkened,
+faint brindle from the pre-skinned position, the kaddis brushed in red) and, in
+the git-ignored `/Game/ThirdParty/Mabari`, the mesh `SK_Mabari` on the wolf's
+skeleton and `MI_Mabari` with the wolf's dark coat textures. `dog_shot.py` takes
+booth pictures of it posed by any of the animations. Visual reference: the
+Bestiarum mabari plate (Rich Longmore), looked at only.
+
+Next: in game (an animation Blueprint, replacing the stand-in that follows and
+fights), a stud collar, short strand fur for close-ups, and a heavier, blockier
+head.
+
 ### Outfits (2026-10-21)
 
 Everyone wears what the game gives them: the area export lists each
