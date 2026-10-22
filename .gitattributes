@@ -1,3 +1,11 @@
 # Unreal assets are binary and large: store them with Git LFS.
 Unreal/**/*.uasset filter=lfs diff=lfs merge=lfs -text
 Unreal/**/*.umap filter=lfs diff=lfs merge=lfs -text
+
+# Claude Code Game Studios: hook scripts and helpers must stay LF, or bash
+# breaks on Windows Git Bash.
+*.sh text eol=lf
+*.awk text eol=lf
+.worktreeinclude text eol=lf
+*.tsv text eol=lf
+.claude/**/*.md text eol=lf

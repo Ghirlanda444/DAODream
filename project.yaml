@@ -1,0 +1,69 @@
+# CCGS project configuration — single source of truth for project settings.
+# See .claude/docs/effects-map.md for full schema. View or change any setting
+# with /settings; personal overrides go in project.local.yaml (gitignored).
+#
+# The six knobs that `modes.rigor` fronts (`modes.review_mode`,
+# `modes.workflow`, `docs.density`, `qa.level`, `modes.story_granularity`,
+# `team.size`) are deliberately absent: seeding any of them here pins it and
+# stops `modes.rigor` from changing anything.
+
+schema_version: 1
+
+framework:
+  version: "1.2.0"
+  last_upgraded: "2026-10-22"
+
+project:
+  name: "DAODream"
+  genre: "Party RPG (Dragon Age: Origins fan remake)"
+  version: "0.1.0"
+  stage: Production          # Concept | Systems Design | Technical Setup | Pre-Production | Production | Polish | Release
+  kind: game
+
+modes:
+  rigor: minimal             # minimal | standard | full — raise with /settings modes.rigor=standard
+  automation: collaborative  # collaborative | guided | autonomous
+
+platform:
+  multiplayer: false
+  online: false
+  targets: [PC]
+  primary_input: "Keyboard/Mouse"
+  cert_tier: none            # personal, non-commercial: never shipped to a store
+
+engine:
+  name: "Unreal"
+  version: "5.8"
+  language: "Blueprint"      # Blueprint-primary; pipeline tools are Python (tools/daotools)
+  rendering: "Lumen + Nanite (deferred)"
+  physics: "Chaos"
+  # TODO: the Unreal install folder on your PC (Epic Games Launcher default shown)
+  path: "C:/Program Files/Epic Games/UE_5.8"
+
+specialists:
+  code: "unreal-specialist"
+  shader: "unreal-specialist"
+  ui: "ue-umg-specialist"
+  additional: ["ue-blueprint-specialist", "ue-gas-specialist"]
+
+naming:
+  classes: PascalCase
+  variables: PascalCase
+  constants: SCREAMING_SNAKE   # UNVERIFIED — not sourceable from
+                               # docs/engine-reference/unreal/; confirm before relying on it
+  signals: "PascalCase On<Event>"
+  files: PascalCase
+  scenes: PascalCase
+
+performance:
+  target_framerate: 60
+  frame_budget_ms: 16.67
+  enforce: warn
+
+# The .uproject is not at the repo root: it is Unreal/Cousland/Cousland.uproject.
+commands:
+  # TODO: confirm these for your UE version and install path — adjust via /settings
+  build: '"C:/Program Files/Epic Games/UE_5.8/Engine/Binaries/DotNET/AutomationTool/AutomationTool.exe" BuildCookRun -project="$(pwd -W 2>/dev/null || pwd)/Unreal/Cousland/Cousland.uproject" -platform=Win64 -build -cook'
+  test: 'cd tools && PYTHONPATH=.:tests python -m unittest discover -s tests'
+  run: '"C:/Program Files/Epic Games/UE_5.8/Engine/Binaries/Win64/UnrealEditor.exe" "$(pwd -W 2>/dev/null || pwd)/Unreal/Cousland/Cousland.uproject" -game -windowed -ResX=1280 -ResY=720'
+  smoke: '"C:/Program Files/Epic Games/UE_5.8/Engine/Binaries/Win64/UnrealEditor-Cmd.exe" "$(pwd -W 2>/dev/null || pwd)/Unreal/Cousland/Cousland.uproject" -game -nullrhi -unattended -stdout -ExecCmds="Quit"'

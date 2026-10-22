@@ -25,3 +25,15 @@ __pycache__/
 .venv/
 build/
 dist/
+
+# Claude Code Game Studios: local config and runtime state
+.claude/settings.local.json
+CLAUDE.local.md
+project.local.yaml
+production/session-logs/
+production/session-state/*
+!production/session-state/.gitkeep
+.scratch/
+.claude/agent-memory/
+.claude/worktrees/
+docs/consistency-failures.md
