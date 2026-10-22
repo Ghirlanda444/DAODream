@@ -234,6 +234,38 @@ def variety(key: str, chest: str) -> list[float]:
     return skin + hair + dyes
 
 
+# Mabari: the hero's dog (gen00fl_dog) and Howe's war dogs (dog_mabari_*) wear the mabari look (BP_Mabari);
+# their coat is the mesh's custom primitive data (M_Mabari): name -> (colour, brindle 0-1, no kaddis 0/1).
+MABARI_COATS = {
+    "fawn": ((0.36, 0.215, 0.10), 0.0, 0.0),       # the hero's mabari: light brown
+    "black": ((0.0, 0.0, 0.0), 0.0, 0.0),          # the wolf's dark coat, darkened (all zero)
+    "brindle": ((0.16, 0.10, 0.055), 1.0, 0.0),
+    "red": ((0.30, 0.12, 0.055), 0.2, 0.0),
+    "grey": ((0.15, 0.155, 0.16), 0.3, 0.0),
+    "tan": ((0.34, 0.24, 0.14), 0.5, 0.0),
+    "black_unpainted": ((0.0, 0.0, 0.0), 0.0, 1.0),
+}
+MABARI_ENEMY = ["black", "brindle", "red", "grey", "tan", "black_unpainted"]
+
+
+def mabari_coat(template: str, key: str) -> str:
+    """The coat of a mabari creature, or "" for any other: fawn for the hero's dog, one of MABARI_ENEMY
+    for a war dog, stable for its key."""
+    template = template.lower()
+    if template.startswith("gen00fl_dog"):
+        return "fawn"
+    if template.startswith("dog_mabari"):
+        h = int(hashlib.md5(("coat:" + key.lower()).encode()).hexdigest()[:8], 16)
+        return MABARI_ENEMY[h % len(MABARI_ENEMY)]
+    return ""
+
+
+def coat_variety(coat: str) -> list[float]:
+    """NpcVariety for a mabari: its coat's custom primitive data (r, g, b, brindle, no kaddis), then zeros."""
+    rgb, brindle, unpainted = MABARI_COATS[coat]
+    return [*rgb, brindle, unpainted] + [0.0] * (VARIETY - 5)
+
+
 def armed_ally(utc: dict, template: str = "") -> bool:
     """Whether a creature fights on the player's side: not hostile, with a weapon and
     chest armour equipped (the castle's guards and knights; servants and nobles wear
@@ -748,7 +780,12 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
             npc_armour.append(st.get("Armour", 0.0))
             npc_shield.append(st.get("ShieldDefense", 0.0))
         chest = npc_chest[-1] if creature_stats is not None else ""
-        npc_variety.extend(variety(key, chest) if crowd else [0.0] * VARIETY)
+        coat = mabari_coat(str(c.get("TemplateResRef", "")), key)
+        if coat:  # the mabari look takes the crowd key's place
+            npc_crowd[-1] = "mabari"
+            npc_variety.extend(coat_variety(coat))
+        else:
+            npc_variety.extend(variety(key, chest) if crowd else [0.0] * VARIETY)
         npc_pose.extend([*ue_point(c["XPosition"], c["YPosition"], c["ZPosition"]),
                          ue_yaw(c["XOrientation"], c["YOrientation"], c["ZOrientation"], c["WOrientation"])])
 
@@ -846,7 +883,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcChest": npc_chest,
         "NpcArmour": npc_armour,
         "NpcShieldDefense": npc_shield,
-        # Per creature, VARIETY floats: skin, hair and clothes dye for crowd looks (variety).
+        # Per creature, VARIETY floats: skin, hair and clothes dye for crowd looks (variety), a mabari's coat.
         "NpcVariety": npc_variety,
         "Player": player or {},
         # Flat for Blueprint: health, attack, defense, damage min and max, damage scaling threshold.

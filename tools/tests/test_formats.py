@@ -455,6 +455,11 @@ class AreaTests(unittest.TestCase):
             self.assertTrue(area.SKIN_TAN[k] <= v[k] <= area.SKIN_FAIR[k])
         self.assertTrue(all(x > 0 for x in v[5:]))  # servants' clothes are dyed
         self.assertEqual(area.variety("guard@1,2", "arm_cht_med_chn")[5:], [0.0] * 6)  # uniforms keep theirs
+        # Mabari: the hero's dog is fawn, war dogs take an enemy coat, other creatures none.
+        self.assertEqual(area.mabari_coat("gen00fl_dog", "gen00fl_dog@0,0"), "fawn")
+        self.assertIn(area.mabari_coat("dog_mabari_2", "bhn200cr_howe_panicked4@5,6"), area.MABARI_ENEMY)
+        self.assertEqual(area.mabari_coat("bhn_rat", "rat@0,0"), "")
+        self.assertEqual(area.coat_variety("fawn")[:5], [0.36, 0.215, 0.10, 0.0, 0.0])
         # Children (kn_* heads) stand smaller, and get no crowd face.
         self.assertEqual(area.stand_in_scale(3, 0, "kn_bhn100_oren"), area.CHILD_SCALE)
         self.assertEqual(area.look_keys({"HeadMorph": "kn_bhn100_oren.mor"}, 3, "oren@0,0"), ("kn_bhn100_oren", ""))

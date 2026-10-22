@@ -21,4 +21,8 @@
               (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggiore(>) (Utilità|Array|Ottieni(unacopia) V (Utility|Operatori|Aggiungi At 5)) 0.0)
                 (:then
                   (Funzionedichiamata|DyeSlot :Slot "Main" :V V :At (Utility|Operatori|Aggiungi At 5))
-                  (Funzionedichiamata|DyeSlot :Slot "Second" :V V :At (Utility|Operatori|Aggiungi At 8)))))))))))
+                  (Funzionedichiamata|DyeSlot :Slot "Second" :V V :At (Utility|Operatori|Aggiungi At 8)))))))))
+    (:else
+      (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ANDBoolean (Utilità|IsValid (Variabili|Predefinito|OttieniLook)) (Utilità|Stringa|Contains _cls "Mabari"))
+        (:then
+          (Funzionedichiamata|ApplyCoat :V V :At At))))))

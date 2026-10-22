@@ -1,0 +1,6 @@
+(fn UpdateSpeed (Dt)
+  (bind _p (Trasformazione|GetActorLocation (Animazione|GetOwningActor)))
+  (bind _raw (Utility|Operatori|Dividi (Matematica|Vettore|VectorLengthXY (Utility|Operatori|Sottrai _p (Variabili|Predefinito|OttieniLastPos))) (Matematica|Float|Max(Float) Dt 0.001)))
+  (Variabili|Predefinito|ImpostaSpeed (Matematica|Interpolazione|FInterpTo (Variabili|Predefinito|OttieniSpeed) (Matematica|Float|Min(Float) _raw 600.0) Dt 6.0))
+  (Variabili|Predefinito|ImpostaLastPos _p)
+  (Funzionedichiamata|WatchNpc))

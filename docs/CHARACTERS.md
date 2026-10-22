@@ -366,14 +366,39 @@ Bestiarum mabari plate (Rich Longmore), looked at only.
 Every mabari shares the one material, and each dog gets its own coat through its
 mesh component's custom primitive data: 0-2 the coat colour (all 0 keeps the
 wolf's dark coat), 3 how strong the brindle is, 4 set to 1 to leave off the
-kaddis. `tools/unreal/mabari_coats.py` names the coats: the hero's dog is fawn
-(light brown); the war dogs of Howe's men take black, brindle, red, grey, tan or
-black without paint, picked from their tag so a dog always looks the same.
-`mabari_lineup.py` stands every coat side by side in the booth.
+kaddis. The area export picks the coats (`area.mabari_coat`; `MABARI_COATS`,
+also read by `tools/unreal/mabari_coats.py`): the hero's dog (`gen00fl_dog`) is
+fawn, light brown; the war dogs of Howe's men (`dog_mabari_*`) take black,
+brindle, red, grey, tan or black without paint, picked from their tag and
+position so a dog always looks the same (the night castle's three: grey,
+brindle, black unpainted). `mabari_lineup.py` stands every coat side by side
+in the booth.
 
-Next: in game (an animation Blueprint, replacing the stand-in that follows and
-fights), a stud collar, short strand fur for close-ups, and a heavier, blockier
-head.
+In game (2026-10-22): a mabari's crowd key is `mabari` and its `NpcVariety`
+holds its coat, so `GiveNpcLook` gives it the look `BP_Mabari` like any
+MetaHuman look (spawned on the stand-in, which it replaces and follows) and
+`ApplyVariety` hands the coat to `ApplyCoat`, which writes it into the look's
+custom primitive data. The stand-in keeps its 0.6 scale (its capsule is
+dog-sized); `BP_Mabari` always stands at scale 1, about 95 cm at the head.
+`DialogueLOD` skips looks without a MetaHuman `LODSyncComponent`.
+`tools/unreal/mabari_anim.py` builds, in the git-ignored folder:
+
+- `BS_MabariMove`: the wolf's idle, walk and run by speed (0, 93 and
+  444 cm/s, what the walk and run cover).
+- `ABP_Mabari`: that blend space through the `DefaultSlot` to the pose. Every
+  update measures how far the dog moved (stand-ins are moved by script, not
+  physics) and watches the `BP_DlgNPC` it rides on: an attack (its
+  `AttackTimer` reset upward) plays the wolf's bite, a hit (its `Health`
+  dropping) the flinch.
+- `BP_Mabari`: `SK_Mabari` with that Animation Blueprint, no collision.
+
+Checked in Simulate: all four dogs of the night castle get their look and
+coat and run the update; the hero's dog fights Howe's two men in the
+servant's scene with the bite. Not seen yet: a clean walk or run on camera
+(Simulate has no player for the party to follow, and walks given by script
+finished before a picture). Next: death (the dog is hidden as other creatures
+are; the wolf has a death animation), a stud collar, short strand fur for
+close-ups, and a heavier, blockier head.
 
 ### Outfits (2026-10-21)
 
