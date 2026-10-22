@@ -389,16 +389,24 @@ dog-sized); `BP_Mabari` always stands at scale 1, about 95 cm at the head.
   update measures how far the dog moved (stand-ins are moved by script, not
   physics) and watches the `BP_DlgNPC` it rides on: an attack (its
   `AttackTimer` reset upward) plays the wolf's bite, a hit (its `Health`
-  dropping) the flinch.
+  dropping) the flinch. Once it is dead the pose blends to the wolf's death
+  animation, played by game time and held on its last frame; a dog already
+  dead when first seen lies there at once.
 - `BP_Mabari`: `SK_Mabari` with that Animation Blueprint, no collision.
 
 Checked in Simulate: all four dogs of the night castle get their look and
 coat and run the update; the hero's dog fights Howe's two men in the
 servant's scene with the bite. Not seen yet: a clean walk or run on camera
 (Simulate has no player for the party to follow, and walks given by script
-finished before a picture). Next: death (the dog is hidden as other creatures
-are; the wolf has a death animation), a stud collar, short strand fur for
-close-ups, and a heavier, blockier head.
+finished before a picture). A dog that dies falls and stays as a body:
+`BP_DlgNPC.Die` calls `LieDead`, which for a mabari look only turns off the
+stand-in's collision, tick and health bar (other creatures are still hidden,
+as they have no death animation yet). Checked in Simulate: one of Howe's dogs,
+hit for 1000, lies dead where it fell. Not done: a dog placed dead by its
+template (`Kill` ragdolls the hidden stand-in, which would carry the dog with
+it; none of the castle's dogs start dead), and the hero's dog getting up after
+a fight as in the game. Next: a stud collar, short strand fur for close-ups,
+and a heavier, blockier head.
 
 ### Outfits (2026-10-21)
 

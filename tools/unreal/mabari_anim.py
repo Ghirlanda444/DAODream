@@ -3,10 +3,12 @@
 
   BS_MabariMove  blend space by Speed: the wolf's IdleBreathe (0), Walk (93 cm/s) and Run (444 cm/s),
                  the speeds their root-motion versions cover.
-  ABP_Mabari     AnimGraph: the blend space, then the DefaultSlot (bites and flinches), to the output pose.
+  ABP_Mabari     AnimGraph: the blend space, then the DefaultSlot (bites and flinches), then a blend by Fallen
+                 to the wolf's Death at DeathTime (it holds the last frame: the body stays), to the output pose.
                  Each update (UpdateSpeed) measures how far the dog moved (the stand-in is moved by script,
                  not physics), and WatchNpc reads the BP_DlgNPC the dog is attached to: when its AttackTimer
-                 is reset upward (an attack) the wolf's Bite plays, when its Health drops GetHitFront.
+                 is reset upward (an attack) the wolf's Bite plays, when its Health drops GetHitFront, and once
+                 it is dead (WatchDeath) the dog falls; one already dead when first seen lies there at once.
   BP_Mabari      a SkeletalMeshActor with SK_Mabari and ABP_Mabari, no collision, always at scale 1 (its
                  construction script), whatever the stand-in's scale. BP_DlgNPC's look "mabari" spawns it.
 
@@ -94,20 +96,21 @@ def connect(a, b):
 def build(d):
     print("assets", pyrun.run("D = %r\nWOLF = %r\n" % (d, WOLF) + ASSETS, 300))
     abp = {"refPath": "%s/ABP_Mabari.ABP_Mabari" % d}
-    for name, kind in (("Speed", "float"), ("LastPos", "Vector"), ("LastAttack", "float"), ("LastHealth", "float")):
+    for name, kind in (("Speed", "float"), ("LastPos", "Vector"), ("LastAttack", "float"), ("LastHealth", "float"),
+                       ("Fallen", "bool"), ("DeathTime", "float")):
         call("add_variable", {"blueprint": abp, "name": name, "type_name": kind})
     g = call("add_function_graph", {"blueprint": abp, "graph_name": "UpdateSpeed"})
     call("add_function_param", {"graph": g, "param_name": "Dt", "param_type": "float", "input_param": True})
     call("add_function_graph", {"blueprint": abp, "graph_name": "WatchNpc"})
-    for fn in ("WatchBite", "WatchHit"):
+    for fn in ("WatchBite", "WatchHit", "WatchDeath"):
         g = call("add_function_graph", {"blueprint": abp, "graph_name": fn})
         call("add_object_function_param", {"graph": g, "param_name": "Npc", "input_param": True,
                                            "object_class": {"refPath": "/Game/Cousland/Dialogue/BP_DlgNPC.BP_DlgNPC_C"}})
     call("compile_blueprint", {"blueprint": abp})
     # callees first: a call's keyword pins exist only once the callee is compiled
-    for fn in ("WatchBite", "WatchHit", "WatchNpc", "UpdateSpeed"):
+    for fn in ("WatchBite", "WatchHit", "WatchDeath", "WatchNpc", "UpdateSpeed"):
         dsl(abp["refPath"], fn, "Mabari%s.dsl" % fn)
-    # AnimGraph: blend space player (X = Speed) -> DefaultSlot -> output pose
+    # AnimGraph: blend space player (X = Speed) -> DefaultSlot -> blend by Fallen (true: Death at DeathTime) -> output
     ag = {"refPath": abp["refPath"] + ":AnimGraph"}
     node = lambda g, t, x: call("create_node", {"graph": g, "type_id": t, "pos": {"x": x, "y": 0}})
     player = node(ag, "Animazione|Spazidifusione|GiocatoreBlendspace'BS_MabariMove'", -600)
@@ -116,7 +119,16 @@ def build(d):
     root = [n for n in call("find_nodes", {"graph": ag, "title": ""}) if "Root" in n["refPath"]][0]
     connect(pin(speed, True, 0), pin(player, False, 0))
     connect(pin(player, True, 0), pin(slot, False, 0))
-    connect(pin(slot, True, 0), pin(root, False, 0))
+    blend = node(ag, "Animation|Blends|Fusioneposeperbool", 100)
+    death = node(ag, "Animazione|Sequenze|Valuta'ANIM_Wolf_Death'", -250)
+    fallen = node(ag, "Variabili|Predefinito|OttieniFallen", -250)
+    time = node(ag, "Variabili|Predefinito|OttieniDeathTime", -550)
+    connect(pin(time, True, 0), pin(death, False, 0))
+    connect(pin(death, True, 0), pin(blend, False, 0))  # BlendPose_0: true
+    connect(pin(slot, True, 0), pin(blend, False, 1))
+    connect(pin(fallen, True, 0), pin(blend, False, 4))
+    call("set_pin_value", {"pin": pin(blend, False, 2), "value": "0.2"})
+    connect(pin(blend, True, 0), pin(root, False, 0))
     # EventGraph: Blueprint Update Animation -> UpdateSpeed(DeltaTimeX)
     eg = {"refPath": abp["refPath"] + ":EventGraph"}
     event = call("find_nodes", {"graph": eg, "title": "", "entry_points_only": True})[0]
