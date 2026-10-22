@@ -14,6 +14,9 @@ the Human Noble origin. Roadmap: `docs/ROADMAP.md`.
 - Never commit third-party character assets either (MetaHumans, Fab packs): they
   live in git-ignored `Content/MetaHumans/` and `Content/ThirdParty/`, because
   the repo is public (`docs/CHARACTERS.md`).
+- `tools/commit_guard.py` checks every commit for both (install it once per clone:
+  `py tools/commit_guard.py --install`). Names the owner keeps out of public
+  files go in `.git/info/commit-guard-names`, never in the repo.
 
 ## Tools
 
@@ -35,3 +38,7 @@ the Human Noble origin. Roadmap: `docs/ROADMAP.md`.
   `docs/UNREAL_SETUP.md`. Assets go through Git LFS (`.gitattributes`).
 - Work one system per prompt, report every actor and asset created, and stop
   rather than silently work around a missing tool.
+- Project skills: `.claude/skills/unreal-editor` (driving the editor: MCP, the
+  Italian Blueprint DSL, node surgery, materials, Animation Blueprints) and
+  `.claude/skills/playtest` (`tools/unreal/playtest.py`: see a change running
+  in the level, with pictures, before calling it done).

@@ -130,7 +130,7 @@ fresh editor, assembly, and one line in the looks table.
     after every Duncan assembly: it binds the groom to his face mesh and sets
     it on `BP_MHC_Duncan`.
   - Tried and dropped: fitting the face to a 3D head made from the portrait
-    (TripoSG, run locally; Hunyuan3D's licence excludes the EU) with
+    (TripoSG, run locally) with
     `conform_to_target_meshes`. The solver either twisted the body or fell
     back to an average face. Hand sculpting in the Creator is the way to push
     the likeness further.
