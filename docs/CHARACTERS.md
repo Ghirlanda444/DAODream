@@ -192,6 +192,22 @@ the area export writes each creature's head morph (`NpcMorph`, e.g.
 position, adult humans only). The loader applies the morph's MetaHuman first,
 then the crowd face (`GiveNpcLook`).
 
+Crowd variety (2026-10-22): so the few crowd faces don't read as twins, the
+export also writes `NpcVariety`, 11 floats per creature from the same key
+(`area.variety`): a skin multiply between fair and light brown (most fair;
+Ferelden has no darker crowd), hair melanin and redness (flaxen, dark blond,
+brown, near black, one in ten auburn or ginger), and for servants' clothes
+(`cth_com_*`) a dye for the outfit's main and second cloth from plain wools
+and linens (undyed, oatmeal, walnut, russet, madder, weld, moss, woad,
+blue-grey, grey, dark; the second layer brown, grey or dark). Uniforms and the
+nobles' colours stay as made. After the outfit, `GiveNpcLook` calls
+`BP_DlgNPC.ApplyVariety`, which acts only on crowd looks (`MHC_Crowd*`,
+`MHC_HoweSoldier`), so named characters keep their designed looks: it sets
+`Basecolor Global Multiply Post-Bake` on the Face and Body materials,
+`hairMelanin` and `hairRedness` on every groom (white from age is kept), and
+dyes the outfit's `Main` and `Second` slots through dynamic instances
+(`DyeSlot`: ColorA the dye, ColorB 1.35 times it, Trim 0.75 times).
+
 Faces are made in batches by `tools/unreal/metahuman_make.py` from
 `tools/unreal/metahuman_recipes.json`: one fresh editor per character
 (assembling two in one session runs the GPU out of memory), preset mix,

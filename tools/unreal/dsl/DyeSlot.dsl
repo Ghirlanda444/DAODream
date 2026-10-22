@@ -1,0 +1,11 @@
+(fn DyeSlot (Slot V At)
+  (bind _i (Rendering|Materiale|GetMaterialIndex (Variabili|Predefinito|OttieniOutfitComp) Slot))
+  (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ANDBoolean (Utilità|IsValid (Variabili|Predefinito|OttieniOutfitComp)) (Utility|Operatori|Maggioreuguale(>=) _i 0))
+    (:then
+      (bind _m (Rendering|Materiale|CreateDynamicMaterialInstance (Variabili|Predefinito|OttieniOutfitComp) _i))
+      (bind _r (Utilità|Array|Ottieni(unacopia) V At))
+      (bind _g (Utilità|Array|Ottieni(unacopia) V (Utility|Operatori|Aggiungi At 1)))
+      (bind _b (Utilità|Array|Ottieni(unacopia) V (Utility|Operatori|Aggiungi At 2)))
+      (Funzionedichiamata|TintMid :M _m :Name "ColorA" :C (Matematica|Colore|MakeColor _r _g _b 1.0))
+      (Funzionedichiamata|TintMid :M _m :Name "ColorB" :C (Matematica|Colore|MakeColor (Utility|Operatori|Moltiplica _r 1.35) (Utility|Operatori|Moltiplica _g 1.35) (Utility|Operatori|Moltiplica _b 1.35) 1.0))
+      (Funzionedichiamata|TintMid :M _m :Name "Trim" :C (Matematica|Colore|MakeColor (Utility|Operatori|Moltiplica _r 0.75) (Utility|Operatori|Moltiplica _g 0.75) (Utility|Operatori|Moltiplica _b 0.75) 1.0)))))

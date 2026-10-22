@@ -4,6 +4,7 @@
   (Variabili|Predefinito|ImpostaFixtures (Json|GetField _json "Fixtures"))
   (Variabili|Predefinito|ImpostaFires (Json|GetField _json "Fires"))
   (Variabili|Predefinito|ImpostaNpcChest (Json|GetField _json "NpcChest"))
+  (Variabili|Predefinito|ImpostaNpcVariety (Json|GetField _json "NpcVariety"))
   (Funzionedichiamata|SpawnFixtureMeshes)
   (Funzionedichiamata|SpawnFires)
   (Funzionedichiamata|StartFlicker))

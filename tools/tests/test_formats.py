@@ -446,6 +446,15 @@ class AreaTests(unittest.TestCase):
         self.assertEqual(out["NpcMorph"], ["hm_bhn100_father", "", "hm_bhn100_father", ""])
         self.assertEqual([k[:8] for k in out["NpcCrowd"]], ["crowd_m_", "crowd_m_", "crowd_m_", ""])
         self.assertEqual(out["NpcCrowd"][0], area.look_keys({}, 3, "bryce@10,20")[1])
+        # Crowd variety: per creature, stable for its key; zeros for those without a crowd face.
+        self.assertEqual(len(out["NpcVariety"]), area.VARIETY * 4)
+        self.assertEqual(out["NpcVariety"][area.VARIETY * 3:], [0.0] * area.VARIETY)
+        v = area.variety("guard@1,2", "cth_com_c00")
+        self.assertEqual(v, area.variety("guard@1,2", "cth_com_c00"))
+        for k in range(3):  # skin between fair and light brown
+            self.assertTrue(area.SKIN_TAN[k] <= v[k] <= area.SKIN_FAIR[k])
+        self.assertTrue(all(x > 0 for x in v[5:]))  # servants' clothes are dyed
+        self.assertEqual(area.variety("guard@1,2", "arm_cht_med_chn")[5:], [0.0] * 6)  # uniforms keep theirs
         # Children (kn_* heads) stand smaller, and get no crowd face.
         self.assertEqual(area.stand_in_scale(3, 0, "kn_bhn100_oren"), area.CHILD_SCALE)
         self.assertEqual(area.look_keys({"HeadMorph": "kn_bhn100_oren.mor"}, 3, "oren@0,0"), ("kn_bhn100_oren", ""))

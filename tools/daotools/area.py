@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import math
 import hashlib
+import random
 from pathlib import Path
 
 from . import ambient
@@ -198,6 +199,39 @@ def look_keys(look: dict, race, tag: str) -> tuple[str, str]:
     g = "f" if look.get("Gender") == 2 else "m"
     h = int(hashlib.md5(tag.lower().encode()).hexdigest()[:8], 16)
     return morph, "crowd_%s_%d" % (g, h % CROWD_FACES[g])
+
+
+# Crowd variety (NpcVariety): the few crowd faces are told apart by skin, hair and, for servants, the
+# colours of their clothes. Ferelden is medieval England, so skin runs only from fair to light brown.
+SKIN_FAIR, SKIN_TAN = (1.03, 0.99, 0.97), (0.64, 0.48, 0.35)  # multiplies the face's own baked colour
+# (weight, melanin range, redness range): flaxen, dark blond, brown, near black, auburn and ginger
+HAIR = [(15, (0.20, 0.32), (0.15, 0.30)), (25, (0.30, 0.45), (0.20, 0.35)), (35, (0.50, 0.70), (0.20, 0.35)),
+        (15, (0.75, 0.95), (0.10, 0.25)), (10, (0.30, 0.50), (0.65, 0.90))]
+# Plain wools and linens as the castle's servants would wear them (M_OutfitCloth's ColorA, linear):
+# undyed linen, oatmeal, walnut brown, russet, madder, weld yellow, moss, woad blue, blue-grey, grey, dark wool.
+DYES = [(0.33, 0.28, 0.20), (0.25, 0.22, 0.17), (0.08, 0.055, 0.035), (0.17, 0.06, 0.025), (0.16, 0.035, 0.03),
+        (0.22, 0.16, 0.05), (0.05, 0.07, 0.03), (0.05, 0.07, 0.11), (0.06, 0.075, 0.09), (0.09, 0.09, 0.085),
+        (0.035, 0.03, 0.028)]
+UNDER = [2, 9, 10]  # the second layer (hose, apron, sleeves): brown, grey, dark (linen there read white)
+DYED_CLOTHES = ("cth_com_",)  # servants' common clothes; uniforms and nobles' colours stay as made
+VARIETY = 11  # floats per creature
+
+
+def variety(key: str, chest: str) -> list[float]:
+    """NpcVariety for one creature, stable for its key (tag and position, as look_keys): skin multiply
+    (r, g, b), hair melanin and redness, then the dye of the outfit's main and second cloth (r, g, b each,
+    zeros: keep the outfit's own colours). BP_DlgNPC.ApplyVariety uses it on crowd looks only."""
+    rnd = random.Random(int(hashlib.md5(("variety:" + key.lower()).encode()).hexdigest()[:8], 16))
+    t = rnd.random() ** 1.4  # most are fair
+    skin = [round(a + (b - a) * t, 3) for a, b in zip(SKIN_FAIR, SKIN_TAN)]
+    _, mel, red = rnd.choices(HAIR, weights=[h[0] for h in HAIR])[0]
+    hair = [round(rnd.uniform(*mel), 3), round(rnd.uniform(*red), 3)]
+    dyes = [0.0] * 6
+    if chest.startswith(DYED_CLOTHES):
+        main = rnd.randrange(len(DYES))
+        second = rnd.choice([i for i in UNDER if i != main])
+        dyes = [round(c * rnd.uniform(0.85, 1.15), 4) for i in (main, second) for c in DYES[i]]
+    return skin + hair + dyes
 
 
 def armed_ally(utc: dict, template: str = "") -> bool:
@@ -653,7 +687,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     warnings: list[str] = []
     npc_tags, npc_names, npc_convs, npc_female, npc_pose, npc_active = [], [], [], [], [], []
     npc_team, npc_scale, npc_hostile, npc_rank, npc_dead, npc_ally = [], [], [], [], [], []
-    npc_morph, npc_crowd = [], []
+    npc_morph, npc_crowd, npc_variety = [], [], []
     npc_health, npc_attack, npc_defense, npc_damage, npc_dscale = [], [], [], [], []
     npc_outfit, npc_chest, npc_armour, npc_shield = [], [], [], []
     npc_ambient, npc_ambient_prefix = [], []
@@ -693,7 +727,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         race, rank = utc.get("Race"), int(utc.get("Rank") or 0)
         # Look keys: the head morph names the same character in every module (hm_gen_duncan), so a
         # MetaHuman made once is found again later; other adult humans get a stable crowd face.
-        morph, crowd = look_keys(look, race, "%s@%d,%d" % (c.get("Tag") or "", round(float(c.get("XPosition") or 0)), round(float(c.get("YPosition") or 0))))
+        key = "%s@%d,%d" % (c.get("Tag") or "", round(float(c.get("XPosition") or 0)), round(float(c.get("YPosition") or 0)))
+        morph, crowd = look_keys(look, race, key)
         npc_scale.append(stand_in_scale(race, rank, morph))
         npc_hostile.append(1 if utc.get("GroupId") in (GROUP_HOSTILE, GROUP_HOSTILE_ON_GROUND) else 0)
         npc_ally.append(1 if armed_ally(utc, str(c.get("TemplateResRef", ""))) else 0)
@@ -712,6 +747,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
             npc_chest.append(outfit.get("chest", "").removeprefix("gen_im_"))
             npc_armour.append(st.get("Armour", 0.0))
             npc_shield.append(st.get("ShieldDefense", 0.0))
+        chest = npc_chest[-1] if creature_stats is not None else ""
+        npc_variety.extend(variety(key, chest) if crowd else [0.0] * VARIETY)
         npc_pose.extend([*ue_point(c["XPosition"], c["YPosition"], c["ZPosition"]),
                          ue_yaw(c["XOrientation"], c["YOrientation"], c["ZOrientation"], c["WOrientation"])])
 
@@ -809,6 +846,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcChest": npc_chest,
         "NpcArmour": npc_armour,
         "NpcShieldDefense": npc_shield,
+        # Per creature, VARIETY floats: skin, hair and clothes dye for crowd looks (variety).
+        "NpcVariety": npc_variety,
         "Player": player or {},
         # Flat for Blueprint: health, attack, defense, damage min and max, damage scaling threshold.
         "PlayerStats": ([player["Health"], player["Attack"], player["Defense"], *player["Damage"],
