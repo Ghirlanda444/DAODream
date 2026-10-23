@@ -76,7 +76,8 @@ Checked in Play:
    (before, you had to talk to him): "(Angry barking and growling)" (his
    night line, `DOG_DEFINED_AFTER_BATTLE_BEGUN_AND_PRELUDE_NOT_STARTED`, a
    defined flag now computed), then a servant bursts in
-   (`BHN_DOG_WARNING_SERVANT_ENTERS`) and is killed as two of Howe's men appear
+   (`BHN_DOG_WARNING_SERVANT_ENTERS` opens your door and puts him inside; the
+   area's load made him active, waiting behind it) and is killed as two of Howe's men appear
    and attack (`BHN_DOG_WARNING_SERVANT_DIES`: team 16, `KillCreature`); the
    dog joins your party (also when arriving from the day, where "dog
    recruited" is already set: the script forces it to run again).

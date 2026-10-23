@@ -472,6 +472,19 @@ def _emit(action, items: list, label: str, skipped: list[str]) -> list[dict]:
     return acts
 
 
+def _state_tests(items: list, action) -> list[str]:
+    """The `if` conditions in a statement tree (else-if chains included) that are neither a plot-flag
+    test (it becomes a kind 14) nor a do-once or debug check."""
+    found = []
+    for it in items:
+        if isinstance(it, tuple):
+            cond = it[1]
+            if not (re.fullmatch(r"\s*\w*(Once|Debug)\w*\s*==\s*FALSE\s*", cond) or action.cond(cond)):
+                found.append(f"if({cond.strip()})")
+            found += _state_tests(it[2], action) + _state_tests(it[3], action)
+    return found
+
+
 def _run_text(action, text: str, label: str, skipped: list[str]) -> list[dict]:
     return _emit(action, _items(text), label, skipped)
 
@@ -516,22 +529,21 @@ def translate_events(script: str, plots_by_name: dict[str, dict], consts: dict, 
                 continue
             cases[f"teamdead:{team}"] = _run_text(action, raw, f"teamdead:{team}", skipped)
     # The area's set-up once everything has loaded, and a trigger being walked into.
-    for key, events in ((f"load:{name}", ("EVENT_TYPE_AREALOAD_PRELOADEXIT", "EVENT_TYPE_AREALOAD_POSTLOADEXIT")),
+    # In the engine's order: SPECIAL (e.g. who is in the room when the night begins) comes first.
+    for key, events in ((f"load:{name}", ("EVENT_TYPE_AREALOAD_SPECIAL", "EVENT_TYPE_AREALOAD_PRELOADEXIT",
+                                          "EVENT_TYPE_AREALOAD_POSTLOADEXIT")),
                         (f"enter:{name}", ("EVENT_TYPE_ENTER",))):
         for event in events:
             m = re.search(rf"case\s+{event}\s*:", text)
             if not m:
                 continue
-            statements = _statements(_block(text, m.end()))
-            branches = [s for s in statements if re.match(r"(if|else|switch|while|for)\b", s)
-                        and not re.match(r"if\s*\(\s*\w*(Once|Debug)\w*\s*==\s*FALSE\s*\)", s)
-                        and not (s.startswith("if") and "(" in s
-                                 and action.cond(s[s.index("(") + 1:s.rindex(")")]))]
+            block = _block(text, m.end())
+            branches = [f"{b.group(1)}(...)" for b in re.finditer(r"\b(switch|while|for)\s*\(", block)]
+            branches += _state_tests(_items(block), action)
             if key.startswith("load:") and branches:
                 # what it does depends on the game's state; run unconditionally it would misplace people
                 skipped.append(f"{key}: {event} branches on game state ({branches[0]}), left out")
                 continue
-            block = _block(text, m.end())
             cases[key] = cases.get(key, []) + _run_text(action, block, key, skipped)
             if key.startswith("enter:") and _destroys_triggers(block):
                 cases[key].append({"kind": SETFLAG, "target": "", "arg": f"done:{key}", "value": 1})
@@ -812,7 +824,8 @@ def export(src_dir: str | Path, plots: dict[str, dict], only: str = "*", true_fl
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
         if not any(e in text for e in ("EVENT_TYPE_DEATH", "EVENT_TYPE_TEAM_DESTROYED", "EVENT_TYPE_ENTER", "EVENT_TYPE_USE",
-                                        "EVENT_TYPE_AREALOAD_PRELOADEXIT", "EVENT_TYPE_AREALOAD_POSTLOADEXIT")):
+                                        "EVENT_TYPE_AREALOAD_SPECIAL", "EVENT_TYPE_AREALOAD_PRELOADEXIT",
+                                        "EVENT_TYPE_AREALOAD_POSTLOADEXIT")):
             continue
         t = translate_events(text, by_name, consts, path.stem, cutscenes)
         if not t["cases"]:

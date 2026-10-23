@@ -74,10 +74,18 @@ if __name__ == "__main__":
         print(log(a[0], int(a[1]) if len(a) > 1 else 40))
 
 
+def main_window():
+    """The Slate ref of the editor's main window (refs change when the editor restarts)."""
+    import re
+    t = json.loads(ue.call(SL, "Snapshot", {"ref": "", "maxDepth": 1}))["returnValue"]
+    m = re.search(r'window "[^"]*Unreal Editor" .*\[ref=(\w+)\]', t)
+    return m.group(1) if m else "w1"
+
+
 def dlg():
     """Visible dialogue: (lines, [(label, ref)])."""
     import re
-    t = json.loads(ue.call(SL, "Snapshot", {"ref": "w1", "maxDepth": 80}))["returnValue"]
+    t = json.loads(ue.call(SL, "Snapshot", {"ref": main_window(), "maxDepth": 80}))["returnValue"]
     lines, opts = [], []
     for l in t.split("\n"):
         m = re.search(r'(text|button) "(.*)" \[pos=(\d+),(\d+) .*\[ref=(\w+)\]', l)

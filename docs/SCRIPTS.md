@@ -210,12 +210,16 @@ creature dies or the last member of a team does (`docs/COMBAT.md`). Objects
 known only at runtime (array elements in loops, used by the night castle's
 Howe soldiers) are skipped, not guessed.
 
-Two more events: an area script's `EVENT_TYPE_AREALOAD_PRELOADEXIT` and
-`POSTLOADEXIT` cases become `load:<area>`, which `BP_AreaLoader` runs once the
-area is built (in the day castle, Bryce starts talking to you; at night, the
-people Howe's men have killed lie where they fell). A load handler
-that branches on game state (anything but its "once" and debug checks) is left
-out whole, since run unconditionally it would misplace people. A trigger
+Two more events: an area script's `EVENT_TYPE_AREALOAD_SPECIAL`,
+`PRELOADEXIT` and `POSTLOADEXIT` cases, in that order (the engine's), become
+`load:<area>`, which `BP_AreaLoader` runs once the area is built (in the day
+castle, Bryce starts talking to you; at night, the warning servant is made
+active behind your door before the opening cutscene, or Dairren or Iona when
+one of them came to your room, and the people Howe's men have killed lie where
+they fell). Tests on plot flags, `else if` chains included, become kinds 14
+and 15; a load handler that branches on any other game state (anything but its
+"once" and debug checks, or a loop) is left out whole, since run
+unconditionally it would misplace people. A trigger
 script's `EVENT_TYPE_ENTER` case becomes `enter:<script>` (see Triggers below).
 A door's script (`bhn000ip_door_large_break`) gives `open:<tag>` for each
 `if (sTag == X)` in its `DoorOpened` helper, which `BP_Door` runs when the

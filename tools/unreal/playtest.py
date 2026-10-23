@@ -143,9 +143,19 @@ def dialogue(args):
     choosing option 1, until it ends or --lines pictures are taken."""
     run = Run("dialogue", args.area)
     run.start(simulate=False)
-    try:
-        for k in range(args.lines):
+    def wait_for_line(seconds):
+        t = time.time()
+        while time.time() - t < seconds:
             lines, opts = pie.dlg()
+            if lines or opts:
+                return lines, opts
+            time.sleep(2)
+        return [], []
+
+    try:
+        # the first conversation can start well after the level (a caption runs ~25 s at night)
+        lines, opts = wait_for_line(60)
+        for k in range(args.lines):
             print(k, lines[:2], [o[0] for o in opts][:3])
             time.sleep(1.5)
             run.shot("line_%02d" % k)
@@ -153,6 +163,7 @@ def dialogue(args):
                 break
             pie.cmd("ke * Choose 0")
             time.sleep(2.5)
+            lines, opts = wait_for_line(8)  # the next line, or the next conversation the plot starts
     finally:
         run.finish()
 

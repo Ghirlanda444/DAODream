@@ -808,6 +808,49 @@ class NightLogicTests(unittest.TestCase):
         self.assertEqual(acts["enter:my_area"], [(3, "mum", "", 1), (10, "team:7", "", 1),
                                                  (11, "scribe", "exit_wp", 1)])
 
+    def test_load_special_flag_chain(self):
+        # AREALOAD_SPECIAL runs before the other load cases; an else-if chain on plot flags is kept as
+        # kinds 14/15, while a test on anything else leaves the whole case out.
+        script = """
+            void main()
+            {
+                object oFriend = UT_GetNearestCreatureByTag(oPC, MY_CR_FRIEND);
+                object oGuest = UT_GetNearestCreatureByTag(oPC, MY_CR_GUEST);
+                object oServant = UT_GetNearestCreatureByTag(oPC, MY_CR_SERVANT);
+                switch (nEventType)
+                {
+                    case EVENT_TYPE_AREALOAD_PRELOADEXIT:
+                    {
+                        object oBody = GetObjectByTag("cook");
+                        KillCreature(oBody);
+                        break;
+                    }
+                    case EVENT_TYPE_AREALOAD_SPECIAL:
+                    {
+                        if (nAreaOnce == FALSE)
+                        {
+                            int nFriend = WR_GetPlotFlag(PLT_MY_MAIN, BATTLE);
+                            int nGuest = WR_GetPlotFlag(PLT_MY_MAIN, PRELUDE);
+                            if (nFriend == TRUE) { WR_SetObjectActive(oFriend, TRUE); }
+                            else if (nGuest == TRUE) { WR_SetObjectActive(oGuest, TRUE); }
+                            else { WR_SetObjectActive(oServant, TRUE); }
+                        }
+                        break;
+                    }
+                }
+            }
+        """
+        consts = {"MY_CR_FRIEND": "friend", "MY_CR_GUEST": "guest", "MY_CR_SERVANT": "servant"}
+        t = plotlogic.translate_events(script, self.PLOTS, consts, "my_area")
+        acts = [(a["kind"], a["target"], a["arg"], a["value"]) for a in t["cases"]["load:my_area"]]
+        self.assertEqual(acts, [(14, "1", "AAAA:0", 2), (3, "friend", "", 1), (15, "", "", 4),
+                                (14, "1", "AAAA:1", 2), (3, "guest", "", 1), (15, "", "", 1),
+                                (3, "servant", "", 1), (12, "cook", "", 1)])
+        state = script.replace("if (nFriend == TRUE)", "if (GetLevel(oPC) > 3)")
+        t = plotlogic.translate_events(state, self.PLOTS, consts, "my_area")
+        self.assertEqual([(a["kind"], a["target"]) for a in t["cases"]["load:my_area"]], [(12, "cook")])
+        self.assertTrue(any("AREALOAD_SPECIAL branches on game state" in s for s in t["skipped"]))
+
     def test_defined_flags(self):
         script = """
             void main()
