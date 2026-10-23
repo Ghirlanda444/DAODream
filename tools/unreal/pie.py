@@ -13,24 +13,18 @@ W = "/Game/Cousland/Maps/UEDPIE_0_L_CastleNight.L_CastleNight:PersistentLevel."
 
 
 PLAY = {"refPath": "/Script/UnrealEd.Default__LevelEditorPlaySettings"}
-_SOUND = []  # the user's game-sound setting while a test runs muted
 
 
 def start(simulate=False):
-    """Play or Simulate with the game's sound off (voices and music woke the household, 2026-10-23);
-    stop() puts the user's setting back."""
-    if not _SOUND:
-        r = json.loads(ue.call(OT, "get_properties", {"instance": PLAY, "properties": ["EnableGameSound"]}))["returnValue"]
-        _SOUND.append(json.loads(r)["EnableGameSound"] if isinstance(r, str) else r["EnableGameSound"])
+    """Play or Simulate, always with the game's sound off: the voices and music woke the user's
+    household (2026-10-23), and the user asked for no sound in game at all. The setting is also saved
+    off in the editor's per-user config (EnableGameSound=False)."""
     ue.call(OT, "set_properties", {"instance": PLAY, "values": json.dumps({"EnableGameSound": False})})
     return ue.call(EA, "StartPIE", {"options": {"bSimulate": simulate, "playMode": "PlayMode_InViewPort"}})
 
 
 def stop():
-    r = ue.call(EA, "StopPIE", {})
-    if _SOUND:
-        ue.call(OT, "set_properties", {"instance": PLAY, "values": json.dumps({"EnableGameSound": _SOUND.pop()})})
-    return r
+    return ue.call(EA, "StopPIE", {})
 
 
 _BOX = []
