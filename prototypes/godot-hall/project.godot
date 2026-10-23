@@ -1,0 +1,22 @@
+; Engine configuration file.
+; DAODream Great Hall style test (Godot 4.7).
+
+config_version=5
+
+[application]
+
+config/name="DAODream Hall Test"
+config/description="Castle Cousland's great hall built from primitives, drawn in ink and cel."
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.7", "Forward Plus")
+
+[display]
+
+window/size/viewport_width=1600
+window/size/viewport_height=900
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+anti_aliasing/quality/msaa_3d=2
+lights_and_shadows/directional_shadow/size=2048
