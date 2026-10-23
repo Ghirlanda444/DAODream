@@ -61,8 +61,21 @@ imported to `Content/ThirdParty/Megascans/Castle/<Kind>/T_<Kind>_<Map>`
 `/Game/Cousland/Materials/M_CastleScan` (committed, engine functions only)
 projects a texture set on the three world planes (`WorldAlignedTexture`,
 `WorldAlignedNormal`), so the scaled-cube castle needs no UVs; parameters
-`TexBaseColor/Normal/Roughness/AO`, `TileSize` (cm per repeat), `Tint`,
-`RoughnessScale`. The instances `MI_Castle_<Kind>` live with the textures.
+`TexBaseColor/Normal/Roughness/AO/Displacement`, `TileSize` (cm per repeat),
+`Tint`, `RoughnessScale`, `DisplacementAmount`. The instances `MI_Castle_<Kind>`
+live with the textures. `tools/unreal/castle_scan.body.py` builds all of it
+(run it with `pyrun`; safe to run again).
+
+The surfaces have real relief: the scan's displacement map drives Nanite
+tessellation (on by default in UE 5.8, `r.Nanite.Tessellation`; the material
+has Enable Tessellation set), so mortar joints and plank gaps cut into the boxes. Only
+Nanite meshes are displaced, so `BP_AreaLoader`'s Walls, Blockers, Floors and
+Ceilings draw `/Game/Cousland/Areas/SM_NaniteCube` (the engine cube with Nanite
+on), and `M_CastleSurface` is flagged for Nanite. The relief only goes inward,
+up to 6 cm times `DisplacementAmount` (walls 1, plaster 0.5, floors and
+ceilings 0.4, doors and props 0): a box's faces move along their own normals,
+and outward they would part at its edges and show cracks. The game's collision
+stays on the flat box.
 `BP_AreaLoader.BuildSolids` ends with `ApplyScanArt`, which calls
 `SetScan(component, path)` per component: it loads the instance by its path
 and sets it only if it exists. `BP_Door.Setup` calls `ScanArt` the same way.
