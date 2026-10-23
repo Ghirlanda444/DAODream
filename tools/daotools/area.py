@@ -607,6 +607,23 @@ def tuck_lights(lights: list[float], solids: list[float], below: float = 30.0) -
 CANDLE_LIGHT = 0.25  # candles' own lights, scaled: the game lights each lit candle like a torch
 
 
+def soften_fills(lights: list[float], keep: float = 0.3, toward=(1.0, 0.8, 0.6)) -> tuple[list[float], int]:
+    """The game's dim lights (brightest channel under 0.8, the fills: lamps and fires are brighter)
+    turned toward `toward`, keeping `keep` of their own tint and their brightness. The game lit its
+    interiors by day with cool "window bounce" fills over warm baked light; here, with no baked light
+    and the castle's warm white balance, they read deep blue (the larder, the great hall)."""
+    out, n = list(lights), 0
+    for i in range(0, len(out), 7):
+        rgb = out[i + 4:i + 7]
+        top = max(rgb)
+        if not 0 < top < 0.8:
+            continue
+        mixed = [t * (1 - keep) + c / top * keep for t, c in zip(toward, rgb)]
+        out[i + 4:i + 7] = [round(m / max(mixed) * top, 3) for m in mixed]
+        n += 1
+    return out, n
+
+
 def dim_candle_lights(lights: list[float], fires: list[float], scale: float = CANDLE_LIGHT,
                       near: float = 50.0) -> tuple[list[float], int]:
     """Scale the colour (and so the brightness) of lights within `near` cm of a
@@ -704,12 +721,13 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
          creature_stats=None, player: dict | None = None, ambient_tables: dict | None = None,
          trigger_templates: dict[str, dict] | None = None, extra_creatures: list[tuple[str, str]] = (),
          lights: list[float] | None = None, fill: float = 0.0, fill_tint=FILL_COLOUR,
-         fixtures: dict | None = None) -> dict:
+         fixtures: dict | None = None, soften: float | None = None) -> dict:
     """The runtime area file. `solids` (kit.solids, from the layout's rooms) replaces
     the navigation grid's walls with the level kit's walls, props, blockers and
     ceilings; `lights` (kit.lights) are the rooms' point lights, and `fill` above 0
     adds dim fill lights of that brightness and `fill_tint` where they do not reach
-    (fill_lights). `fixtures` (kit.fixtures) are the rooms' lamps and fires
+    (fill_lights); `soften` turns the game's own fills toward warm white, keeping that much of
+    their tint (soften_fills). `fixtures` (kit.fixtures) are the rooms' lamps and fires
     (hang_fixtures).
     `creature_stats` (utc -> stats.stats() dict) and `player` add the game's combat
     numbers (see stats.py). `ambient_tables` (ambient.load_tables) adds what each
@@ -849,6 +867,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         lid_boxes, lidded = lids(boxes, solid_boxes)
         solid_boxes += lid_boxes
     lights = list(lights or [])
+    lights, softened = soften_fills(lights, soften) if soften is not None else (lights, 0)
     filled = fill_lights(lights, boxes, fill, tint=fill_tint) if fill > 0 else []
     lights, tucked = tuck_lights(lights + filled, solid_boxes)
     hung, fires = hang_fixtures((fixtures or {}).get("Fixtures", []), (fixtures or {}).get("Fires", []), solid_boxes)

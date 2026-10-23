@@ -428,7 +428,8 @@ def cmd_unreal_area(args) -> int:
                     ambient_tables=ambient_tables, trigger_templates=area.trigger_templates(args.pull),
                     extra_creatures=[tuple(x.split("@", 1)) for x in args.add_creature or []], lights=lights,
                     fill=args.fill_lights,
-                    fill_tint=area.WARM_FILL_COLOUR if args.warm_fills else area.FILL_COLOUR, fixtures=fixtures)
+                    fill_tint=area.WARM_FILL_COLOUR if args.warm_fills else area.FILL_COLOUR, fixtures=fixtures,
+                    soften=0.3 if args.warm_fills else None)
     s = out["Summary"]
     print(f"{out['Area']}: {s['Floors']} floor boxes, {s['Walls']} grid walls, {s['Solids']} kit solids "
           f"({s['DoorwaysCut']} doorways cut, {s['DoorFrames']} door frames, "
@@ -594,7 +595,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="add dim fill lights (cool, see --warm-fills) of this brightness (e.g. 0.25) where the rooms' lights do not "
                         "reach the floor, standing in for the game's baked ambient light (night areas)")
     s.add_argument("--warm-fills", action="store_true",
-                   help="make those fill lights warm (candle- and hearth-lit rooms by day) instead of cool")
+                   help="make those fill lights warm (candle- and hearth-lit rooms by day) instead of cool, and turn "
+                        "the game's own cool fills toward warm white too (area.soften_fills)")
     s.add_argument("--placeable-types", help="placeable_types.gda (else read from --game), to size doors from "
                                              "their models")
     s.add_argument("--out")

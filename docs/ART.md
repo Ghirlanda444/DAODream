@@ -106,6 +106,14 @@ remake lacks, so the area export can add its own fills where no game light
 reaches the floor (`--fill-lights`, `area.fill_lights`): cool ones at night,
 warm ones by day (`--warm-fills`).
 
+By day the game's own fills are cool too (window bounce, about 0.2, 0.26,
+0.3), meant to sit over its warm baked light. Without that, normalised to full
+colour and under the castle's 4200 K white balance, they turned the larder and
+the great hall deep blue. With `--warm-fills` the export turns them toward the
+same warm white as its own fills, keeping 30% of their tint and their
+brightness (`area.soften_fills`); lamps and fires (0.8 and brighter) keep their
+colour, and the night keeps its cool fills.
+
 | Level | `LightScale` | `FillScale` | Export fills | Exposure |
 | --- | --- | --- | --- | --- |
 | `L_CastleCousland` | 72 | 144 | 0.3, warm (162 lights) | auto, -3 to 6 EV100 |

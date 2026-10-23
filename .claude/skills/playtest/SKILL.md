@@ -52,4 +52,6 @@ loader needs ~100 s to build the castle): run it in the background or with a lon
   one stops the other's). Ask the user before bringing the editor window to the front.
 - The editor must be open with its MCP server up (the unreal-editor skill: "Connecting").
 - `playtest.py` turns off background throttling for the run and restores it after.
+- Tests are silent: `pie.start` turns the game's sound off (`EnableGameSound`) and `pie.stop` restores
+  it. Never start Play or Simulate any other way: the voices and music woke the user's household.
 - Send the user the sheet (SendUserFile) and say what was and was not seen.

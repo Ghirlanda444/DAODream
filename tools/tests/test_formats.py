@@ -483,6 +483,16 @@ class KitTests(unittest.TestCase):
     BLOCK_MMH = {"_struct": "mdlh", "6999": [{"_struct": "node", "6999": [
         {"_struct": "bbox", "6054": [-1.0, -0.5, 0.0, 1.0], "6055": [1.0, 0.5, 3.0, 1.0]}]}]}
 
+    def test_soften_fills(self):
+        # A cool fill keeps 30% of its tint, turned toward warm white at the same brightness; a lamp is untouched.
+        lights = [0, 0, 0, 600, 0.2, 0.26, 0.29, 0, 0, 0, 600, 1.2, 0.7, 0.3]
+        out, n = area.soften_fills(lights, 0.3)
+        self.assertEqual(n, 1)
+        self.assertEqual(out[7:], lights[7:])
+        r, g, b = out[4:7]
+        self.assertAlmostEqual(max(r, g, b), 0.29, places=3)
+        self.assertGreater(r, b)  # now warmer than it is blue
+
     def test_kit_meshes(self):
         # A barrel (bbox 2 x 1 x 3 m, see BLOCK_MMH) turned 90 degrees, mapped to a mesh 100 x 100 x 150 cm
         # whose pivot is its base: fitted to the piece's height, its base on the piece's bottom.
