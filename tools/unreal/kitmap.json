@@ -1,0 +1,469 @@
+{
+ "meshes": {
+  "WoodenBarrel": {
+   "path": "/Game/ThirdParty/Megascans/Props/WoodenBarrel/SM_WoodenBarrel",
+   "bounds": [
+    -0.07,
+    0.02,
+    47.68,
+    34.76,
+    34.7,
+    48.36
+   ]
+  },
+  "WoodenChair": {
+   "path": "/Game/ThirdParty/Megascans/Props/WoodenChair/SM_WoodenChair",
+   "bounds": [
+    0.0,
+    0.0,
+    41.57,
+    24.44,
+    21.59,
+    41.87
+   ]
+  },
+  "WoodenTable": {
+   "path": "/Game/ThirdParty/Megascans/Props/WoodenTable/SM_WoodenTable",
+   "bounds": [
+    0.0,
+    0.0,
+    25.95,
+    39.22,
+    39.27,
+    26.15
+   ]
+  },
+  "WoodenBench": {
+   "path": "/Game/ThirdParty/Megascans/Props/WoodenBench/SM_WoodenBench",
+   "bounds": [
+    -0.1,
+    -0.25,
+    29.33,
+    76.0,
+    15.62,
+    29.41
+   ]
+  },
+  "WoodenShelf": {
+   "path": "/Game/ThirdParty/Megascans/Props/WoodenShelf/SM_WoodenShelf",
+   "bounds": [
+    0.0,
+    9.33,
+    0.0,
+    42.59,
+    9.55,
+    11.53
+   ]
+  },
+  "WoodenBookshelf": {
+   "path": "/Game/ThirdParty/Megascans/Props/WoodenBookshelf/SM_WoodenBookshelf",
+   "bounds": [
+    0.22,
+    12.1,
+    -0.07,
+    54.86,
+    12.12,
+    54.25
+   ]
+  },
+  "WoodenBucket": {
+   "path": "/Game/ThirdParty/Megascans/Props/WoodenBucket/SM_WoodenBucket",
+   "bounds": [
+    -0.38,
+    -0.38,
+    14.79,
+    16.58,
+    15.97,
+    15.14
+   ]
+  },
+  "WoodenPot": {
+   "path": "/Game/ThirdParty/Megascans/Props/WoodenPot/SM_WoodenPot",
+   "bounds": [
+    0.0,
+    0.0,
+    6.92,
+    10.38,
+    10.51,
+    7.0
+   ]
+  },
+  "OldBook": {
+   "path": "/Game/ThirdParty/Megascans/Props/OldBook/SM_OldBook",
+   "bounds": [
+    0.02,
+    -0.03,
+    9.54,
+    1.11,
+    6.74,
+    9.59
+   ]
+  },
+  "WineBottle": {
+   "path": "/Game/ThirdParty/Megascans/Props/WineBottle/SM_WineBottle",
+   "bounds": [
+    0.0,
+    0.0,
+    0.0,
+    4.08,
+    4.1,
+    12.75
+   ]
+  },
+  "Jug": {
+   "path": "/Game/ThirdParty/Megascans/Props/Jug/SM_Jug",
+   "bounds": [
+    0.0,
+    0.0,
+    8.46,
+    7.85,
+    6.6,
+    8.52
+   ]
+  },
+  "Tankard": {
+   "path": "/Game/ThirdParty/Megascans/Props/Tankard/SM_Tankard",
+   "bounds": [
+    0.9,
+    -0.39,
+    8.96,
+    9.64,
+    5.88,
+    9.05
+   ]
+  },
+  "Goblet": {
+   "path": "/Game/ThirdParty/Megascans/Props/Goblet/SM_Goblet",
+   "bounds": [
+    -0.0,
+    0.0,
+    7.45,
+    3.71,
+    3.7,
+    7.46
+   ]
+  },
+  "Plate": {
+   "path": "/Game/ThirdParty/Megascans/Props/Plate/SM_Plate",
+   "bounds": [
+    0.02,
+    0.06,
+    1.13,
+    10.86,
+    10.9,
+    1.17
+   ]
+  },
+  "Bowl": {
+   "path": "/Game/ThirdParty/Megascans/Props/Bowl/SM_Bowl",
+   "bounds": [
+    0.01,
+    0.06,
+    2.59,
+    6.48,
+    6.49,
+    2.74
+   ]
+  },
+  "BigBowl": {
+   "path": "/Game/ThirdParty/Megascans/Props/BigBowl/SM_BigBowl",
+   "bounds": [
+    -0.0,
+    -0.0,
+    6.18,
+    7.39,
+    7.54,
+    6.26
+   ]
+  },
+  "Knife": {
+   "path": "/Game/ThirdParty/Megascans/Props/Knife/SM_Knife",
+   "bounds": [
+    0.06,
+    3.35,
+    1.75,
+    2.78,
+    17.93,
+    1.75
+   ]
+  },
+  "Bread": {
+   "path": "/Game/ThirdParty/Megascans/Props/Bread/SM_Bread",
+   "bounds": [
+    -0.01,
+    -0.05,
+    3.8,
+    10.54,
+    10.18,
+    3.95
+   ]
+  },
+  "Pie": {
+   "path": "/Game/ThirdParty/Megascans/Props/Pie/SM_Pie",
+   "bounds": [
+    0.0,
+    0.0,
+    3.4,
+    8.88,
+    8.78,
+    3.4
+   ]
+  },
+  "Fish": {
+   "path": "/Game/ThirdParty/Megascans/Props/Fish/SM_Fish",
+   "bounds": [
+    -2.1,
+    0.0,
+    0.0,
+    15.12,
+    2.51,
+    1.96
+   ]
+  },
+  "Squash": {
+   "path": "/Game/ThirdParty/Megascans/Props/Squash/SM_Squash",
+   "bounds": [
+    -0.0,
+    0.02,
+    0.0,
+    6.04,
+    6.0,
+    10.5
+   ]
+  },
+  "Apple": {
+   "path": "/Game/ThirdParty/Megascans/Props/Apple/SM_Apple",
+   "bounds": [
+    0.0,
+    0.0,
+    0.0,
+    4.41,
+    4.5,
+    4.26
+   ]
+  },
+  "Grapes": {
+   "path": "/Game/ThirdParty/Megascans/Props/Grapes/SM_Grapes",
+   "bounds": [
+    0.0,
+    1.1,
+    9.45,
+    7.08,
+    6.15,
+    9.41
+   ]
+  },
+  "Chicken": {
+   "path": "/Game/ThirdParty/Megascans/Props/Chicken/SM_Chicken",
+   "bounds": [
+    -0.53,
+    -0.33,
+    4.02,
+    9.28,
+    4.94,
+    4.02
+   ]
+  },
+  "LongTable": {
+   "path": "/Game/ThirdParty/Megascans/Props/LongTable/SM_LongTable",
+   "bounds": [
+    -4.72,
+    0.73,
+    35.39,
+    145.46,
+    41.08,
+    35.88
+   ]
+  },
+  "BanquetBench": {
+   "path": "/Game/ThirdParty/Megascans/Props/BanquetBench/SM_BanquetBench",
+   "bounds": [
+    -0.1,
+    -0.25,
+    29.33,
+    76.0,
+    15.62,
+    29.41
+   ]
+  },
+  "BarrelStand": {
+   "path": "/Game/ThirdParty/Megascans/Props/BarrelStand/SM_BarrelStand",
+   "bounds": [
+    -3.3,
+    0.0,
+    52.51,
+    23.73,
+    24.1,
+    52.71
+   ]
+  },
+  "Urn": {
+   "path": "/Game/ThirdParty/Megascans/Props/Urn/SM_Urn",
+   "bounds": [
+    0.0,
+    0.48,
+    30.04,
+    22.72,
+    22.75,
+    30.01
+   ]
+  }
+ },
+ "pieces": [
+  {
+   "match": "prp_barrel*",
+   "mesh": "WoodenBarrel",
+   "fit": "uniform"
+  },
+  {
+   "match": "prp_brrl*",
+   "mesh": "WoodenBarrel",
+   "fit": "uniform"
+  },
+  {
+   "match": "prp_chair*",
+   "mesh": "WoodenChair",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_fertbllng*",
+   "mesh": "LongTable",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_table*",
+   "mesh": "LongTable",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_tabletall*",
+   "mesh": "LongTable",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_desklarge*",
+   "mesh": "LongTable",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_roundtable*",
+   "mesh": "WoodenTable",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_benchlog*",
+   "mesh": "WoodenBench",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_bnchlng*",
+   "mesh": "BanquetBench",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_sngleshlve*",
+   "mesh": "WoodenShelf",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_smshelf*",
+   "mesh": "WoodenBookshelf",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_shelf*",
+   "mesh": "WoodenBookshelf",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_lrgbkslf*",
+   "mesh": "WoodenBookshelf",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_bkslf*",
+   "mesh": "WoodenBookshelf",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_bucket*",
+   "mesh": "WoodenBucket",
+   "fit": "uniform"
+  },
+  {
+   "match": "prp_pot0*",
+   "mesh": "WoodenPot",
+   "fit": "uniform"
+  },
+  {
+   "match": "prp_potweathered*",
+   "mesh": "WoodenPot",
+   "fit": "uniform"
+  },
+  {
+   "match": "prp_cupwood*",
+   "mesh": "Tankard",
+   "fit": "uniform"
+  },
+  {
+   "match": "prp_bottlewine*",
+   "mesh": "WineBottle",
+   "fit": "uniform"
+  },
+  {
+   "match": "prp_jugofwater*",
+   "mesh": "Jug",
+   "fit": "uniform"
+  },
+  {
+   "match": "prp_bowlwood*",
+   "mesh": "Bowl",
+   "fit": "uniform"
+  },
+  {
+   "match": "prp_bowlfruit*",
+   "mesh": "Bowl",
+   "fit": "uniform"
+  },
+  {
+   "match": "prp_fdbrd*",
+   "mesh": "Bread",
+   "fit": "uniform"
+  },
+  {
+   "match": "prp_foodpie*",
+   "mesh": "Pie",
+   "fit": "uniform"
+  },
+  {
+   "match": "prp_foodfish*",
+   "mesh": "Fish",
+   "fit": "uniform"
+  },
+  {
+   "match": "prp_fdvgsquash*",
+   "mesh": "Squash",
+   "fit": "uniform"
+  },
+  {
+   "match": "prp_fdvgtomato*",
+   "mesh": "Apple",
+   "fit": "uniform"
+  },
+  {
+   "match": "prp_tlckknife*",
+   "mesh": "Knife",
+   "fit": "uniform"
+  },
+  {
+   "match": "prp_ferbook0*",
+   "mesh": "OldBook",
+   "fit": "uniform"
+  },
+  {
+   "match": "prp_ferbookopn*",
+   "mesh": "OldBook",
+   "fit": "uniform"
+  }
+ ]
+}

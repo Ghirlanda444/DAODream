@@ -483,6 +483,30 @@ class KitTests(unittest.TestCase):
     BLOCK_MMH = {"_struct": "mdlh", "6999": [{"_struct": "node", "6999": [
         {"_struct": "bbox", "6054": [-1.0, -0.5, 0.0, 1.0], "6055": [1.0, 0.5, 3.0, 1.0]}]}]}
 
+    def test_kit_meshes(self):
+        # A barrel (bbox 2 x 1 x 3 m, see BLOCK_MMH) turned 90 degrees, mapped to a mesh 100 x 100 x 150 cm
+        # whose pivot is its base: fitted to the piece's height, its base on the piece's bottom.
+        q90 = [0.0, 0.0, math.sqrt(0.5), math.sqrt(0.5)]
+        room = {"4": [0.0, 0.0, 0.0], "5": [0.0, 0.0, 0.0, 1.0], "3050": [
+            {"3063": "prp_barrel01_0", "4": [1.0, 2.0, 0.0], "5": q90, "3059": 1.0},
+            {"3063": "prp_chair_0", "4": [0.0, 0.0, 0.0], "5": [0.0, 0.0, 0.0, 1.0]}]}
+        pieces = {"prp_barrel01_0": (None, self.BLOCK_MMH), "prp_chair_0": (None, self.BLOCK_MMH)}
+        kit_map = {"meshes": {"Barrel": {"path": "/Game/X/SM_Barrel", "bounds": [0, 0, 75, 50, 50, 75]},
+                              "Chair": {"path": "/Game/X/SM_Chair", "bounds": [0, 0, 75, 50, 50, 75]}},
+                   "pieces": [{"match": "prp_barrel*", "mesh": "Barrel"},
+                              {"match": "prp_chair*", "mesh": "Chair", "fit": "stretch"}]}
+        out = kit.kit_meshes([room], pieces, kit_map, has_mesh=lambda p: p.endswith("Barrel"))
+        self.assertEqual(out["KitMeshes"], ["/Game/X/SM_Barrel.SM_Barrel"])
+        self.assertEqual(out["Mapped"], {"prp_barrel01_0"})  # the chair's mesh is missing: it stays a box
+        p = out["KitPlaced"]
+        self.assertEqual(p[:3], [100.0, -200.0, 0.0])  # base on the floor, Y mirrored for Unreal
+        self.assertEqual(p[3:6], [2.0, 2.0, 2.0])  # 3 m tall piece / 1.5 m mesh
+        self.assertEqual([round(v, 3) for v in p[6:9]], [0.0, -1.0, 0.0])  # +90 in the game is -90 in Unreal
+        self.assertEqual(p[12], 0)
+        stretched = kit.kit_meshes([room], pieces, kit_map)["KitPlaced"][13:]
+        self.assertEqual(stretched[3:6], [2.0, 1.0, 2.0])  # 2 x 1 x 3 m from a 1 x 1 x 1.5 m mesh
+        self.assertEqual(kit.solids([room], pieces | {"blk": (None, None)}, skip={"prp_barrel01_0"})["Summary"]["Props"], 1)
+
     def test_solids(self):
         q90 = [0.0, 0.0, math.sqrt(0.5), math.sqrt(0.5)]  # 90 degrees about Z
         room = {"4": [10.0, 20.0, 1.0], "5": q90, "3050": [

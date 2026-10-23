@@ -383,8 +383,14 @@ def cmd_unreal_area(args) -> int:
         if args.game:
             got = kit.pull(args.game, names, args.kit)
             print(f"kit: {got['Files']} files, {len(got['Missing'])} models without any", file=sys.stderr)
-        solids = kit.solids(rooms, kit.load_kit(args.kit, names))
-        print(f"kit: {solids['Summary']}", file=sys.stderr)
+        pieces = kit.load_kit(args.kit, names)
+        kit_map = json.loads(Path(args.kit_map).read_text(encoding="utf-8")) if Path(args.kit_map).exists() else {}
+        content = Path(args.content)
+        meshes = kit.kit_meshes(rooms, pieces, kit_map,
+                                lambda path: (content / (path.removeprefix("/Game/") + ".uasset")).exists())
+        solids = kit.solids(rooms, pieces, skip=meshes["Mapped"])
+        print(f"kit: {solids['Summary']}; {len(meshes['KitPlaced']) // 13} pieces as {len(meshes['KitMeshes'])} meshes "
+              f"({len(meshes['Mapped'])} models mapped)", file=sys.stderr)
         lights = kit.lights(rooms, kit.load_light_models(args.rooms))
         fixtures = kit.fixtures(rooms)
     door_models = None
@@ -434,6 +440,8 @@ def cmd_unreal_area(args) -> int:
           f"{s['Waypoints']} waypoints, {s['Doors']} doors, {len(out['Labels'])} room labels", file=sys.stderr)
     for w in out["Warnings"]:
         print(f"warning: {w}", file=sys.stderr)
+    if args.rooms:
+        out["KitMeshes"], out["KitPlaced"] = meshes["KitMeshes"], meshes["KitPlaced"]
     _write(json.dumps(out, ensure_ascii=False) + "\n", args.out)
     return 0
 
@@ -572,6 +580,10 @@ def build_parser() -> argparse.ArgumentParser:
                                    "blockers and ceilings from the level kit instead of the navigation grid, "
                                    "and the rooms' lights (*_ll.mmh.json)")
     s.add_argument("--kit", default="extracted/kit/json", help="folder for the kit pieces' physics and hierarchy JSON")
+    s.add_argument("--kit-map", default=str(Path(__file__).resolve().parents[1] / "unreal" / "kitmap.json"),
+                   help="model name patterns -> Unreal meshes (default tools/unreal/kitmap.json)")
+    s.add_argument("--content", default=str(Path(__file__).resolve().parents[2] / "Unreal" / "Cousland" / "Content"),
+                   help="the Unreal project's Content folder: kit meshes not in it leave their pieces as boxes")
     s.add_argument("--game", help="game folder: pull the kit pieces the rooms use into --kit first")
     s.add_argument("--items", default="extracted/items/json", help="item templates (.uti.json, from pull "
                                                                     "'gen_im_wep*'), for the creatures' weapons")

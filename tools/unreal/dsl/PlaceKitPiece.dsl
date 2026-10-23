@@ -1,0 +1,10 @@
+(fn PlaceKitPiece (B)
+  (bind _k (Variabili|Predefinito|OttieniKitPlaced))
+  (bind _loc (Matematica|Vettore|MakeVector (Utilità|Array|Ottieni(unacopia) _k B) (Utilità|Array|Ottieni(unacopia) _k (Utility|Operatori|Aggiungi B 1)) (Utilità|Array|Ottieni(unacopia) _k (Utility|Operatori|Aggiungi B 2))))
+  (bind _scale (Matematica|Vettore|MakeVector (Utilità|Array|Ottieni(unacopia) _k (Utility|Operatori|Aggiungi B 3)) (Utilità|Array|Ottieni(unacopia) _k (Utility|Operatori|Aggiungi B 4)) (Utilità|Array|Ottieni(unacopia) _k (Utility|Operatori|Aggiungi B 5))))
+  (bind _x (Matematica|Vettore|MakeVector (Utilità|Array|Ottieni(unacopia) _k (Utility|Operatori|Aggiungi B 6)) (Utilità|Array|Ottieni(unacopia) _k (Utility|Operatori|Aggiungi B 7)) (Utilità|Array|Ottieni(unacopia) _k (Utility|Operatori|Aggiungi B 8))))
+  (bind _z (Matematica|Vettore|MakeVector (Utilità|Array|Ottieni(unacopia) _k (Utility|Operatori|Aggiungi B 9)) (Utilità|Array|Ottieni(unacopia) _k (Utility|Operatori|Aggiungi B 10)) (Utilità|Array|Ottieni(unacopia) _k (Utility|Operatori|Aggiungi B 11))))
+  (bind _ism (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniKitISMs) (Matematica|Float|Truncate (Utilità|Array|Ottieni(unacopia) _k (Utility|Operatori|Aggiungi B 12)))))
+  (Utilità|ControlloDiFlusso|Ramo (Utilità|IsValid _ism)
+    (:then
+      (Componenti|InstancedStaticMesh|AddInstance _ism (Matematica|Trasforma|MakeTransform _loc (Matematica|Rotatore|MakeRotFromXZ _x _z) _scale) "true"))))

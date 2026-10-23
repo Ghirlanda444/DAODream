@@ -15,6 +15,11 @@ Rooms also place lamps (`prp_ferlamp_*`, candle holders, torches) and fire
 effects (`fxe_fire_*`); `fixtures` lists where, so Unreal can put its own lamp
 meshes and flames there.
 
+`kit_meshes` does the same for any piece through a kit map (`tools/unreal/kitmap.json`):
+model name patterns -> an Unreal mesh, fitted to the piece's bounding box, so every area
+built from the same kit gets the same meshes. Mapped pieces lose their box (their mesh
+carries its collision); a mesh missing from the project leaves its pieces as boxes.
+
 Each room also places a light model (`<layout>_<room>_ll`, its `.mmh` in the
 layout's room archive) whose point-light nodes are the room's lamps, fireplaces
 and fill lights; `lights` places them like any other model.
@@ -33,6 +38,7 @@ Game coordinates are metres, right-handed, Z up; see area.py for Unreal's.
 
 from __future__ import annotations
 
+import fnmatch
 import json
 import math
 from pathlib import Path
@@ -154,11 +160,11 @@ def _qrot(q, v):
     return x, y, z
 
 
-def solids(rml_roots: list[dict], kit: dict[str, tuple[dict | None, dict | None]]) -> dict:
+def solids(rml_roots: list[dict], kit: dict[str, tuple[dict | None, dict | None]], skip=frozenset()) -> dict:
     """{"Solids": flat list, 13 numbers per box: center xyz, half extents xyz (Unreal
     cm), the box's X axis and Z axis (unit vectors in Unreal space) and kind (0 wall,
     1 prop, 2 blocker, 3 ceiling); "Summary": counts}. `kit` maps model name ->
-    (phy, mmh)."""
+    (phy, mmh); models in `skip` (placed as meshes, see kit_meshes) give no box."""
     out: list[float] = []
     summary = {"Walls": 0, "Props": 0, "Blockers": 0, "Ceilings": 0, "Skipped": 0, "NotBoxes": 0,
                "NoCollision": 0}
@@ -167,7 +173,7 @@ def solids(rml_roots: list[dict], kit: dict[str, tuple[dict | None, dict | None]
         for m in room.get("3050") or []:
             name = str(m.get("3063") or "").lower()
             piece = kind(name)
-            if piece is None:
+            if piece is None or name in skip:
                 summary["Skipped"] += 1
                 continue
             phy, mmh = kit.get(name, (None, None))
@@ -293,3 +299,77 @@ def door_models(templates: dict[str, dict], gda_records: list[dict], kit: dict[s
             (cx, _, _), _, (hx, _, hz) = box
             out[name] = (cx - hx, cx + hx, 2 * hz)
     return out
+
+
+def _matrix(q):
+    """3x3 rotation matrix (rows) of a quaternion x y z w."""
+    x, y, z, w = q
+    return [[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+            [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+            [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]]
+
+
+def _mul(a, b):
+    return [[sum(a[i][k] * b[k][j] for k in range(3)) for j in range(3)] for i in range(3)]
+
+
+def _apply(m, v):
+    return [sum(m[i][k] * v[k] for k in range(3)) for i in range(3)]
+
+
+_FLIP = [[1, 0, 0], [0, -1, 0], [0, 0, 1]]  # game -> Unreal (Y mirrored)
+
+
+def kit_map_entry(kit_map: dict, name: str) -> dict | None:
+    """The first piece rule whose pattern matches the model name, or None."""
+    for rule in kit_map.get("pieces", []):
+        if fnmatch.fnmatch(name, rule["match"]):
+            return rule
+    return None
+
+
+def kit_meshes(rml_roots: list[dict], kit: dict[str, tuple[dict | None, dict | None]], kit_map: dict,
+               has_mesh=lambda path: True) -> dict:
+    """{"KitMeshes": [mesh object paths], "KitPlaced": 13 numbers each: location xyz (Unreal cm), scale xyz,
+    X axis and Z axis (unit, Unreal), mesh index (into KitMeshes), "Mapped": the model names placed
+    as meshes}. A rule {"match": "prp_barrel*", "mesh": <name in kit_map["meshes"]>, "fit": "uniform" |
+    "stretch", "yaw": degrees} fits the mesh (its "bounds": centre and half extents, cm, measured in
+    Unreal) to the piece's bounding box: "uniform" scales it to the piece's height, "stretch" to all
+    three sizes; "yaw" turns it about its up axis first, for meshes made facing another way.
+    `has_mesh(path)` says whether the mesh is in the project."""
+    meshes, placed, mapped = [], [], set()
+    for room in rml_roots:
+        room_pos, room_rot = room.get("4") or [0, 0, 0], room.get("5") or [0, 0, 0, 1]
+        for m in room.get("3050") or []:
+            name = str(m.get("3063") or "").lower()
+            rule = kit_map_entry(kit_map, name)
+            mesh = kit_map.get("meshes", {}).get(rule["mesh"]) if rule else None
+            box = _bbox(kit.get(name, (None, None))[1])
+            if not mesh or not box or not mesh.get("bounds") or not has_mesh(mesh["path"]):
+                continue
+            mapped.add(name)
+            path = mesh["path"] + "." + mesh["path"].rsplit("/", 1)[-1]  # the object path Unreal loads
+            if path not in meshes:
+                meshes.append(path)
+            scale = float(m.get("3059") or 1.0)
+            world = [room_pos[i] + v for i, v in enumerate(_qrot(room_rot, m["4"]))]
+            rot = _mul(_mul(_FLIP, _matrix(_qmul(room_rot, m.get("5") or [0, 0, 0, 1]))), _FLIP)
+            loc = [world[0] * 100, -world[1] * 100, world[2] * 100]
+            centre = [box[0][0] * 100 * scale, -box[0][1] * 100 * scale, box[0][2] * 100 * scale]
+            half = [h * 100 * scale for h in box[2]]
+            a = math.radians(rule.get("yaw", 0))
+            turn = [[math.cos(a), -math.sin(a), 0], [math.sin(a), math.cos(a), 0], [0, 0, 1]]
+            # the piece's half sizes along the turned mesh's axes
+            along = [abs(turn[0][i]) * half[0] + abs(turn[1][i]) * half[1] + abs(turn[2][i]) * half[2] for i in range(3)]
+            mc, me = mesh["bounds"][:3], mesh["bounds"][3:]
+            if rule.get("fit", "uniform") == "stretch":
+                fit = [along[i] / max(me[i], 0.01) for i in range(3)]
+            else:
+                fit = [along[2] / max(me[2], 0.01)] * 3
+            q = _mul(rot, turn)
+            offset = _apply(q, [fit[i] * mc[i] for i in range(3)])
+            at = [loc[i] + _apply(rot, centre)[i] - offset[i] for i in range(3)]
+            xa, za = [q[i][0] for i in range(3)], [q[i][2] for i in range(3)]
+            placed += [*(round(v, 1) for v in at), *(round(v, 4) for v in fit), *(round(v, 4) for v in xa),
+                       *(round(v, 4) for v in za), meshes.index(path)]
+    return {"KitMeshes": meshes, "KitPlaced": placed, "Mapped": mapped}

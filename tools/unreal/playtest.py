@@ -187,6 +187,28 @@ def kill(args):
         run.finish()
 
 
+def view(args):
+    """Simulate: pictures from given camera poses "x,y,z,yaw,pitch" (cm, degrees), or "near:x,y,z" for
+    two views of a spot (from 4.5 m west and east of it, 2 m above, looking down at it)."""
+    run = Run("view", args.area)
+    run.start(simulate=True)
+    try:
+        k = 0
+        for pose in args.poses:
+            if pose.startswith("near:"):
+                x, y, z = (float(v) for v in pose[5:].split(","))
+                shots = [(x - 450, y, z + 200, 0, -24), (x + 450, y, z + 200, 180, -24)]
+            else:
+                shots = [tuple(float(v) for v in pose.split(","))]
+            for x, y, z, yaw, pitch in shots:
+                run.shot("view_%02d" % k, {"location": {"x": x, "y": y, "z": z},
+                                           "rotation": {"pitch": pitch, "yaw": yaw, "roll": 0},
+                                           "scale": {"x": 1, "y": 1, "z": 1}})
+                k += 1
+    finally:
+        run.finish()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = p.add_subparsers(dest="command", required=True)
@@ -199,6 +221,10 @@ def main():
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("--lines", type=int, default=8)
     s.set_defaults(fn=dialogue)
+    s = sub.add_parser("view", help=view.__doc__)
+    s.add_argument("area", choices=game.AREAS)
+    s.add_argument("poses", nargs="+")
+    s.set_defaults(fn=view)
     s = sub.add_parser("kill", help=kill.__doc__)
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("tag")

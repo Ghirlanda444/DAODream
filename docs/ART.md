@@ -164,6 +164,40 @@ and torches (41 by day), with its intensity and a random phase, and starts a
 of step from lamp to lamp. On screen a lit wall moves 5 to 15%; fills (the
 bounce light) stay steady.
 
+## Kit meshes (props)
+
+The level kit's pieces are named the same in every area of the game (`prp_barrel01_0`
+is a barrel in Castle Cousland, Redcliffe or Denerim), so a mesh mapped to a piece
+once dresses every area. `tools/unreal/kitmap.json` (committed) holds the rules
+(model name pattern -> mesh, `uniform` or `stretch` fit) and each mesh's measured
+bounds; `daotools unreal area` reads it (`kit.kit_meshes`) and writes `KitMeshes`
+(object paths) and `KitPlaced` (13 numbers per piece: location, scale, X and Z
+axes, mesh index), fitting each mesh to the piece's bounding box. A mapped piece
+loses its box (the mesh carries simple box collision); a mesh missing from the
+project's Content folder leaves its pieces as boxes, so a clone without the scans
+keeps the greybox. `BP_AreaLoader.BuildFixtures` calls `SpawnKitMeshes`: one
+instanced mesh component per mesh (`CreateKitISMs`), one instance per piece
+(`PlaceKitPiece`).
+
+The meshes are free Quixel Megascans scans from Fab (personal licence), unpacked
+in `extracted/fab/props/` and imported by `tools/unreal/kit_props.py` to the
+git-ignored `Content/ThirdParty/Megascans/Props/<Name>`: the Medieval Banquet pack
+(tables, bench, tableware, bread, pies, fruit, fish) and single scans (barrel,
+chair, square table, bench, shelf, bookshelf, bucket, pot, book). Each gets
+Nanite, a box collision and an instance of the committed `M_ScanProp`
+(BaseColor, Normal, Roughness, AO, Tint). Their 4K maps are cut to 2K before
+import: importing 4K ran this 16 GB PC out of memory once, and the importer stops
+when less than 1.5 GB is free. `M_ScanProp`'s linear samplers need a linear
+placeholder texture, or the material fails to compile and every prop shows the
+default grid.
+
+In the castle 544 pieces (day) and 529 (night) are scans: barrels, tables,
+chairs, benches, shelves, bookshelves, buckets, pots, tankards, bottles, jugs,
+bowls, food and books. Still boxes: sacks, beds, carpets, armour stands, statues,
+wall hangings, wood ledges; and the walls, pillars and arches, for which no free
+scan fits the kit's pieces (next: masonry meshes generated from the pieces'
+shapes).
+
 ## Next
 
 Normal detail (bevelled joints), vaulted rather than flat ceilings,
