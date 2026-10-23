@@ -39,6 +39,9 @@ look = a.get_editor_property("Look")
 '''
 
 
+SOUND = False  # tests are silent unless --sound (the user asks to hear them)
+
+
 class Run:
     def __init__(self, command, area):
         self.dir = os.path.join(OUT_ROOT, "%s-%s" % (command, time.strftime("%Y%m%d-%H%M%S")))
@@ -57,7 +60,7 @@ OUT["level"] = unreal.EditorLevelLibrary.get_editor_world().get_path_name()
 
     def start(self, simulate):
         pie.close_popups()
-        pie.start(simulate=simulate)
+        pie.start(simulate=simulate, sound=SOUND)
         time.sleep(100)  # the loader builds the castle and spawns everyone
         pie.close_popups()
         self.g = game.Game(self.area)
@@ -211,6 +214,7 @@ def view(args):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("--sound", action="store_true", help="play the game's sound (tests are silent otherwise)")
     sub = p.add_subparsers(dest="command", required=True)
     s = sub.add_parser("look", help=look.__doc__)
     s.add_argument("area", choices=game.AREAS)
@@ -230,6 +234,8 @@ def main():
     s.add_argument("tag")
     s.set_defaults(fn=kill)
     args = p.parse_args()
+    global SOUND
+    SOUND = args.sound
     args.fn(args)
 
 

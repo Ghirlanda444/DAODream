@@ -1,6 +1,6 @@
 """Play-in-editor helpers on top of ue.py.
 
-python pie.py start | stop | cmd "<console>" | props <obj> [names,..] | shot <file.png> | log <pattern> [n]
+python pie.py start [sim] [sound] | stop | cmd "<console>" | props <obj> [names,..] | shot <file.png> | log <pattern> [n]
 """
 import base64, json, sys, time
 import ue
@@ -15,16 +15,19 @@ W = "/Game/Cousland/Maps/UEDPIE_0_L_CastleNight.L_CastleNight:PersistentLevel."
 PLAY = {"refPath": "/Script/UnrealEd.Default__LevelEditorPlaySettings"}
 
 
-def start(simulate=False):
-    """Play or Simulate, always with the game's sound off: the voices and music woke the user's
-    household (2026-10-23), and the user asked for no sound in game at all. The setting is also saved
-    off in the editor's per-user config (EnableGameSound=False)."""
-    ue.call(OT, "set_properties", {"instance": PLAY, "values": json.dumps({"EnableGameSound": False})})
+def start(simulate=False, sound=False):
+    """Play or Simulate for a test, silent unless sound=True (the user asks to hear it): test runs'
+    voices and music woke the user's household (2026-10-23). stop() turns sound back on, so the user's
+    own Play has it."""
+    ue.call(OT, "set_properties", {"instance": PLAY, "values": json.dumps({"EnableGameSound": sound})})
     return ue.call(EA, "StartPIE", {"options": {"bSimulate": simulate, "playMode": "PlayMode_InViewPort"}})
 
 
 def stop():
-    return ue.call(EA, "StopPIE", {})
+    try:
+        return ue.call(EA, "StopPIE", {})
+    finally:
+        ue.call(OT, "set_properties", {"instance": PLAY, "values": json.dumps({"EnableGameSound": True})})
 
 
 _BOX = []
@@ -68,7 +71,7 @@ if __name__ == "__main__":
     ue.init()
     c, a = sys.argv[1], sys.argv[2:]
     if c == "start":
-        print(start(bool(a and a[0] == "sim")))
+        print(start("sim" in a, "sound" in a))
     elif c == "stop":
         print(stop())
     elif c == "cmd":
