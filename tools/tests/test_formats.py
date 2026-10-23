@@ -442,13 +442,15 @@ class AreaTests(unittest.TestCase):
         self.assertEqual((out["Summary"]["TalkingCreatures"], out["Summary"]["TeamOnly"]), (2, 1))
         self.assertEqual((out["WaypointTags"], out["WaypointPose"]), (["start"], [1100.0, -2100.0, 0.0, -90.0]))
         self.assertEqual(out["Summary"]["OtherCreatures"], 1)
-        # Looks: the head morph names the character in any module; adult humans also get a crowd face.
+        # Looks: the head morph names the character in any module; adult humans also get a crowd face, and the
+        # giant rat its own look.
         self.assertEqual(out["NpcMorph"], ["hm_bhn100_father", "", "hm_bhn100_father", ""])
-        self.assertEqual([k[:8] for k in out["NpcCrowd"]], ["crowd_m_", "crowd_m_", "crowd_m_", ""])
+        self.assertEqual([k[:8] for k in out["NpcCrowd"]], ["crowd_m_", "crowd_m_", "crowd_m_", "giant_ra"])
         self.assertEqual(out["NpcCrowd"][0], area.look_keys({}, 3, "bryce@10,20")[1])
-        # Crowd variety: per creature, stable for its key; zeros for those without a crowd face.
+        # Crowd variety: per creature, stable for its key; the giant rat gets its coat instead.
         self.assertEqual(len(out["NpcVariety"]), area.VARIETY * 4)
-        self.assertEqual(out["NpcVariety"][area.VARIETY * 3:], [0.0] * area.VARIETY)
+        rgb, mottle, bare = area.BEAST_COATS["giant_rat"]
+        self.assertEqual(out["NpcVariety"][area.VARIETY * 3:], [*rgb, mottle, bare] + [0.0] * (area.VARIETY - 5))
         v = area.variety("guard@1,2", "cth_com_c00")
         self.assertEqual(v, area.variety("guard@1,2", "cth_com_c00"))
         for k in range(3):  # skin between fair and light brown
@@ -459,6 +461,8 @@ class AreaTests(unittest.TestCase):
         self.assertEqual(area.mabari_coat("gen00fl_dog", "gen00fl_dog@0,0"), "fawn")
         self.assertIn(area.mabari_coat("dog_mabari_2", "bhn200cr_howe_panicked4@5,6"), area.MABARI_ENEMY)
         self.assertEqual(area.mabari_coat("bhn_rat", "rat@0,0"), "")
+        self.assertEqual(area.beast_look("bhn100cr_rat_giant"), "giant_rat")
+        self.assertEqual(area.beast_look("gen00fl_dog"), "")
         self.assertEqual(area.coat_variety("fawn")[:5], [0.36, 0.215, 0.10, 0.0, 0.0])
         # Children (kn_* heads) stand smaller, and get no crowd face.
         self.assertEqual(area.stand_in_scale(3, 0, "kn_bhn100_oren"), area.CHILD_SCALE)

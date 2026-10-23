@@ -262,6 +262,20 @@ def mabari_coat(template: str, key: str) -> str:
     return ""
 
 
+# Animals with a look of their own (BP_DlgNPC LookTags), by a part of their template's name: the giant rat
+# (bhn100cr_rat_giant in the castle's larder) wears BP_GiantRat, reshaped from the Animal Variety Pack's fox.
+BEAST_LOOKS = (("rat_giant", "giant_rat"),)
+# Their coats, as the mabari's (M_Mabari's custom primitive data): the rat a dirty brown-grey, mottled, its
+# bare skin (vertex colour R) in MI_GiantRat's flesh pink.
+BEAST_COATS = {"giant_rat": ((0.085, 0.07, 0.055), 0.35, 0.0)}
+
+
+def beast_look(template: str) -> str:
+    """The look key of an animal with a look of its own, or ""."""
+    template = template.lower()
+    return next((key for part, key in BEAST_LOOKS if part in template), "")
+
+
 def coat_variety(coat: str) -> list[float]:
     """NpcVariety for a mabari: its coat's custom primitive data (r, g, b, brindle, no kaddis), then zeros."""
     rgb, brindle, unpainted = MABARI_COATS[coat]
@@ -741,7 +755,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     npc_team, npc_scale, npc_hostile, npc_rank, npc_dead, npc_ally = [], [], [], [], [], []
     npc_morph, npc_crowd, npc_variety = [], [], []
     npc_health, npc_attack, npc_defense, npc_damage, npc_dscale = [], [], [], [], []
-    npc_outfit, npc_chest, npc_armour, npc_shield = [], [], [], []
+    npc_outfit, npc_chest, npc_helmet, npc_armour, npc_shield = [], [], [], [], []
     npc_ambient, npc_ambient_prefix = [], []
     creatures = list(are_root.get("CreatureList") or [])
     waypoints = {w.get("Tag"): w for w in are_root.get("WaypointList") or []}
@@ -797,13 +811,19 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
             outfit = st.get("Outfit") or {}
             npc_outfit.append(",".join("%s=%s" % (k, outfit[k]) for k in sorted(outfit)))
             npc_chest.append(outfit.get("chest", "").removeprefix("gen_im_"))
+            npc_helmet.append(outfit.get("helmet", "").removeprefix("gen_im_arm_hel_"))  # med_hel, lgt_ltr...
             npc_armour.append(st.get("Armour", 0.0))
             npc_shield.append(st.get("ShieldDefense", 0.0))
         chest = npc_chest[-1] if creature_stats is not None else ""
         coat = mabari_coat(str(c.get("TemplateResRef", "")), key)
+        beast = beast_look(str(c.get("TemplateResRef", "")))
         if coat:  # the mabari look takes the crowd key's place
             npc_crowd[-1] = "mabari"
             npc_variety.extend(coat_variety(coat))
+        elif beast:  # so does an animal's own look, with its coat
+            npc_crowd[-1] = beast
+            rgb, mottle, bare = BEAST_COATS.get(beast, ((0.0, 0.0, 0.0), 0.0, 0.0))
+            npc_variety.extend([*rgb, mottle, bare] + [0.0] * (VARIETY - 5))
         else:
             npc_variety.extend(variety(key, chest) if crowd else [0.0] * VARIETY)
         npc_pose.extend([*ue_point(c["XPosition"], c["YPosition"], c["ZPosition"]),
@@ -902,6 +922,9 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcOutfit": npc_outfit,
         # The chest item without "gen_im_" (e.g. cth_nob_c01): the outfit a look wears (BP_DlgNPC.ApplyOutfit).
         "NpcChest": npc_chest,
+        # The helmet item without "gen_im_arm_hel_" (med_hel, lgt_ltr, lgt_rlr, hvy_exc; "" for none):
+        # BP_DlgNPC.ApplyHelmet puts SM_Helmet_<kind> on the head bone.
+        "NpcHelmet": npc_helmet,
         "NpcArmour": npc_armour,
         "NpcShieldDefense": npc_shield,
         # Per creature, VARIETY floats: skin, hair and clothes dye for crowd looks (variety), a mabari's coat.

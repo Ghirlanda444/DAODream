@@ -38,6 +38,8 @@ def region(bone: str) -> str:
         return "head"
     if b.startswith("neck_01"):
         return "neck"
+    if "toe" in b:  # before the fingers: the toes are indextoe, middletoe, ringtoe...
+        return "foot"
     if b.startswith(("hand_", "thumb", "index", "middle", "ring", "pinky")):
         return "hand"
     if b.startswith(("lowerarm", "wrist")):
@@ -148,16 +150,51 @@ def shell(name, regions, offset, mat, z_min=-1.0, z_max=9.0, smooth=6, thickness
             continue
         for nl, l in zip(nf.loops, f.loops):
             nl[p.uv].uv = l[uv_layer].uv
-    bmesh.ops.remove_doubles(p.bm, verts=list(p.bm.verts), dist=0.001)  # the body's UV seams
+    # The body's UV seams; footwear also closes the seam where the feet meet the legs, which the hem
+    # relaxing below would otherwise pull open into a band of bare ankle.
+    footwear = "foot" in regions
+    bmesh.ops.remove_doubles(p.bm, verts=list(p.bm.verts), dist=0.004 if footwear else 0.001)
     # Smooth away the body's small detail (navel, ribs, knuckles), and relax the cut edges, which follow
     # the body's triangles, into smooth hems.
     for _ in range(smooth):
         bmesh.ops.smooth_vert(p.bm, verts=[v for v in p.bm.verts if not v.is_boundary], factor=0.5,
                               use_axis_x=True, use_axis_y=True, use_axis_z=True)
     relax_edges(p.bm, 2 * smooth + 4)
+    p.last_z = shoe_last(p.bm, offset, top=0.02 if regions == {"foot"} else 0.06) if footwear else -9.0  # shoes: to the ankle
     p.thickness = thickness
     p.offset = offset
     return p
+
+
+def shoe_last(bm, offset, top=0.06, cuff=0.05):
+    """Footwear: below the ankle (+ `top`) the shell, which follows every toe, is replaced by the convex
+    hull of the body's foot and ankle pushed out a little more than `offset`: a plain shoe, reaching `cuff`
+    above the cut and over the leg's shell like a boot's cuff, so there is no gap. Every shell face that dips
+    below the cut goes (the shell is coarse: faces crossing it reach down to the toes). Returns the height
+    below which the shoe stands (keep_outside skips it: the hull is outside the body already, and pushing it
+    against the nearest toe would bring the toes back)."""
+    z_cut = Z_ANKLE + top
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if any(v.co.z < z_cut for v in f.verts)], context="FACES")
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+    uv = bm.loops.layers.uv.active
+    for side in (1, -1):
+        hull = bmesh.new()
+        for v in BM.verts:
+            # the ankle too (calf below the cut), or the shoe's top would be narrower than the leg
+            if REG[v.index] in ("foot", "calf") and v.co.z < z_cut + cuff and (v.co.x - CENTRE.x) * side > 0:
+                hull.verts.new(v.co)
+        bmesh.ops.convex_hull(hull, input=list(hull.verts))
+        bmesh.ops.delete(hull, geom=[v for v in hull.verts if not v.link_faces], context="VERTS")
+        bmesh.ops.recalc_face_normals(hull, faces=list(hull.faces))
+        hull.normal_update()
+        vmap = {v: bm.verts.new(v.co + v.normal * (offset + 0.003)) for v in hull.verts}
+        for f in hull.faces:
+            nf = bm.faces.new([vmap[v] for v in f.verts])
+            for l in nf.loops:  # leather is procedural: a plain projection at the body's UV density
+                co = l.vert.co
+                l[uv].uv = ((co.y + co.x) * UVD, co.z * UVD)
+        hull.free()
+    return z_cut
 
 
 def relax_edges(bm, iterations):
@@ -174,9 +211,13 @@ def relax_edges(bm, iterations):
             v.co = co
 
 
-def keep_outside(bm, offset):
-    """Push vertices that are inside the body, or nearer than `offset`, out to `offset` from it."""
+def keep_outside(bm, offset, below=-9.0):
+    """Push vertices that are inside the body, or nearer than `offset`, out to `offset` from it. Footwear
+    below `below` is on the foot's hull, outside the body already: pushed against the nearest toe's side
+    it would take each toe's shape again."""
     for v in bm.verts:
+        if v.co.z < below:
+            continue
         loc, nor, _, _ = SURFACE.find_nearest(v.co)
         if loc is not None and (v.co - loc).dot(nor) < offset * 0.8:
             v.co = loc + nor * offset
@@ -364,7 +405,7 @@ def recipe(kind):
 
 def to_object(p: Part):
     if not p.loft:  # lofts stay outside by construction (the outline)
-        keep_outside(p.bm, p.offset)
+        keep_outside(p.bm, p.offset, getattr(p, "last_z", -9.0))
     me = bpy.data.meshes.new(p.name)
     p.bm.normal_update()
     p.bm.to_mesh(me)

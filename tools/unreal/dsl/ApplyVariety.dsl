@@ -23,6 +23,6 @@
                   (Funzionedichiamata|DyeSlot :Slot "Main" :V V :At (Utility|Operatori|Aggiungi At 5))
                   (Funzionedichiamata|DyeSlot :Slot "Second" :V V :At (Utility|Operatori|Aggiungi At 8)))))))))
     (:else
-      (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ANDBoolean (Utilità|IsValid (Variabili|Predefinito|OttieniLook)) (Utilità|Stringa|Contains _cls "Mabari"))
+      (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ANDBoolean (Utilità|IsValid (Variabili|Predefinito|OttieniLook)) (Matematica|Booleano|ORBoolean (Utilità|Stringa|Contains _cls "Mabari") (Utilità|Stringa|Contains _cls "GiantRat")))
         (:then
           (Funzionedichiamata|ApplyCoat :V V :At At))))))

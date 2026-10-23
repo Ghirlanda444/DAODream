@@ -1,0 +1,8 @@
+(fn AttachHelmet (Face Mesh)
+  (bind _h (Aggiungicomponente|Rendering|AggiungiComponenteconmeshstatica :bManualAttachment "false" :RelativeTransform (Matematica|Trasforma|MakeTransform (Matematica|Vettore|MakeVector 0.0 0.0 0.0))))
+  (Componenti|StaticMesh|SetStaticMesh _h Mesh)
+  (Trasformazione|AttachComponentToComponent _h :Parent Face :SocketName "head" :LocationRule "SnapToTarget" :RotationRule "SnapToTarget" :ScaleRule "KeepRelative")
+  (bind _i (Utilità|Array|FindItem (Variabili|Predefinito|OttieniHelmetFitLooks) (Variabili|Predefinito|OttieniLookName)))
+  (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggioreuguale(>=) _i 0)
+    (:then (Trasformazione|SetRelativeTransform _h (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniHelmetFits) _i)))
+    (:else (Trasformazione|SetRelativeTransform _h (Variabili|Predefinito|OttieniHelmetOffset)))))

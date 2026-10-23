@@ -95,7 +95,7 @@ in a tiny helper function built this way and called from DSL.
   `Animazione|Sequenze|Valuta'<anim>'` (evaluator at an explicit time); output node
   `AnimGraphNode_Root_0`. Ids go by asset name, so never keep two assets of the same name.
 - Read an anim instance's variables at runtime with `get_anim_instance().get_editor_property(...)`.
-- Example of all of this: `tools/unreal/mabari_anim.py`.
+- Example of all of this: `tools/unreal/beast_anim.py`.
 
 ## Imports
 

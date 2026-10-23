@@ -399,7 +399,8 @@ MetaHuman look (spawned on the stand-in, which it replaces and follows) and
 custom primitive data. The stand-in keeps its 0.6 scale (its capsule is
 dog-sized); `BP_Mabari` always stands at scale 1, about 95 cm at the head.
 `DialogueLOD` skips looks without a MetaHuman `LODSyncComponent`.
-`tools/unreal/mabari_anim.py` builds, in the git-ignored folder:
+`tools/unreal/beast_anim.py Mabari` builds, in the git-ignored folder (the same script builds any
+animal reshaped from the pack; see "The giant rat" below):
 
 - `BS_MabariMove`: the wolf's idle, walk and run by speed (0, 93 and
   444 cm/s, what the walk and run cover).
@@ -425,6 +426,30 @@ template (`Kill` ragdolls the hidden stand-in, which would carry the dog with
 it; none of the castle's dogs start dead), and the hero's dog getting up after
 a fight as in the game. Next: a stud collar, short strand fur for close-ups,
 and a heavier, blockier head.
+
+### The giant rat (2026-10-24)
+
+The larder's 18 giant rats were small mannequins. They are now reshaped from the
+same pack's fox, the way the mabari comes from the wolf, so the fox's 28
+animations (bites, hits, death, walk, run with turns, rest) play on them:
+`tools/blender/rat.py` drops the fur cards, thins the bushy tail to a bare
+tapering rat's tail, shrinks the tall ears to short round ones, hunches the back,
+makes the trunk much wider and deeper (the belly hangs low, so the long fox legs
+read short), thickens neck and haunches, thins the lower legs and lengthens and
+narrows the muzzle; vertex colour R marks the bare skin (tail, ears, paws, nose
+tip). `rat_build.body.py` imports it as `SK_GiantRat` on the fox's skeleton into
+the git-ignored `/Game/ThirdParty/GiantRat`, with `MI_GiantRat`, an instance of
+the mabari's material: the fox's coat tinted a dirty brown-grey, faint mottling,
+and the "kaddis" colour set to flesh pink for the bare skin. `beast_anim.py
+GiantRat` builds `BS_GiantRatMove` (the fox's walk and run cover 45 and 263 cm/s,
+measured from their root-motion tracks; the wolf's measure 93 and 444, as used),
+`ABP_GiantRat` and `BP_GiantRat` from the same graphs as the mabari
+(`dsl/Beast*.dsl`, with the pack animal's animations filled in).
+
+The export gives an animal its own look by a part of its template's name
+(`area.BEAST_LOOKS`: `rat_giant` -> `giant_rat`); `BP_DlgNPC`'s `LookTags` spawn
+`BP_GiantRat` for it, about 49 cm tall and 1.07 m long with the tail, and
+`LieDead` leaves dead rats lying in their death pose like the mabari.
 
 ### Outfits (2026-10-21)
 
@@ -492,8 +517,49 @@ shirt and shorts materials, which would otherwise colour the outfit). Looks
 without a matching outfit keep their default clothes.
 
 This replaces an earlier, parked generator (a gambeson, trousers and boots for
-Howe's soldier; commit 5816892 and the git-ignored `/Game/Outfits`). Next: helmets,
-and the toes, which still show through the boots.
+Howe's soldier; commit 5816892 and the git-ignored `/Game/Outfits`).
+
+Footwear (2026-10-24): boots and shoes no longer follow every toe. Below the ankle
+(+6 cm for boots, +2 cm for shoes) `outfit.py` drops the shell, which copied the
+foot toe by toe, and puts the convex hull of the foot and ankle in its place,
+pushed out a little further than the leg's shell so it laps over it like a
+boot's cuff (`shoe_last`). The old boots also showed bare toes because of a
+naming trap: MetaHuman's toe bones are `indextoe`, `middletoe`, `ringtoe`, and
+the region check matched "index", "middle" and "ring" as fingers first, so the
+gloves carried leather toes; toes are now checked first. All 46 outfits were
+rebuilt with `outfit_make.py`.
+
+### Helmets (2026-10-24)
+
+The castle's soldiers wear the helmets their game items name: the export writes
+`NpcHelmet` (the item without `gen_im_arm_hel_`: 16 by day, 70 at night, only
+soldiers). `tools/unreal/helmet_make.py` exports a MetaHuman face (CrowdM1),
+`tools/blender/helmet.py` fits an ellipsoid to its skull (front and back fitted
+apart) and cuts the helmets from it, in the face's own frame, and they are
+imported to `/Game/Cousland/Outfits/Helmets` (committed: built from the
+ellipsoid, no MetaHuman geometry) with a steel instance of the outfit metal
+without rings (`MI_Metal_Steel`) and `MI_Leather_Brown`:
+
+| Item | Helmet |
+| --- | --- |
+| `med_hel` (also `hvy_exc`, Howe's knight) | steel nasal helm: dome, brow band, crest, nose guard |
+| `lgt_ltr` | leather cap with a rolled brow band |
+| `lgt_rlr` | the leather cap with a steel brow band and crest |
+
+In game `GiveNpcLook` calls `BP_DlgNPC.ApplyHelmet` with the NPC's `NpcHelmet`:
+it loads `SM_Helmet_<kind>`, adds a static mesh component (`AttachHelmet`)
+attached to the look's `Face` at the `head` bone, and hides the `Hair` groom
+(`HideHair`), which would poke through. Heads differ (the Howe soldier's sits
+4 cm lower on its head bone than CrowdM1's, which buried the helmet in it), so
+`helmet_make.py` exports every look's face, fits each skull (`helmet.py --fit`:
+centre, and widths measured above the ears) and gives each look its placement:
+moved and scaled per axis from CrowdM1's skull onto its own, then carried by the
+inverse of the look's own head bone in its bind pose (measured on a spawned face
+mesh: the shared face skeleton's reference pose puts the head 30 cm lower).
+`AttachHelmet` takes it from `HelmetFits` by `LookName` (`HelmetFitLooks`), or
+`HelmetOffset` (CrowdM1's) for a look that has none. Checked in Simulate: the
+leather cap (CrowdM5), the reinforced cap (HoweSoldier) and the nasal helm
+(CrowdM5) sit on their heads with no hair through them.
 
 Baseline with the mannequins, Howe's soldiers standing in the night
 castle's main hall around the player (Play in the editor, not throttled):
