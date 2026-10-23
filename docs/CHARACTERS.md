@@ -230,8 +230,12 @@ Made: Duncan (V2, Fergus's square jaw, custom hair), Fergus, Eleanor, Gilmore, D
 Howe's knight, Landra, Oriana, Mother Mallol, the cook, and crowd faces
 `CrowdM1`-`5`, `CrowdF0`-`1` (the first Howe soldier is `crowd_m_0`).
 
-Still to do in this castle: the elven servants and Howe's mage (template faces plus
-`"elf_ears"`, as for Iona). Children (Oren,
+Elves (2026-10-23) have crowd faces of their own: the export gives every adult elf
+without a look of its own `crowd_elf_m_<n>` / `crowd_elf_f_<n>` (`area.CROWD_FACES`),
+made by `CrowdElfM0`-`1` and `CrowdElfF0`-`1` (young, slim, beardless, hair back so the
+`"elf_ears"` show, as for Iona) and varied like the human crowd. That dresses the
+castle's elven servants and Howe's mage (a female elf in an apprentice robe), and any
+elf of a later module. Children (Oren,
 the squires) stand at 67% in game (`area.CHILD_SCALE`, from their `kn_*` heads), since
 MetaHuman has no child body; Oren's face (recipe `Oren`) is a young adult mix, and landmark
 sculpting toward child proportions read as an adult, so it was dropped. The user chose this face for now;
@@ -467,8 +471,11 @@ and back pictures in Blender. Recipes so far:
 | `cth_mag_tra`, `cth_cha_a00`, `duncan_robe` | Aldous, Mother Mallol, Duncan | robe to the floor with long sleeves and a cord belt; Mallol's in Chantry white with a red stole, Duncan's in dark Warden blue with gloves |
 
 The same item can dress a man or a woman (the cook and a servant share
-`cth_com_c00`), so `outfit_make.py` passes the look's sex (`FEMALE`). Still
-undressed: the elven servants and Howe's mage, who have no MetaHuman look yet.
+`cth_com_c00`), so `outfit_make.py` passes the look's sex (`FEMALE`). Items with no
+entry of their own take their family's recipe and colours (`cth_com_*` common clothes,
+`cth_mag_*` robes, `cth_nob_*`). Every common item gives the same garment on a given
+body (the elves' 11 outfits were 4 shapes), which is why `SCALING.md` moves to one
+outfit per body type.
 
 Materials (`/Game/Cousland/Outfits`, committed, procedural from the outfit's
 UVs, about 0.7 UV units per metre): `M_OutfitCloth` (twill rib, two-tone
