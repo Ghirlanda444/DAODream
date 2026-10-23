@@ -1,7 +1,8 @@
 # DAODream: notes for Claude
 
 Personal, non-commercial fan remake of Dragon Age: Origins in UE5, starting with
-the Human Noble origin. Roadmap: `docs/ROADMAP.md`.
+the Human Noble origin. Roadmap: `docs/ROADMAP.md`; how it scales to the whole
+game (build systems once, feed them the game's data): `docs/SCALING.md`.
 
 ## Hard rules
 

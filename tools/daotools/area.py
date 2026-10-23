@@ -34,8 +34,9 @@ from . import ambient
 FORMAT = "DAODream.Area 1"
 WALL_HEIGHT = 3.0  # m above the highest neighbouring floor
 FLOOR_THICKNESS = 0.2  # m
-RACE_DWARF, RACE_HUMAN, RACE_ANIMAL = 1, 3, 5  # RACE_* in the game's constants (2 is elf)
-CROWD_FACES = {"m": 6, "f": 2}  # generic MetaHuman faces for humans without a look of their own
+RACE_DWARF, RACE_ELF, RACE_HUMAN, RACE_ANIMAL = 1, 2, 3, 5  # RACE_* in the game's constants
+# Generic MetaHuman faces for adults without a look of their own, per race and sex (crowd_<key>_<n>).
+CROWD_FACES = {"m": 6, "f": 2, "elf_m": 2, "elf_f": 2}
 RANK_CRITTER = 1  # CREATURE_RANK_*
 GROUP_HOSTILE, GROUP_HOSTILE_ON_GROUND = 1, 36  # GROUP_*
 NO_TEAM = -1
@@ -190,13 +191,14 @@ def stand_in_scale(race, rank: int, morph: str) -> float:
 
 def look_keys(look: dict, race, tag: str) -> tuple[str, str]:
     """(head morph name, crowd face key) for a creature's MetaHuman look. Crowd faces go to adult
-    humans only (children's heads are kn_*); the key is a stable hash of the tag and position, so a
-    guard keeps his face between runs, and guards sharing a tag still get different faces."""
+    humans and elves (children's heads are kn_*); the key is a stable hash of the tag and position, so a
+    guard keeps his face between runs, and guards sharing a tag still get different faces. Elves
+    get elf crowd faces (crowd_elf_m_<n>, crowd_elf_f_<n>); dwarves have none yet."""
     morph = str(look.get("HeadMorph") or "").lower()
     morph = morph[:-4] if morph.endswith(".mor") else morph
-    if race not in (RACE_HUMAN, None) or morph.startswith("kn_"):
+    if race not in (RACE_HUMAN, RACE_ELF, None) or morph.startswith("kn_"):
         return morph, ""
-    g = "f" if look.get("Gender") == 2 else "m"
+    g = ("elf_" if race == RACE_ELF else "") + ("f" if look.get("Gender") == 2 else "m")
     h = int(hashlib.md5(tag.lower().encode()).hexdigest()[:8], 16)
     return morph, "crowd_%s_%d" % (g, h % CROWD_FACES[g])
 

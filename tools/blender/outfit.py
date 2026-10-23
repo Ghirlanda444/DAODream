@@ -355,6 +355,8 @@ def recipe(kind):
         return noble_woman() if FEMALE else noble_man()
     if kind.startswith("cth_com_"):
         return commoner()
+    if kind.startswith("cth_mag_"):  # mage and apprentice robes
+        return robe()
     raise SystemExit("no recipe for " + kind)
 
 

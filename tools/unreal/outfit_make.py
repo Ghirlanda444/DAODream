@@ -45,8 +45,22 @@ MATERIALS = {
     "cth_cha_a00": clothes("MI_Cloth_ChantryWhite", "MI_Cloth_ChantryRed"),  # Mother Mallol
     "duncan_robe": clothes("MI_Cloth_WardenBlue", "MI_Cloth_GreyWool", "MI_Leather_Dark"),  # Duncan
 }
+# Items not listed take their family's colours (common clothes are dyed per NPC in game, ApplyVariety).
+FAMILIES = {"cth_com_": clothes("MI_Cloth_Undyed"), "cth_mag_": clothes("MI_Cloth_ScholarBrown", leather="MI_Leather_Dark"),
+            "cth_nob_": clothes("MI_Cloth_NobleGreen", leather="MI_Leather_Dark")}
+
+
+def materials(kind):
+    if kind in MATERIALS:
+        return MATERIALS[kind]
+    for prefix, mats in FAMILIES.items():
+        if kind.startswith(prefix):
+            return mats
+    raise KeyError("no outfit colours for " + kind)
+
+
 # Looks that are women: the same common clothes make a dress for them (tools/blender/outfit.py).
-FEMALE = {"EleanorS", "Cook", "Mallol", "Oriana", "Landra", "Iona", "CrowdF0", "CrowdF1"}
+FEMALE = {"EleanorS", "Cook", "Mallol", "Oriana", "Landra", "Iona", "CrowdF0", "CrowdF1", "CrowdElfF0", "CrowdElfF1"}
 
 EXPORT = r'''
 for name, path in ((LOOK + "_body", "/Game/MetaHumans/MHC_%s/Body/SKM_MHC_%s_BodyMesh" % (LOOK, LOOK)),
@@ -90,7 +104,7 @@ def make(look: str, kind: str):
     dest, name = "/Game/MetaHumans/MHC_%s/DAO" % look, "SKM_%s_%s" % (look, kind)
     imp = open(os.path.join(HERE, "outfit_import.body.py"), encoding="utf-8").read()
     print("  import:", pyrun.run("FBX = %r\nDEST = %r\nNAME = %r\n" % (out, dest, name) + imp, 600))
-    mats = {slot: O + mi for slot, mi in MATERIALS[kind].items()}
+    mats = {slot: O + mi for slot, mi in materials(kind).items()}
     print("  materials:", pyrun.run("DEST = %r\nNAME = %r\nMATS = %r\n" % (dest, name, mats) + ASSIGN, 300))
 
 

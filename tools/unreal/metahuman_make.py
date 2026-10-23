@@ -59,7 +59,10 @@ def restart():
     rd = "E:/DAODream/Unreal/Cousland/Saved/Autosaves/PackageRestoreData.json"
     if os.path.exists(rd):
         os.replace(rd, rd + ".skipped")
-    subprocess.Popen([EDITOR, PROJECT])
+    si = subprocess.STARTUPINFO()  # shown without taking focus: the user may be using the PC
+    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    si.wShowWindow = 4  # SW_SHOWNOACTIVATE
+    subprocess.Popen([EDITOR, PROJECT, "-ModelContextProtocolStartServer"], startupinfo=si)
     for _ in range(120):
         time.sleep(5)
         if mcp_up():

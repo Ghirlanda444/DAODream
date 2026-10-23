@@ -101,6 +101,8 @@ Each phase ends with something you can see running.
 
 ## Later
 
+How the systems scale to the rest of the game, and in what order: `SCALING.md`.
+
 The other five origins, then Ostagar. Every origin reuses the Phase 0–3 systems,
 so later origins should mostly be content work.
 

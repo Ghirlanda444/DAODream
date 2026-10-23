@@ -463,6 +463,9 @@ class AreaTests(unittest.TestCase):
         # Children (kn_* heads) stand smaller, and get no crowd face.
         self.assertEqual(area.stand_in_scale(3, 0, "kn_bhn100_oren"), area.CHILD_SCALE)
         self.assertEqual(area.look_keys({"HeadMorph": "kn_bhn100_oren.mor"}, 3, "oren@0,0"), ("kn_bhn100_oren", ""))
+        # Elves get elf crowd faces; animals none.
+        self.assertTrue(area.look_keys({"HeadMorph": "ef_x.mor", "Gender": 2}, area.RACE_ELF, "maid@0,0")[1].startswith("crowd_elf_f_"))
+        self.assertEqual(area.look_keys({"HeadMorph": "", "Gender": 1}, area.RACE_ANIMAL, "rat@0,0")[1], "")
         # Only doors, with their state (1 = locked) and a small door's greybox size.
         self.assertEqual((out["DoorTags"], out["DoorPose"], out["DoorState"], out["DoorSize"], out["DoorActive"]),
                          (["bhn_door_cellar"], [1200.0, -2000.0, 0.0, -90.0], [1], [160.0, 260.0], [1]))
