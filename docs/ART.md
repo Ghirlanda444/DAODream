@@ -74,8 +74,11 @@ Ceilings draw `/Game/Cousland/Areas/SM_NaniteCube` (the engine cube with Nanite
 on), and `M_CastleSurface` is flagged for Nanite. The relief only goes inward,
 up to 6 cm times `DisplacementAmount` (walls 1, plaster 0.5, floors and
 ceilings 0.4, doors and props 0): a box's faces move along their own normals,
-and outward they would part at its edges and show cracks. The game's collision
-stays on the flat box.
+and outward they would part at its edges and show cracks. Even inward, faces part
+at the edges, so the relief fades to nothing over the last `EdgeFade` cm (10)
+toward each edge of the face: the material works out, per tessellated vertex, its
+distance to the cube's faces in the instance's own space times the instance's
+scale. The game's collision stays on the flat box.
 `BP_AreaLoader.BuildSolids` ends with `ApplyScanArt`, which calls
 `SetScan(component, path)` per component: it loads the instance by its path
 and sets it only if it exists. `BP_Door.Setup` calls `ScanArt` the same way.
@@ -212,12 +215,12 @@ when less than 1.5 GB is free. `M_ScanProp`'s linear samplers need a linear
 placeholder texture, or the material fails to compile and every prop shows the
 default grid.
 
-In the castle 544 pieces (day) and 529 (night) are scans: barrels, tables,
-chairs, benches, shelves, bookshelves, buckets, pots, tankards, bottles, jugs,
-bowls, food and books. Still boxes: sacks, beds, carpets, armour stands, statues,
-wall hangings, wood ledges; and the walls, pillars and arches, for which no free
-scan fits the kit's pieces (next: masonry meshes generated from the pieces'
-shapes).
+In the castle 606 pieces (day) and 599 (night) are scans: barrels, tables,
+chairs and high-backed chairs, benches, shelves, bookshelves and scroll racks,
+buckets, pots and cauldrons, wash tubs, tankards, bottles, jugs, bowls, food and
+books. Still boxes: sacks, beds and bedding, carpets, armour stands, dressers,
+chests, statues, wall hangings, wood ledges. Walls, pillars and arches stay boxes
+with the displaced stone surfaces above.
 
 ## Next
 

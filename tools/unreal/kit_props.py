@@ -57,6 +57,7 @@ PROPS = {
 RULES = [
     ("prp_barrel*", "WoodenBarrel", "uniform"), ("prp_brrl*", "WoodenBarrel", "uniform"),
     ("prp_chair*", "WoodenChair", "stretch"),
+    ("prp_ferthrone*", "WoodenChair", "stretch"), ("prp_ferchra*", "WoodenChair", "stretch"),  # high-backed chairs
     ("prp_fertbllng*", "LongTable", "stretch"),  # the great hall's long table
     # "Wooden Table" is a small square table (78 cm, 52 cm high): the long banquet table suits the castle's
     # tables (1.6 x 0.9 m) better
@@ -67,6 +68,9 @@ RULES = [
     ("prp_sngleshlve*", "WoodenShelf", "stretch"),
     ("prp_smshelf*", "WoodenBookshelf", "stretch"), ("prp_shelf*", "WoodenBookshelf", "stretch"),
     ("prp_lrgbkslf*", "WoodenBookshelf", "stretch"), ("prp_bkslf*", "WoodenBookshelf", "stretch"),
+    ("prp_scrollrack*", "WoodenBookshelf", "stretch"),  # squat cubbies for scrolls
+    ("prp_washbasin*", "BigBowl", "stretch"),  # a wooden tub
+    ("prp_couldron*", "WoodenPot", "uniform"), ("prp_spitmeat*", "Chicken", "uniform"),
     ("prp_bucket*", "WoodenBucket", "uniform"),
     ("prp_pot0*", "WoodenPot", "uniform"), ("prp_potweathered*", "WoodenPot", "uniform"),
     ("prp_cupwood*", "Tankard", "uniform"), ("prp_bottlewine*", "WineBottle", "uniform"),

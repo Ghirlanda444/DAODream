@@ -326,6 +326,16 @@
    "fit": "stretch"
   },
   {
+   "match": "prp_ferthrone*",
+   "mesh": "WoodenChair",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_ferchra*",
+   "mesh": "WoodenChair",
+   "fit": "stretch"
+  },
+  {
    "match": "prp_fertbllng*",
    "mesh": "LongTable",
    "fit": "stretch"
@@ -384,6 +394,26 @@
    "match": "prp_bkslf*",
    "mesh": "WoodenBookshelf",
    "fit": "stretch"
+  },
+  {
+   "match": "prp_scrollrack*",
+   "mesh": "WoodenBookshelf",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_washbasin*",
+   "mesh": "BigBowl",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_couldron*",
+   "mesh": "WoodenPot",
+   "fit": "uniform"
+  },
+  {
+   "match": "prp_spitmeat*",
+   "mesh": "Chicken",
+   "fit": "uniform"
   },
   {
    "match": "prp_bucket*",

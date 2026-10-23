@@ -3,7 +3,8 @@
 #       the three world planes (no UVs needed on the scaled cubes the castle is made of), and its
 #       displacement map as Nanite displacement, so walls, floors and ceilings get real relief
 #       (Nanite tessellation, on by default in UE 5.8). Parameters: TexBaseColor/Normal/Roughness/
-#       AO/Displacement, TileSize (cm per repeat), Tint, RoughnessScale, DisplacementAmount (0 flat .. 1).
+#       AO/Displacement, TileSize (cm per repeat), Tint, RoughnessScale, DisplacementAmount (0 flat .. 1),
+#       EdgeFade (cm over which the relief fades out toward a box edge).
 #   /Game/Cousland/Areas/SM_NaniteCube      committed: the engine cube with Nanite on, for BP_AreaLoader's
 #       boxes (displacement only moves Nanite meshes).
 #   /Game/ThirdParty/Megascans/Castle/<Kind>/  git-ignored: the free surfaces' textures and MI_Castle_<Kind>,
@@ -102,18 +103,59 @@ MEL.connect_material_expressions(mask_r(maps["Roughness"], -500, 400), "", rough
 MEL.connect_material_expressions(scalar("RoughnessScale", 1.0, -500, 520), "", rough, "B")
 MEL.connect_material_expressions(rough, "", attrs, "Roughness")
 MEL.connect_material_expressions(mask_r(maps["AO"], -500, 800), "", attrs, "AmbientOcclusion")
-# 1 + (height - 1) * DisplacementAmount: 1 is the box's own surface (DisplacementAmount 0: flat)
-disp = E(unreal.MaterialExpressionCustom, -300, 1200)
-disp.set_editor_property("code", "return 1 + (H - 1) * A;")
-disp.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT1)
-ins = []
-for n in ("H", "A"):
-    ci = unreal.CustomInput()
-    ci.set_editor_property("input_name", n)
-    ins.append(ci)
-disp.set_editor_property("inputs", ins)
+
+
+def custom(code, names, x, y):
+    e = E(unreal.MaterialExpressionCustom, x, y)
+    e.set_editor_property("code", code)
+    e.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT1)
+    ins = []
+    for n in names:
+        ci = unreal.CustomInput()
+        ci.set_editor_property("input_name", n)
+        ins.append(ci)
+    e.set_editor_property("inputs", ins)
+    return e
+
+
+def to_world(axis, x, y):
+    """The instance's axis in world space: its length is the instance's scale on that axis."""
+    c = E(unreal.MaterialExpressionConstant3Vector, x - 200, y)
+    c.set_editor_property("constant", unreal.LinearColor(*axis, 0))
+    t = E(unreal.MaterialExpressionTransform, x, y)
+    t.set_editor_property("transform_source_type", unreal.MaterialVectorCoordTransformSource.TRANSFORMSOURCE_INSTANCE)
+    t.set_editor_property("transform_type", unreal.MaterialVectorCoordTransform.TRANSFORM_WORLD)
+    MEL.connect_material_expressions(c, "", t, "")
+    return t
+
+
+# Edge fade: 0 at the box's edges, 1 from EdgeFade cm in. Each face is displaced along its own normal, so
+# without it neighbouring faces part at the box's edges and corners and show dark slits.
+wp = E(unreal.MaterialExpressionWorldPosition, -1400, 1500)
+ip = E(unreal.MaterialExpressionTransformPosition, -1200, 1500)
+ip.set_editor_property("transform_source_type", unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_WORLD)
+ip.set_editor_property("transform_type", unreal.MaterialPositionTransformSource.TRANSFORMPOSSOURCE_INSTANCE)
+MEL.connect_material_expressions(wp, "", ip, "")
+nw = E(unreal.MaterialExpressionVertexNormalWS, -1400, 1800)
+ni = E(unreal.MaterialExpressionTransform, -1200, 1800)
+ni.set_editor_property("transform_source_type", unreal.MaterialVectorCoordTransformSource.TRANSFORMSOURCE_WORLD)
+ni.set_editor_property("transform_type", unreal.MaterialVectorCoordTransform.TRANSFORM_INSTANCE)
+MEL.connect_material_expressions(nw, "", ni, "")
+edge = custom("""float3 s = float3(length(SX), length(SY), length(SZ));
+float3 d = (50 - abs(P)) * s;  // cm to the cube's faces (the engine cube spans -50..50)
+float3 n = abs(N);
+if (n.x >= n.y && n.x >= n.z) d.x = 1e5; else if (n.y >= n.z) d.y = 1e5; else d.z = 1e5;  // not the face's own axis
+return saturate(min(d.x, min(d.y, d.z)) / max(F, 0.01));""", ("P", "N", "SX", "SY", "SZ", "F"), -800, 1600)
+MEL.connect_material_expressions(ip, "", edge, "P")
+MEL.connect_material_expressions(ni, "", edge, "N")
+for i, (pin, axis) in enumerate((("SX", (1, 0, 0)), ("SY", (0, 1, 0)), ("SZ", (0, 0, 1)))):
+    MEL.connect_material_expressions(to_world(axis, -1200, 2000 + 150 * i), "", edge, pin)
+MEL.connect_material_expressions(scalar("EdgeFade", 10.0, -1000, 2450), "", edge, "F")
+# 1 + (height - 1) * DisplacementAmount * edge fade: 1 is the box's own surface (DisplacementAmount 0: flat)
+disp = custom("return 1 + (H - 1) * A * F;", ("H", "A", "F"), -300, 1200)
 MEL.connect_material_expressions(mask_r(maps["Displacement"], -500, 1200), "", disp, "H")
 MEL.connect_material_expressions(scalar("DisplacementAmount", 0.0, -500, 1320), "", disp, "A")
+MEL.connect_material_expressions(edge, "", disp, "F")
 report["displacement_pin"] = MEL.connect_material_expressions(disp, "", attrs, "Displacement")
 MEL.connect_material_property(attrs, "", unreal.MaterialProperty.MP_MATERIAL_ATTRIBUTES)
 MEL.recompile_material(m)
