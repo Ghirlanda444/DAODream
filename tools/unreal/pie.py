@@ -13,13 +13,20 @@ W = "/Game/Cousland/Maps/UEDPIE_0_L_CastleNight.L_CastleNight:PersistentLevel."
 
 
 PLAY = {"refPath": "/Script/UnrealEd.Default__LevelEditorPlaySettings"}
+MISC = {"refPath": "/Script/UnrealEd.Default__LevelEditorMiscSettings"}
+
+
+def _sound(on):
+    """The game's sound and the editor's own (its chime as Play or Simulate starts and stops)."""
+    ue.call(OT, "set_properties", {"instance": PLAY, "values": json.dumps({"EnableGameSound": on})})
+    ue.call(OT, "set_properties", {"instance": MISC, "values": json.dumps({"bEnableEditorSounds": on})})
 
 
 def start(simulate=False, sound=False):
     """Play or Simulate for a test, silent unless sound=True (the user asks to hear it): test runs'
     voices and music woke the user's household (2026-10-23). stop() turns sound back on, so the user's
     own Play has it."""
-    ue.call(OT, "set_properties", {"instance": PLAY, "values": json.dumps({"EnableGameSound": sound})})
+    _sound(sound)
     return ue.call(EA, "StartPIE", {"options": {"bSimulate": simulate, "playMode": "PlayMode_InViewPort"}})
 
 
@@ -27,7 +34,8 @@ def stop():
     try:
         return ue.call(EA, "StopPIE", {})
     finally:
-        ue.call(OT, "set_properties", {"instance": PLAY, "values": json.dumps({"EnableGameSound": True})})
+        time.sleep(2)  # the stop chime plays after StopPIE returns
+        _sound(True)
 
 
 _BOX = []

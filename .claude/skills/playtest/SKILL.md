@@ -53,7 +53,8 @@ loader needs ~100 s to build the castle): run it in the background or with a lon
 - The editor must be open with its MCP server up (the unreal-editor skill: "Connecting").
 - `playtest.py` turns off background throttling for the run and restores it after.
 - Tests are silent (the voices and music woke the user's household): `pie.start` turns
-  `EnableGameSound` off before every test Play or Simulate and `pie.stop` turns it back on, so the
+  `EnableGameSound` and the editor's own sounds (`bEnableEditorSounds`: a chime as Play or Simulate
+  starts and stops) off before every test Play or Simulate and `pie.stop` turns them back on, so the
   user's own Play keeps its sound. Never start Play or Simulate any other way. When the user asks to
   hear a test, pass `--sound` to `playtest.py` (or `pie.start(sound=True)`).
 - Send the user the sheet (SendUserFile) and say what was and was not seen.
