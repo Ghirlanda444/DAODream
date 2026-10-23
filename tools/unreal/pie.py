@@ -17,9 +17,14 @@ MISC = {"refPath": "/Script/UnrealEd.Default__LevelEditorMiscSettings"}
 
 
 def _sound(on):
-    """The game's sound and the editor's own (its chime as Play or Simulate starts and stops)."""
+    """The game's sound, the editor's own (its chime as Play or Simulate starts and stops) and, since the
+    house still heard a test with both off, the whole editor in the Windows volume mixer (mute.ps1)."""
+    import os, subprocess
     ue.call(OT, "set_properties", {"instance": PLAY, "values": json.dumps({"EnableGameSound": on})})
     ue.call(OT, "set_properties", {"instance": MISC, "values": json.dumps({"bEnableEditorSounds": on})})
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mute.ps1")
+    subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script,
+                    "-Name", "UnrealEditor", "-Mute", "0" if on else "1"], capture_output=True, timeout=60)
 
 
 def start(simulate=False, sound=False):
