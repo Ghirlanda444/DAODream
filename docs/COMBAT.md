@@ -251,6 +251,40 @@ armour and clothing templates come from
 `py -m daotools pull "<game>" "gen_im_arm_*" --out extracted/items` (and
 `gen_im_cth_*`, `gen_im_duncan_robe*`).
 
+## Balance simulator
+
+`tools/daotools/simulate.py` fights the party against foes many times over without Unreal, with the same
+rules (`stats.py`'s `hit_chance`, `crit_chance`, `hit_damage`) and the prototype's fight: everyone engaged
+from the start, the player striking once a second, party members every 1.5 s, hostiles every 2 s; a hostile
+keeps to one standing party member, a party member goes for the foe its side is fighting least, an
+attacker its target is not fighting gets its flanking bonus; foes in waves, each death bringing the next
+in; party members fall at 0 and the fight is lost when all are down. The fighters' numbers come from the
+area export, so exports with and without `--mod-tables` compare vanilla and Dragon Age Reborn:
+
+```powershell
+py -m daotools unreal simulate extracted/ue/areas/bhn100ar_castle_cousland.json `
+  --party bhn100cr_gilmore --party gen00fl_dog --foes "bhn100cr_rat_giant_*" --wave 6 --runs 2000
+```
+
+First finding (2026-10-24): with the numbers now in the game, the larder fight (the player, Gilmore and
+the mabari against 18 rats in waves of six) is won only 55% of the time, and the mabari falls in 89% of
+fights; in the game it is an easy first fight. Dragon Age Reborn changes neither critters nor the player,
+so its tables give the same. What moves it (2,000 fights each):
+
+| Change | Won | Mabari falls |
+| --- | --- | --- |
+| None (as exported) | 55% | 89% |
+| Rats without constitution's +15 health (40 instead of 55) | 99% | 64% |
+| The mabari biting like a longsword (9-13.5 instead of 3.6-5.8) | 82% | 76% |
+| Both | 100% | 45% |
+| Rats biting every 3 s instead of 2 | 100% | 51% |
+
+So three assumptions decide it, and each needs checking against the game before any number changes:
+whether the engine's +5 health per constitution point applies to critters as to the player; the
+mabari's bite (its template wears only a collar; the game's creatures fight with natural weapons the
+templates do not list); and how often a creature attacks (the prototype's fixed 2 s; the game times
+attacks by their animations).
+
 ## Path finding
 
 `L_CastleCousland` has a `NavMeshBoundsVolume` (`CastleNavBounds`) over the

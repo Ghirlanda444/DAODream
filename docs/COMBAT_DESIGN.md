@@ -116,6 +116,10 @@ damage per second, time to kill, damage taken and how often the party dies. Vani
 and our pass are compared side by side, and a change ships when it brings an outlier into line
 without moving the rest.
 
+The first version is built (`daotools/simulate.py`, `daotools unreal simulate`; `docs/COMBAT.md`,
+"Balance simulator"): the stage 1 rules and the prototype's fight, from an area export. Builds, levels and
+abilities come with the later stages.
+
 ## Sources
 
 - Dragon Age Reborn v1.1.2 (Tyragon): https://www.nexusmods.com/dragonage/mods/5173

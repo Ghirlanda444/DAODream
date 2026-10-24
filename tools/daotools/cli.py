@@ -30,7 +30,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import ambient, area, balance, cnv, cutscene, fsb, gda, kit, mfdecode, origin, plo, plotlogic, stats, toolset, unreal
+from . import ambient, area, balance, cnv, cutscene, fsb, gda, kit, mfdecode, origin, plo, plotlogic, simulate, stats, toolset, unreal
 from .erf import ERF, ERFError, is_erf
 from .gda import GDA
 from .fields import NAMES
@@ -481,6 +481,20 @@ def cmd_unreal_balance(args) -> int:
     return 0
 
 
+def cmd_unreal_simulate(args) -> int:
+    out = []
+    for path in args.area:
+        a = json.loads(Path(path).read_text(encoding="utf-8"))
+        sim = simulate.simulate(a, args.party, args.foes, runs=args.runs, seed=args.seed, wave=args.wave,
+                                flank=not args.no_flanking)
+        sim["File"] = Path(path).name
+        print(simulate.report(sim, Path(path).name))
+        out.append(sim)
+    if args.out:
+        _write(_json(out), args.out)
+    return 0
+
+
 def cmd_unreal_conv(args) -> int:
     conv = json.loads(Path(args.file).read_text(encoding="utf-8"))
     plots = plo.load_dir(args.plots) if args.plots else None
@@ -641,6 +655,19 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--source", default="", help="the mod's name and version, written into the file")
     s.add_argument("--out")
     s.set_defaults(func=cmd_unreal_balance)
+
+    s = u.add_parser("simulate", help="fight the party against foes many times with the game's hit rules")
+    s.add_argument("area", nargs="+", help="area exports (daotools unreal area) to compare, e.g. with and without "
+                                           "a rebalance mod's tables")
+    s.add_argument("--party", action="append", default=[], metavar="TAG", help="a party member's tag; repeatable")
+    s.add_argument("--foes", action="append", required=True, metavar="PATTERN",
+                   help="the foes' tags (fnmatch, e.g. 'bhn100cr_rat_giant_*'); repeatable")
+    s.add_argument("--wave", type=int, default=0, help="foes in the fight at once; each death brings the next in")
+    s.add_argument("--runs", type=int, default=1000)
+    s.add_argument("--seed", type=int, default=1)
+    s.add_argument("--no-flanking", action="store_true", help="never count an attacker as behind its target")
+    s.add_argument("--out", help="write the results (JSON) here")
+    s.set_defaults(func=cmd_unreal_simulate)
 
     f = sub.add_parser("fsb", help="FMOD sound banks (voice-over)").add_subparsers(
         dest="fsb_command", required=True)

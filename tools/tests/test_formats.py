@@ -1,11 +1,12 @@
 import json
 import math
+import random
 import struct
 import tempfile
 import unittest
 from pathlib import Path
 
-from daotools import ambient, area, balance, cnv, cutscene, fields as F, fsb, kit, mfdecode, plo, plotlogic, stats, toolset, unreal
+from daotools import ambient, area, balance, cnv, cutscene, fields as F, fsb, kit, mfdecode, plo, plotlogic, simulate, stats, toolset, unreal
 from daotools.cli import main
 from daotools.erf import ERF, ERFError, is_erf
 from daotools.gda import GDA, column_hash
@@ -823,6 +824,56 @@ class StatsTests(unittest.TestCase):
             tables = stats.apply_overrides({k: dict(v) for k, v in self.TABLES.items()}, d)
         self.assertEqual((tables["autoscale"][1]["fHealthScale"], tables["autoscale"][100]["fHealthScale"]), (0.75, 1.0))
         self.assertEqual(stats.stats(tables, package=5, rank=1, area_level=2)["Health"], 80.0)  # 100 x 0.75 + 5
+
+
+class SimulateTests(unittest.TestCase):
+    # An area export's combat fields: a knight and five rats; the player from PlayerStats.
+    AREA = {
+        "Area": "test", "NpcTags": ["knight", "rat_1", "rat_2", "rat_3", "rat_4", "rat_5"],
+        "NpcHealth": [120.0] + [55.0] * 5, "NpcAttack": [63.5] * 6, "NpcDefense": [48.0] * 6,
+        "NpcDamage": [8.0, 12.5] + [4.2, 7.0] * 5, "NpcDamageScale": [1.0] + [0.5] * 5,
+        "NpcRules": [6.0, 2.0, 5.0, 7.5, 0.8] + [0.0, 0.0, 1.2, 7.5, 0.4] * 5,
+        "PlayerStats": [115.0, 64.5, 50.5, 8.25, 13.0, 7.0, 4.25, 2.14, 5.0, 7.5, 0.4, 100.0],
+    }
+
+    def test_fighters(self):
+        ours, foes = simulate.fighters(self.AREA, ["knight"], ["rat_*"])
+        self.assertEqual([f.tag for f in ours], ["player", "knight"])
+        self.assertEqual([f.tag for f in foes], ["rat_1", "rat_2", "rat_3", "rat_4", "rat_5"])
+        p, k, r = ours[0], ours[1], foes[0]
+        self.assertEqual((p.armour, p.crit, p.interval, p.threshold), (4.25, 5.0, 1.0, 7.0))
+        self.assertEqual((k.damage, k.armour, k.interval), ((8.0, 12.5), 6.0, 1.5))
+        self.assertEqual((r.scale, r.bonus, r.interval, r.threshold), (0.5, 0.4, 2.0, 7.0))
+
+    def test_strike_rates(self):
+        # The same rates as the rules: 64.5 + 54 - 48 = 70.5% to hit; criticals 5% of attacks, of hits too.
+        rng = random.Random(3)
+        ours, foes = simulate.fighters(self.AREA, [], ["rat_1"])
+        results = [simulate.strike(rng, ours[0], foes[0]) for _ in range(20000)]
+        hits = [d for d, c in results if d is not None]
+        self.assertAlmostEqual(len(hits) / len(results), 0.705, delta=0.01)
+        self.assertAlmostEqual(sum(c for d, c in results) / len(hits), 0.05, delta=0.01)
+        self.assertTrue(all(8.65 <= d <= 13.4 * 1.5 for d in hits))  # 8.25-13 + 0.4, x1.5 on a critical
+
+    def test_fight(self):
+        a = simulate.simulate(self.AREA, ["knight"], ["rat_1", "rat_2"], runs=200, seed=5)
+        b = simulate.simulate(self.AREA, ["knight"], ["rat_1", "rat_2"], runs=200, seed=5)
+        self.assertEqual(a, b)  # the seed decides everything
+        self.assertEqual((a["Won"], a["Lost"]), (1.0, 0.0))
+        self.assertEqual(set(a["Party"]), {"player", "knight"})
+        self.assertAlmostEqual(sum(p["DamageShare"] for p in a["Party"].values()), 1.0, delta=0.002)
+        self.assertIn("won 100%", simulate.report(a))
+        # a player alone against five rats at once, weakened: lost every time
+        weak = dict(self.AREA, PlayerStats=[10.0] + self.AREA["PlayerStats"][1:])
+        self.assertEqual(simulate.simulate(weak, [], ["rat_*"], runs=50)["Lost"], 1.0)
+
+    def test_waves(self):
+        # Waves of two: each death brings the next rat in, so all five are fought.
+        rng = random.Random(1)
+        ours, foes = simulate.fighters(self.AREA, ["knight"], ["rat_*"])
+        out = simulate.fight(ours, foes, rng, wave=2)
+        self.assertTrue(out["Won"])
+        self.assertTrue(all(f.down for f in foes))
 
 
 class AmbientTests(unittest.TestCase):
