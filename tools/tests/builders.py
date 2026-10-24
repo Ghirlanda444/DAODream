@@ -282,6 +282,21 @@ def build_cnv(lines: list[dict], starts: list[int], children_as_structs: bool = 
     })
 
 
+# --- data tables --------------------------------------------------------------------
+
+def build_gda(columns: list[tuple[str, str]], rows: list[list]) -> bytes:
+    """A GDA (G2DA): columns as (name, "int" | "string" | "float"), rows as lists of values."""
+    from daotools.gda import column_hash
+    kinds = {"int": (1, T_SINT32), "string": (0, "string"), "float": (2, T_FLOAT32)}
+    col = Tmpl("COLM", [(F.G2DA_COLUMN_HASH, T_UINT32), (F.G2DA_COLUMN_TYPE, T_UINT8)])
+    row = Tmpl("ROWS", [(F.G2DA_COLUMN_1 + i, kinds[k][1]) for i, (_, k) in enumerate(columns)])
+    root = Tmpl("G2DA", [(F.G2DA_COLUMN_LIST, ("structlist", col)), (F.G2DA_ROW_LIST, ("structlist", row))])
+    return GFF4Writer("G2DA", "V0.1", [root, col, row]).build({
+        F.G2DA_COLUMN_LIST: [{F.G2DA_COLUMN_HASH: column_hash(n), F.G2DA_COLUMN_TYPE: kinds[k][0]} for n, k in columns],
+        F.G2DA_ROW_LIST: [{F.G2DA_COLUMN_1 + i: v for i, v in enumerate(r)} for r in rows],
+    })
+
+
 # --- cutscenes ----------------------------------------------------------------------
 
 def build_cut(actors: list[dict], length: float = 10.0, area: str = "my_area",

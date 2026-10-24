@@ -30,7 +30,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import ambient, area, cnv, cutscene, fsb, gda, kit, mfdecode, origin, plo, plotlogic, stats, toolset, unreal
+from . import ambient, area, balance, cnv, cutscene, fsb, gda, kit, mfdecode, origin, plo, plotlogic, stats, toolset, unreal
 from .erf import ERF, ERFError, is_erf
 from .gda import GDA
 from .fields import NAMES
@@ -465,6 +465,16 @@ def cmd_unreal_plots(args) -> int:
     return 0
 
 
+def cmd_unreal_balance(args) -> int:
+    names = balance.script_column_names(*args.scripts)
+    talk = TalkTable.open(args.tlk) if args.tlk else None
+    out = balance.export(args.game_tables, args.mod_tables, names, talk, source=args.source)
+    for table, t in out["Tables"].items():
+        print(f"{table}: {len(t['Changed'])} rows changed, {len(t['New'])} new", file=sys.stderr)
+    _write(_json(out), args.out)
+    return 0
+
+
 def cmd_unreal_conv(args) -> int:
     conv = json.loads(Path(args.file).read_text(encoding="utf-8"))
     plots = plo.load_dir(args.plots) if args.plots else None
@@ -611,6 +621,16 @@ def build_parser() -> argparse.ArgumentParser:
                                        "the conversation its lines come from; without it only captions play")
     s.add_argument("--out")
     s.set_defaults(func=cmd_unreal_plots)
+
+    s = u.add_parser("balance", help="a rebalance mod's data table changes against the game's tables, for combat")
+    s.add_argument("--game-tables", required=True, help="folder of the game's .gda tables (abi_base.gda...)")
+    s.add_argument("--mod-tables", required=True, help="folder of the mod's override tables (abi_base_ao.gda...)")
+    s.add_argument("--scripts", action="append", required=True,
+                   help="script source folder to read column names from; repeatable (the game's, the mod's)")
+    s.add_argument("--tlk", help="the mod's talk table, for its names and descriptions")
+    s.add_argument("--source", default="", help="the mod's name and version, written into the file")
+    s.add_argument("--out")
+    s.set_defaults(func=cmd_unreal_balance)
 
     f = sub.add_parser("fsb", help="FMOD sound banks (voice-over)").add_subparsers(
         dest="fsb_command", required=True)

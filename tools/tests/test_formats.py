@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from daotools import ambient, area, cnv, cutscene, fields as F, fsb, kit, mfdecode, plo, plotlogic, stats, toolset, unreal
+from daotools import ambient, area, balance, cnv, cutscene, fields as F, fsb, kit, mfdecode, plo, plotlogic, stats, toolset, unreal
 from daotools.cli import main
 from daotools.erf import ERF, ERFError, is_erf
 from daotools.gda import GDA, column_hash
@@ -13,8 +13,8 @@ from daotools.gff4 import (GFF4, T_FLOAT32, T_SINT16, T_UINT8, T_UINT32, T_UINT6
                            to_jsonable)
 from daotools.tlk import TalkTable, TalkTables
 
-from builders import (GFF4Writer, Tmpl, build_cnv, build_cut, build_erf, build_fsb, build_gff3, build_plo,
-                      build_tlk_v02, build_tlk_v05)
+from builders import (GFF4Writer, Tmpl, build_cnv, build_cut, build_erf, build_fsb, build_gda, build_gff3,
+                      build_plo, build_tlk_v02, build_tlk_v05)
 from daotools.gff3 import GFF3, is_gff3
 
 
@@ -176,6 +176,33 @@ class GDATests(unittest.TestCase):
         self.assertEqual(table.column_names, ["id", "label", f"0x{column_hash('speed'):08x}"])
         self.assertEqual([c["type"] for c in table.columns], ["int", "string", "float"])
         self.assertEqual(table.records(), [{"id": 0, "label": "mabari", f"0x{column_hash('speed'):08x}": 1.25}])
+
+
+class BalanceTests(unittest.TestCase):
+    # A made-up ability table and a mod's override of it, in the game's layout (not game data).
+    COLUMNS = [("ID", "int"), ("label", "string"), ("Namestrref", "int"), ("DescStrRef", "int"), ("Cost", "float"),
+               ("Cooldown", "float")]
+
+    def test_changes_against_the_game(self):
+        with tempfile.TemporaryDirectory() as d:
+            game, mod, src = Path(d) / "game", Path(d) / "mod", Path(d) / "src"
+            for p in (game, mod, src):
+                p.mkdir()
+            (game / "abi_base.gda").write_bytes(build_gda(self.COLUMNS, [
+                [1, "MY_STRIKE", 10, 11, 40.0, 60.0], [2, "MY_GUARD", 12, 13, 20.0, 30.0]]))
+            (mod / "abi_base_ao.gda").write_bytes(build_gda(self.COLUMNS, [
+                [1, "MY_STRIKE", 10, 900, 30.0, 45.0], [2, "MY_GUARD", 12, 13, 20.0, 30.0],
+                [3, "MY_NEW", 901, 902, 10.0, 5.0]]))
+            (src / "my_rules.nss").write_text('float f = GetM2DAFloat(TABLE_ABILITIES_TALENTS, "Cooldown", nId);')
+            talk = TalkTable(GFF4(build_tlk_v02({900: "Strikes harder.", 901: "New", 902: "Something new."})))
+            names = balance.script_column_names(src)
+            out = balance.export(game, mod, names, talk, source="My Mod 1.0")
+        self.assertIn("Cooldown", names)
+        t = out["Tables"]["abi_base"]
+        self.assertEqual(t["Changed"], {1: {"DescStrRef": [11, 900], "Cost": [40.0, 30.0], "Cooldown": [60.0, 45.0]}})
+        self.assertEqual(list(t["New"]), [3])
+        self.assertEqual(out["Text"]["abi_base"], {1: {"Desc": "Strikes harder."}, 3: {"Name": "New", "Desc": "Something new."}})
+        self.assertEqual((out["Format"], out["Source"]), (balance.FORMAT, "My Mod 1.0"))
 
 
 class ConversationTests(unittest.TestCase):
