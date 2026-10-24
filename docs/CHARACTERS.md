@@ -451,6 +451,20 @@ The export gives an animal its own look by a part of its template's name
 `BP_GiantRat` for it, about 49 cm tall and 1.07 m long with the tail, and
 `LieDead` leaves dead rats lying in their death pose like the mabari.
 
+### Poses (2026-10-24)
+
+An NPC idles in `BP_DlgNPC.IdleAnim` (default the template's `MM_Idle`; every idle in
+`AnimTick` plays it), and `ApplyIdle` sets it from the area export's `NpcIdle`
+(`area.IDLE_POSES`, by area and tag). The game shows Bryce wounded on the night's
+larder floor through its cutscenes' body animations, which Unreal cannot play, so
+he gets a held pose: `tools/blender/pose_wounded.py` poses the mannequin skeleton
+(bones aimed in world space: down onto the floor and tipped back against the wall,
+one leg out, the other knee drawn up, the back slumped, the head hanging, the right
+hand pressed to the belly, the left arm limp) and `tools/unreal/pose_make.py`
+imports it as `/Game/Cousland/Anims/A_WoundedSlump` (committed: our pose on the
+template's `SK_Mannequin`). The MetaHuman look follows the mannequin as always.
+Checked in Simulate: Bryce sits slumped against the larder wall.
+
 ### Outfits (2026-10-21)
 
 Everyone wears what the game gives them: the area export lists each

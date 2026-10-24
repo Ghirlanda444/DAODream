@@ -270,6 +270,12 @@ BEAST_LOOKS = (("rat_giant", "giant_rat"),)
 BEAST_COATS = {"giant_rat": ((0.085, 0.07, 0.055), 0.35, 0.0)}
 
 
+# Held poses, by area and creature tag: animations in /Game/Cousland/Anims an NPC idles in instead of standing.
+# The game shows these through its cutscenes' body animations, which Unreal cannot play: Teyrn Bryce lies wounded
+# in the night castle's larder (tools/blender/pose_wounded.py).
+IDLE_POSES = {"bhn200ar_castle_after_siege": {"bhn100cr_father": "A_WoundedSlump"}}
+
+
 def beast_look(template: str) -> str:
     """The look key of an animal with a look of its own, or ""."""
     template = template.lower()
@@ -752,6 +758,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     door's origin is its hinge and the panel runs along its local X."""
     warnings: list[str] = []
     npc_tags, npc_names, npc_convs, npc_female, npc_pose, npc_active = [], [], [], [], [], []
+    npc_idle = []
+    poses = IDLE_POSES.get((are_root.get("Tag") or "").lower(), {})
     npc_team, npc_scale, npc_hostile, npc_rank, npc_dead, npc_ally = [], [], [], [], [], []
     npc_morph, npc_crowd, npc_variety = [], [], []
     npc_health, npc_attack, npc_defense, npc_damage, npc_dscale = [], [], [], [], []
@@ -781,6 +789,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         npc_ambient_prefix.append(amb["Prefix"])
         look = utc.get("Appearance Data") if isinstance(utc.get("Appearance Data"), dict) else {}
         npc_tags.append(c.get("Tag") or "")
+        npc_idle.append(poses.get((c.get("Tag") or "").lower(), ""))
         npc_names.append(_text(utc.get("LocName")))
         npc_convs.append(conversation.lower())
         npc_female.append(1 if look.get("Gender") == 2 else 0)
@@ -925,6 +934,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         # The helmet item without "gen_im_arm_hel_" (med_hel, lgt_ltr, lgt_rlr, hvy_exc; "" for none):
         # BP_DlgNPC.ApplyHelmet puts SM_Helmet_<kind> on the head bone.
         "NpcHelmet": npc_helmet,
+        # A held pose to idle in (IDLE_POSES; "" for the usual idle): BP_DlgNPC.ApplyIdle.
+        "NpcIdle": npc_idle,
         "NpcArmour": npc_armour,
         "NpcShieldDefense": npc_shield,
         # Per creature, VARIETY floats: skin, hair and clothes dye for crowd looks (variety), a mabari's coat.

@@ -203,10 +203,10 @@ cm up; NPCs by tag, `StageNpc`). The dialogue camera frames each speaker as in
 any conversation. Checked in Simulate (`playtest.py cut night <staging>
 <times> --camera x,y,z,yaw,pitch`): in the farewell Eleanor, Bryce and Duncan
 stand together in the larder; in Play the farewell's lines frame Bryce in close
-up. Not yet: Bryce stands instead of lying wounded (no such pose), nobody plays
-the cutscene's body animations (the game's own, not ours), and night falls has
-no area positions (its actors are all in a frame of their own), so it stays a
-caption.
+up. Bryce sits wounded against the wall (a held pose, `docs/CHARACTERS.md`,
+"Poses"). Not yet: nobody plays the cutscene's body animations (the game's own,
+not ours), and night falls has no area positions (its actors are all in a frame
+of their own), so it stays a caption.
 
 The cutscene's own camera is read too (`Cam`: position, rotation and field of
 view per sample, cuts from the MASTER's kind 11 tracks by actor id), but not
@@ -217,6 +217,28 @@ Fitted conventions put the farewell's camera on its characters on average but
 not consistently, and in pictures it looked at the larder's walls. The export
 keeps `Cam` only when the path frames someone in 70% of its samples (`Framed`),
 which none does yet.
+
+What is known about the camera so far (2026-10-24). The cutscene's bank
+(`.cub`) names each clip's animation file; the camera's is
+`freecamera0.hn_frwll.ani` in `packages/core/data/anims.erf`, a stub whose
+data is in `freecamera0.hn_frwll.gad` (GFF4 "GAD"): one track per root channel
+(`gob_gobtranslation`: time, x, y, z; `gob_gobrotation`: time, x, y, z, w) over
+the whole 50 s source animation, 30 frames a second, z up. The cutscene's
+baked arrays (AANI 5408/5409) are an excerpt of it from the clip's source
+offset (field 5403; 5402 is its rate), made relative to its first frame. The
+camera's shots are plain to see in it: hard jumps at 1.8, 3.8, 10.1, 13.2,
+18.9 and 22.7 s, the same times as its field of view keys (60, 60, 55, 60, 55,
+65, 60) and depth of field changes. Its rotation at the clip's start, as
+angles, is the base curve's (24.96 about x and -1.5 about y against 24.96 and
+-1.65) but for the yaw, 7.5 degrees apart: the animation's scene frame is
+turned against the area's. Characters' tracks are each relative to that
+character's own animation root, parked far away outside their part of the
+scene (Bryce at 43, 75 m until 18.3 s), so where the characters really stand
+in the scene is itself uncertain, and with both unknown no reading of the
+camera could be confirmed: none frames the family consistently. Next step when
+this is picked up again: the area's placement of a cutscene (`5014`/`5015` and
+the actors' 5214/5215 offsets) against the character tracks' roots, starting
+from finding Bryce, where every key is in the area's frame.
 
 Checked in Play on `L_CastleNight`: the night opens on the three caption
 lines (about 10, 10 and 5 s), then the mabari's

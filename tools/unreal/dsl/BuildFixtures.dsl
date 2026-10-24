@@ -5,6 +5,7 @@
   (Variabili|Predefinito|ImpostaFires (Json|GetField _json "Fires"))
   (Variabili|Predefinito|ImpostaNpcChest (Json|GetField _json "NpcChest"))
   (Variabili|Predefinito|ImpostaNpcHelmet (Json|GetField _json "NpcHelmet"))
+  (Variabili|Predefinito|ImpostaNpcIdle (Json|GetField _json "NpcIdle"))
   (Variabili|Predefinito|ImpostaNpcVariety (Json|GetField _json "NpcVariety"))
   (Variabili|Predefinito|ImpostaKitMeshes (Json|GetField _json "KitMeshes"))
   (Variabili|Predefinito|ImpostaKitPlaced (Json|GetField _json "KitPlaced"))
