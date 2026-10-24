@@ -215,12 +215,22 @@ when less than 1.5 GB is free. `M_ScanProp`'s linear samplers need a linear
 placeholder texture, or the material fails to compile and every prop shows the
 default grid.
 
-In the castle 606 pieces (day) and 599 (night) are scans: barrels, tables,
+In the castle 733 pieces (day) and 739 (night) are meshes: barrels, tables,
 chairs and high-backed chairs, benches, shelves, bookshelves and scroll racks,
-buckets, pots and cauldrons, wash tubs, tankards, bottles, jugs, bowls, food and
-books. Still boxes: sacks, beds and bedding, carpets, armour stands, dressers,
-chests, statues, wall hangings, wood ledges. Walls, pillars and arches stay boxes
-with the displaced stone surfaces above.
+buckets, pots and cauldrons, wash tubs, tankards, bottles, jugs, bowls, food,
+books, and since 2026-10-24 chests, dressers and wardrobes, beds, single sacks,
+rubble (the night's siege damage) and wall hangings. Still boxes: groups of
+sacks, bedding and bedrolls, bunk beds and the canopy bed, carpets, armour
+stands, statues, wood ledges (no free model fits yet). Walls, pillars and arches
+stay boxes with the displaced stone surfaces above.
+
+Not every model is a Megascans scan: `kit_props.PROPS` also takes models with
+their own layout (an FBX and named texture files per material slot, `opengl`
+for normal maps made for OpenGL, whose green channel is flipped on import), and
+`tools/blender/prop_prep.py` exports one object of a `.blend` (the hanging
+banner) as an FBX. A rule can turn the mesh about its up axis before it is
+fitted (the banner hangs across x, the kit's hangings are thin in x: 90). The
+CC BY models are credited in `docs/CREDITS.md`.
 
 ## Next
 

@@ -307,6 +307,72 @@
     22.75,
     30.01
    ]
+  },
+  "WoodenChest": {
+   "path": "/Game/ThirdParty/Megascans/Props/WoodenChest/SM_WoodenChest",
+   "bounds": [
+    0.66,
+    -0.15,
+    23.66,
+    51.68,
+    24.95,
+    24.01
+   ]
+  },
+  "LimestoneRubble": {
+   "path": "/Game/ThirdParty/Megascans/Props/LimestoneRubble/SM_LimestoneRubble",
+   "bounds": [
+    0.41,
+    1.09,
+    8.76,
+    144.27,
+    65.85,
+    11.11
+   ]
+  },
+  "BurlapSack": {
+   "path": "/Game/ThirdParty/Megascans/Props/BurlapSack/SM_BurlapSack",
+   "bounds": [
+    0.01,
+    0.0,
+    0.25,
+    0.21,
+    0.16,
+    0.25
+   ]
+  },
+  "MedievalCabinet": {
+   "path": "/Game/ThirdParty/Megascans/Props/MedievalCabinet/SM_MedievalCabinet",
+   "bounds": [
+    0.0,
+    6.58,
+    50.12,
+    37.93,
+    24.85,
+    49.61
+   ]
+  },
+  "RusticBed": {
+   "path": "/Game/ThirdParty/Megascans/Props/RusticBed/SM_RusticBed",
+   "bounds": [
+    0.1,
+    0.7,
+    15.75,
+    98.6,
+    57.59,
+    46.75
+   ]
+  },
+  "HangingBanner": {
+   "path": "/Game/ThirdParty/Megascans/Props/HangingBanner/SM_HangingBanner",
+   "bounds": [
+    -220.0,
+    0.0,
+    441.08,
+    151.16,
+    6.91,
+    327.46
+   ]
   }
  },
  "pieces": [
@@ -494,6 +560,52 @@
    "match": "prp_ferbookopn*",
    "mesh": "OldBook",
    "fit": "uniform"
+  },
+  {
+   "match": "prp_chstwd*",
+   "mesh": "WoodenChest",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_smdresser*",
+   "mesh": "MedievalCabinet",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_armoire*",
+   "mesh": "MedievalCabinet",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_bedstrw*",
+   "mesh": "RusticBed",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_bedlrge*",
+   "mesh": "RusticBed",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_bed0*",
+   "mesh": "RusticBed",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_sack_*",
+   "mesh": "BurlapSack",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_rubble*",
+   "mesh": "LimestoneRubble",
+   "fit": "stretch"
+  },
+  {
+   "match": "prp_wallhang*",
+   "mesh": "HangingBanner",
+   "fit": "stretch",
+   "yaw": 90
   }
  ]
 }

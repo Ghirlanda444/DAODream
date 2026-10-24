@@ -19,7 +19,9 @@ ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 SRC = os.path.join(ROOT, "extracted", "fab", "props").replace("\\", "/")
 KITMAP = os.path.join(HERE, "kitmap.json")
 
-# name -> (pack folder, scan folder or "" for a single scan, FBX file)
+# name -> (pack folder, scan folder or "" for a single scan, FBX file): a Megascans scan, its maps found by name;
+# or a dict for a model with its own layout: "fbx" and "maps" (paths under extracted/fab/props), maps per material
+# slot ({"": ...} for every slot), "opengl" for normal maps made for OpenGL (their green channel is flipped).
 PROPS = {
     "WoodenBarrel": ("wooden_barrel_tmgpcg2fa", "", "Wooden_Barrel_tmgpcg2fa_High.fbx"),
     "WoodenChair": ("wooden_chair_uknjbb2bw", "", None),
@@ -49,11 +51,35 @@ PROPS = {
     "BanquetBench": ("medieval_banquet", "wjfjahl", None),
     "BarrelStand": ("medieval_banquet", "udmmfbpqx", None),
     "Urn": ("medieval_banquet", "wccvabgaw", None),
+    # 2026-10-24: chests, dressers, beds, sacks, rubble and wall hangings
+    "WoodenChest": ("chest", "", None),  # Megascans, personal licence
+    "LimestoneRubble": ("rubble", "", None),  # Megascans, personal licence
+    "BurlapSack": {"fbx": "sack/obj/Closed_Burlap_Sack_FBX.fbx", "maps": {"": {  # ClockWork.Creations, CC-BY
+        "BaseColor": "sack/textures/Closed_Burlap_Sack_Base_color.png",
+        "Normal": "sack/textures/Closed_Burlap_Sack_Normal_DirectX.png",
+        "Roughness": "sack/textures/Closed_Burlap_Sack_Roughness.png"}}},
+    "MedievalCabinet": {"fbx": "cabinet/source/Cabinet.fbx", "maps": {"": {  # Wooden medieval cabinet, CC-BY
+        "BaseColor": "cabinet/textures/Cabinet_BaseColor.png", "Normal": "cabinet/textures/Cabinet_Normal.png",
+        "Roughness": "cabinet/textures/Cabinet_Roughness.png"}}},
+    "RusticBed": {"fbx": "bed/source/bed.fbx", "opengl": True, "maps": {  # "Bed" (bed with a bed cover), CC-BY
+        "Material_001": {"BaseColor": "bed/textures/Wood030_2K_Color.jpg", "Normal": "bed/textures/Wood030_2K_Normal.jpg",
+                         "Roughness": "bed/textures/Wood030_2K_Roughness.jpg"},
+        "Material_002": {"BaseColor": "bed/textures/Fabric036_2K_Color.jpg", "Normal": "bed/textures/Fabric036_2K_Normal.jpg",
+                         "Roughness": "bed/textures/Fabric036_2K_Roughness.jpg",
+                         "AO": "bed/textures/Fabric036_2K_AmbientOcclusion.jpg"},
+        "Material": {"BaseColor": "bed/textures/Fabric_023_Base_Color.jpg", "Normal": "bed/textures/Fabric_023_normal.jpg",
+                     "Roughness": "bed/textures/Fabric_023_Roughness.jpg"}}},
+    # Renaissance Hanging Banner, CC-BY: its .blend's emblazoned banner, exported by tools/blender/prop_prep.py
+    "HangingBanner": {"fbx": "banner/prep/Banner.fbx", "maps": {"": {
+        "BaseColor": "banner/textures/Banner_01_Banner_01_AlbedoTransparency.png",
+        "Normal": "banner/textures/Banner_01_Banner_01_Normal.png",
+        "Roughness": "banner/textures/Banner_01_Blank_Roughness.png"}}},
 }
 
 # Which kit pieces become which prop: model name pattern -> mesh, fitted to the piece's bounding box
 # ("uniform": scaled to its height; "stretch": to all three sizes, for furniture whose footprint
 # matters). First match wins. The game's lamps, candles and torches are fixtures (kit.FIXTURE_MODELS).
+# (pattern, mesh, fit[, yaw degrees: the mesh turned about its up axis before it is fitted])
 RULES = [
     ("prp_barrel*", "WoodenBarrel", "uniform"), ("prp_brrl*", "WoodenBarrel", "uniform"),
     ("prp_chair*", "WoodenChair", "stretch"),
@@ -80,6 +106,14 @@ RULES = [
     ("prp_fdvgsquash*", "Squash", "uniform"), ("prp_fdvgtomato*", "Apple", "uniform"),
     ("prp_tlckknife*", "Knife", "uniform"),
     ("prp_ferbook0*", "OldBook", "uniform"), ("prp_ferbookopn*", "OldBook", "uniform"),
+    ("prp_chstwd*", "WoodenChest", "stretch"),
+    ("prp_smdresser*", "MedievalCabinet", "stretch"), ("prp_armoire*", "MedievalCabinet", "stretch"),
+    # beds: the straw beds, the large and the plain ones (bunk beds and the canopy bed stay boxes)
+    ("prp_bedstrw*", "RusticBed", "stretch"), ("prp_bedlrge*", "RusticBed", "stretch"), ("prp_bed0*", "RusticBed", "stretch"),
+    ("prp_sack_*", "BurlapSack", "stretch"),  # single sacks (prp_sackgroup_* stay boxes)
+    ("prp_rubble*", "LimestoneRubble", "stretch"),
+    # the banner hangs across x; the kit's hangings are thin in x: a quarter turn
+    ("prp_wallhang*", "HangingBanner", "stretch", 90),
 ]
 
 MASTER = r'''
@@ -139,28 +173,40 @@ if not EAL.does_asset_exist(mesh_path):
     t.automated = True; t.replace_existing = True; t.save = False; t.options = ui
     AT.import_asset_tasks([t])
     textures = {}
-    for key, kind in MAPS.items():
-        if not kind:
-            continue
-        ti = unreal.AssetImportTask()
-        ti.filename = kind; ti.destination_path = dest; ti.destination_name = "T_%s_%s" % (NAME, key)
-        ti.automated = True; ti.replace_existing = True; ti.save = False
-        AT.import_asset_tasks([ti])
-        tex = EAL.load_asset(dest + "/T_%s_%s" % (NAME, key))
-        tex.set_editor_property("max_texture_size", 2048)
-        if key == "Normal":
-            tex.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_NORMALMAP)
-            tex.set_editor_property("srgb", False)
-        elif key != "BaseColor":  # linear, default compression: what M_ScanProp's linear samplers take
-            tex.set_editor_property("srgb", False)
-        textures[key] = tex
-    mi = AT.create_asset("MI_" + NAME, dest, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
-    mi.set_editor_property("parent", EAL.load_asset("/Game/Cousland/Materials/M_ScanProp"))
-    for key, tex in textures.items():
-        MEL.set_material_instance_texture_parameter_value(mi, key, tex)
+    # MAPS: material slot -> {map: file}; "" for every slot. One instance of M_ScanProp per slot.
+    mis = {}
+    for n, (slot, maps) in enumerate(MAPS.items()):
+        tag = NAME if len(MAPS) == 1 else "%s_%d" % (NAME, n)
+        textures = {}
+        for key, kind in maps.items():
+            if not kind:
+                continue
+            ti = unreal.AssetImportTask()
+            ti.filename = kind; ti.destination_path = dest; ti.destination_name = "T_%s_%s" % (tag, key)
+            ti.automated = True; ti.replace_existing = True; ti.save = False
+            AT.import_asset_tasks([ti])
+            tex = EAL.load_asset(dest + "/T_%s_%s" % (tag, key))
+            tex.set_editor_property("max_texture_size", 2048)
+            if key == "Normal":
+                tex.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_NORMALMAP)
+                tex.set_editor_property("srgb", False)
+                if OPENGL:  # Unreal's normal maps are DirectX: green points down
+                    tex.set_editor_property("flip_green_channel", True)
+            elif key != "BaseColor":  # linear, default compression: what M_ScanProp's linear samplers take
+                tex.set_editor_property("srgb", False)
+            textures[key] = tex
+        mi = AT.create_asset("MI_" + tag, dest, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
+        mi.set_editor_property("parent", EAL.load_asset("/Game/Cousland/Materials/M_ScanProp"))
+        for key, tex in textures.items():
+            MEL.set_material_instance_texture_parameter_value(mi, key, tex)
+        mis[slot] = mi
     sm = EAL.load_asset(mesh_path)
-    for i in range(len(sm.static_materials)):
+    norm = lambda x: str(x).replace(".", "_").lower()
+    for i, m in enumerate(sm.static_materials):
+        slot = norm(m.material_slot_name)
+        mi = next((v for k, v in mis.items() if k and norm(k) == slot), None) or mis.get("") or list(mis.values())[0]
         sm.set_material(i, mi)
+    OUT["slots"] = [str(m.material_slot_name) for m in sm.static_materials]
     ns = sm.get_editor_property("nanite_settings")
     ns.enabled = True
     sm.set_editor_property("nanite_settings", ns)
@@ -185,11 +231,20 @@ def shrink(path, size=2048):
         os.makedirs(os.path.dirname(out), exist_ok=True)
         with Image.open(path) as im:
             im.thumbnail((size, size), Image.LANCZOS)
-            im.save(out, quality=92)
+            im.save(out, quality=92) if out.lower().endswith((".jpg", ".jpeg")) else im.save(out)
     return out.replace("\\", "/")
 
 
-def files(pack, scan, fbx):
+def files(prop):
+    """FBX and maps ({slot: {map: file}}, maps cut to 2K) of a PROPS entry, and whether its normals are OpenGL."""
+    if isinstance(prop, dict):
+        maps = {slot: {k: shrink(os.path.join(SRC, f)) for k, f in m.items()} for slot, m in prop["maps"].items()}
+        return os.path.join(SRC, prop["fbx"]).replace("\\", "/"), maps, bool(prop.get("opengl"))
+    fbx, maps = scan_files(*prop)
+    return fbx, {"": maps}, False
+
+
+def scan_files(pack, scan, fbx):
     folder = os.path.join(SRC, pack, scan) if scan else os.path.join(SRC, pack)
     names = os.listdir(folder)
     if fbx is None:
@@ -221,18 +276,19 @@ def free_gb():
 def main(only=None):
     kit_map = json.load(open(KITMAP, encoding="utf-8")) if os.path.exists(KITMAP) else {"meshes": {}, "pieces": []}
     print("master", pyrun.run(MASTER, 300))
-    for name, (pack, scan, fbx) in PROPS.items():
+    for name, prop in PROPS.items():
         if only and name not in only:
             continue
         if free_gb() < 1.5:  # stop before the PC runs out (a 4K import froze it, 2026-10-23)
             print("stopping: only %.1f GB of memory free" % free_gb())
             break
-        path, maps = files(pack, scan, fbx)
-        r = pyrun.run("NAME = %r\nFBX = %r\nMAPS = %r\n" % (name, path, maps) + IMPORT, 900)
+        path, maps, opengl = files(prop)
+        r = pyrun.run("NAME = %r\nFBX = %r\nMAPS = %r\nOPENGL = %r\n" % (name, path, maps, opengl) + IMPORT, 900)
         print(name, r)
         if "bounds" in r:
             kit_map["meshes"][name] = {"path": r["path"], "bounds": r["bounds"]}
-    kit_map["pieces"] = [{"match": m, "mesh": mesh, "fit": fit} for m, mesh, fit in RULES]
+    kit_map["pieces"] = [dict({"match": r[0], "mesh": r[1], "fit": r[2]}, **({"yaw": r[3]} if len(r) > 3 else {}))
+                         for r in RULES]
     with open(KITMAP, "w", encoding="utf-8") as f:
         json.dump(kit_map, f, indent=1)
         f.write("\n")
