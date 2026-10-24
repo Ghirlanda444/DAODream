@@ -61,10 +61,16 @@ _COLUMNS = {
                      "StrAdjust", "DexAdjust", "WillAdjust", "MagAdjust", "IntAdjust", "ConAdjust"],
     "race_base.gda": ["ID", "label", "StrAdjust", "DexAdjust", "WillAdjust", "MagAdjust", "IntAdjust", "ConAdjust"],
     "itemstats.gda": ["ID", "label", "Damage", "DamageRange", "ArmorPenetration", "CritChanceModifier", "AttributeMod",
-                      "Attribute0", "Attribute1", "Armor", "Defense", "MissileDeflection"],
+                      "Attribute0", "Attribute1", "Armor", "Defense", "MissileDeflection", "dspeed"],
     "materialtypes.gda": ["ID", "label", "Armor"],
     "difficulty.gda": ["ID", "label", "DmgScalingThresh"],
+    "apr_base.gda": ["ID", "label", "creature_type", "DefaultWeapon", "DefaultArmor", "MovementTree"],
 }
+# CalculateAttackTiming (core_h): a humanoid's seconds per attack by how it wields its weapons (BASE_TIMING_*),
+# plus the weapon's dspeed; anything else attacks as fast as its attack animations play.
+BASE_TIMING = {"single": 2.0, "dual": 1.5, "twohanded": 2.5}
+_TWO_HANDED = ("Weapon - Greatsword", "Weapon - Battleaxe", "Weapon - Maul", "Weapon - Staff")
+ANIM_LENGTH = 4009  # an animation's length in seconds (.ani, GFF4)
 
 
 def load_tables(game_dir: str | Path, overrides: str | Path | None = None) -> dict[str, dict[int, dict]]:
@@ -94,6 +100,66 @@ def weapon_base_item(equip: list[dict], items: dict[str, dict], itemstats: dict[
         if base and float(itemstats.get(base, {}).get("Damage") or 0) > 0:
             return base
     return None
+
+
+def natural_equipment(appearance: int, equip: list[dict], items: dict[str, dict], tables: dict) -> list[dict]:
+    """creature_core's EquipDefaultItem at spawn: the appearance's DefaultWeapon (a rat's or a dog's bite) when no
+    weapon is equipped, its DefaultArmor when no chest piece is. Returned as extra Equip_ItemList entries; they
+    count for the numbers, not for the look."""
+    apr = tables.get("apr_base", {}).get(appearance) or {}
+    extra = []
+    if weapon_base_item(equip, items, tables["itemstats"]) is None and apr.get("DefaultWeapon"):
+        extra.append({"TemplateResRef": str(apr["DefaultWeapon"]).rsplit(".", 1)[0]})
+    if "chest" not in equipment(equip, items, tables)["Outfit"] and apr.get("DefaultArmor"):
+        extra.append({"TemplateResRef": str(apr["DefaultArmor"]).rsplit(".", 1)[0]})
+    return extra
+
+
+def attack_anims(game_dir: str | Path, tables: dict, appearances) -> dict[int, float]:
+    """Per appearance, the mean length of its attack animations (seconds): the attack nodes ("attk..." or
+    "atk...") of its combat tree in anims.erf, named like its MovementTree with _cbt for _expmvt (C_DOGa_expmvt.anb
+    -> C_DOGa_cbt.anb). A creature without a humanoid's weapon attacks once per animation."""
+    out = {}
+    with ERF.open(Path(game_dir) / "packages" / "core" / "data" / "anims.erf") as erf:
+        names = {e.name.lower(): e.name for e in erf.entries}
+
+        def root(name):
+            return GFF4(erf.read(names[name.lower()])).root
+
+        for a in set(appearances):
+            tree = str((tables["apr_base"].get(a) or {}).get("MovementTree") or "").lower().replace("_expmvt", "_cbt")
+            if tree not in names:
+                continue
+            anims = [n.get(4025) for n in root(tree).get(4021) or [] if str(n.get(4024) or "").startswith(("attk", "atk"))]
+            lengths = [float(root(x).get(ANIM_LENGTH) or 0) for x in anims if x and str(x).lower() in names]
+            if lengths:
+                out[a] = round(sum(lengths) / len(lengths), 3)
+    return out
+
+
+def attack_interval(equip: list[dict], items: dict[str, dict], tables: dict, anim: float | None = None) -> float:
+    """Seconds between attacks (CalculateAttackTiming): with a weapon ("Weapon - ..." in itemstats), the wield
+    style's base timing plus the weapon's dspeed: two weapons and no shield 1.5, a two-handed one 2.5, else 2.0;
+    otherwise `anim` (attack_anims), or 2.0 if unknown."""
+    weapons = []
+    shield = False
+    for e in equip or []:
+        uti = items.get(str(e.get("TemplateResRef") or "").lower()) or {}
+        row = tables["itemstats"].get(int(uti.get("BaseItem") or -1)) or {}
+        label = str(row.get("label") or "")
+        shield = shield or piece(label) == "shield"
+        if label.startswith("Weapon - ") and float(row.get("Damage") or 0) > 0 and not label.endswith("bow"):
+            weapons.append(row)
+    if not weapons:
+        return anim or BASE_TIMING["single"]
+    main = weapons[0]
+    if str(main.get("label")).startswith(_TWO_HANDED):
+        style = "twohanded"
+    elif len(weapons) > 1 and not shield:
+        style = "dual"
+    else:
+        style = "single"
+    return round(BASE_TIMING[style] + float(main.get("dspeed") or 0.0), 3)
 
 
 # What an equipped item is, from its base item's label in itemstats.

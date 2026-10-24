@@ -228,9 +228,10 @@ def rules(st: dict) -> list[float]:
 
 def player_stats(player: dict) -> list[float]:
     """PlayerStats, flat for Blueprint: health, attack, defense, damage min and max, the damage scaling
-    threshold, then RULES, then stamina."""
+    threshold, then RULES, then stamina and seconds between attacks."""
     return [player["Health"], player["Attack"], player["Defense"] + player.get("ShieldDefense", 0.0),
-            *player["Damage"], player["DamageThreshold"], *rules(player), player.get("Stamina", 0.0)]
+            *player["Damage"], player["DamageThreshold"], *rules(player), player.get("Stamina", 0.0),
+            player.get("Interval", 2.0)]
 
 
 def variety(key: str, chest: str) -> list[float]:
@@ -778,6 +779,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     npc_morph, npc_crowd, npc_variety = [], [], []
     npc_health, npc_attack, npc_defense, npc_damage, npc_dscale = [], [], [], [], []
     npc_outfit, npc_chest, npc_helmet, npc_armour, npc_shield, npc_rules = [], [], [], [], [], []
+    npc_interval = []
     npc_ambient, npc_ambient_prefix = [], []
     creatures = list(are_root.get("CreatureList") or [])
     waypoints = {w.get("Tag"): w for w in are_root.get("WaypointList") or []}
@@ -838,6 +840,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
             npc_armour.append(st.get("Armour", 0.0))
             npc_shield.append(st.get("ShieldDefense", 0.0))
             npc_rules.extend(rules(st))
+            npc_interval.append(st.get("Interval", 2.0))
         chest = npc_chest[-1] if creature_stats is not None else ""
         coat = mabari_coat(str(c.get("TemplateResRef", "")), key)
         beast = beast_look(str(c.get("TemplateResRef", "")))
@@ -955,6 +958,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcShieldDefense": npc_shield,
         # Per creature, len(RULES) floats: armour, armour penetration, critical chance, most flanking, damage bonus.
         "NpcRules": npc_rules,
+        # Per creature, seconds between attacks (stats.attack_interval: wield style and weapon, or animations).
+        "NpcInterval": npc_interval,
         # Per creature, VARIETY floats: skin, hair and clothes dye for crowd looks (variety), a mabari's coat.
         "NpcVariety": npc_variety,
         "Player": player or {},

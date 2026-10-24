@@ -279,11 +279,40 @@ so its tables give the same. What moves it (2,000 fights each):
 | Both | 100% | 45% |
 | Rats biting every 3 s instead of 2 | 100% | 51% |
 
-So three assumptions decide it, and each needs checking against the game before any number changes:
-whether the engine's +5 health per constitution point applies to critters as to the player; the
-mabari's bite (its template wears only a collar; the game's creatures fight with natural weapons the
-templates do not list); and how often a creature attacks (the prototype's fixed 2 s; the game times
-attacks by their animations).
+So three assumptions decided it. Checked against the game's data (2026-10-24):
+
+- **Natural weapons and armour** (settled): at spawn `creature_core` equips each creature with its
+  appearance's `DefaultWeapon` and `DefaultArmor` (`apr_base`) when its template has none. The giant rat
+  (appearance 37) bites with `gen_im_cweapon_rat` ("Creature - Claw, Quick": 3 damage, half the strength
+  bonus, armour penetration 2) and wears light rolled leather (armour 3); the party mabari (35) bites with
+  `gen_im_cweapon_dog_party` ("Creature - Claw, Medium": 6-7.5, penetration 3). The export now adds them
+  (`stats.natural_equipment`; they count for the numbers, not the look): rat bites 3.5-4.0 (+0.4), the
+  mabari's 6.5-8.5 (+1.0).
+- **Attack timing** (partly settled): `CalculateAttackTiming` gives a humanoid with a weapon 2.0 s per attack
+  with one weapon or a shield, 1.5 s with two, 2.5 s two-handed, plus the weapon's `dspeed` (a longsword
+  -0.1: the player and Gilmore 1.9 s, not the prototype's 1.0 and 1.5). Anything else is timed by the engine
+  from its attack animations (`stats.attack_anims`, from `anims.erf`): a rat's bite (`c_rat.attk_v1`) lasts
+  0.63 s and its pause between moves 0.97 s; the mabari's attacks 1.6 and 2.3 s (2.07 on average). The
+  export writes `NpcInterval` and the player's interval (`PlayerStats[12]`); the simulator uses them. What
+  the engine does between two creature attacks (straight into the next, or a pause) is not in the data.
+- **Constitution for critters** (open): the scripts never add constitution to health and no table holds
+  the per-point bonus; it is the engine's, and whether it applies to critters as to the player is not in
+  the data.
+
+With the data-backed numbers the fight gets harder, not easier: the player's and Gilmore's slower swings
+and the rats' hides outweigh the mabari's real bite. Sweeping the two open numbers (2,000 fights each):
+
+| Rat bites every | Rat health | Won | Player falls | Mabari falls |
+| --- | --- | --- | --- | --- |
+| 0.63 s (bite only) | 55 or 40 | 0% | 100% | 100% |
+| 1.6 s (bite and pause) | 55 / 40 | 0% / 2% | 100% / 99% | 100% / 99% |
+| 2.0 s | 55 / 40 | 0% / 43% | 100% / 78% | 100% / 86% |
+
+Since the fight is easy in the game, something on the party's side is still missing from the port, or the
+engine paces creatures more slowly than their animations. Not yet in the port and worth checking next:
+the warrior's starting talents and the player's five free attribute points at character creation, and the
+original game itself (how many sword hits a rat takes, how often rats bite) as the ground truth. Unreal
+still uses the prototype's fixed timers; it reads `NpcInterval` once this is settled.
 
 ## Path finding
 

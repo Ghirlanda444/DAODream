@@ -413,11 +413,20 @@ def cmd_unreal_area(args) -> int:
         items = {p.name[:-len(".uti.json")].lower(): json.loads(p.read_text(encoding="utf-8"))["root"]
                  for p in sorted(Path(args.items).rglob("*.uti.json"))} if Path(args.items).exists() else {}
 
+        templates = area.creature_templates(args.pull)
+        appearance = lambda utc: int((utc.get("Appearance Data") or {}).get("Appearance_Type") or 0)
+        anims = stats.attack_anims(args.game, tables, {appearance(u) for u in templates.values()})
+
         def creature_stats(utc):
+            # what it wears (the look) from its template; its natural bite and hide count for the numbers
+            worn = utc.get("Equip_ItemList") or []
+            equip = worn + stats.natural_equipment(appearance(utc), worn, items, tables)
             st = stats.stats(tables, package=int(utc.get("Package") or 0), rank=int(utc.get("Rank") or 0),
                              area_level=args.area_level,
-                             base_item=stats.weapon_base_item(utc.get("Equip_ItemList"), items, tables["itemstats"]))
-            return {**st, **stats.equipment(utc.get("Equip_ItemList"), items, tables)}
+                             base_item=stats.weapon_base_item(equip, items, tables["itemstats"]))
+            st["Interval"] = stats.attack_interval(equip, items, tables, anims.get(appearance(utc)))
+            numbers = stats.equipment(equip, items, tables)
+            return {**st, **numbers, "Outfit": stats.equipment(worn, items, tables)["Outfit"]}
 
         # The Human Noble starts as a level 1 human warrior (background_defaults row 3105: its template's
         # equipment), with a longsword (base item 2) when the template is not given.
@@ -426,9 +435,10 @@ def cmd_unreal_area(args) -> int:
         player = stats.stats(tables, package=0, rank=stats.RANK_PLAYER, area_level=args.area_level, race=3,
                              base_item=stats.weapon_base_item(equip, items, tables["itemstats"]) or 2, player_class=1)
         player.update(stats.equipment(equip, items, tables))
+        player["Interval"] = stats.attack_interval(equip, items, tables)
         print(f"player: {player['Health']} health, attack {player['Attack']}, defense {player['Defense']} "
               f"+ {player['ShieldDefense']}, damage {player['Damage']} + {player['DamageBonus']}, "
-              f"armour {player['Armour']}", file=sys.stderr)
+              f"armour {player['Armour']}, an attack every {player['Interval']} s", file=sys.stderr)
     out = area.area(are_root, layout_root, area.creature_templates(args.pull), start=args.start or "",
                     solids=solids, door_models=door_models, creature_stats=creature_stats, player=player,
                     ambient_tables=ambient_tables, trigger_templates=area.trigger_templates(args.pull),

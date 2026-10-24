@@ -7,8 +7,9 @@ critical chance, most flanking, damage bonus). Exports with and without a rebala
 (`--mod-tables`) compare the two.
 
 The fight follows the Unreal prototype (docs/COMBAT.md), not positions: everyone is engaged from the start.
-Each fighter strikes on its own clock (INTERVAL: the player once a second, party members every 1.5 s, hostiles
-every 2 s). A hostile goes for a standing member of the party (the nearest, in the game; here one at random,
+Each fighter strikes on its own clock: the game's attack timing from the export (a humanoid's weapon and wield
+style, an animal's attack animations; stats.attack_interval), else INTERVAL (the prototype: the player once a
+second, party members every 1.5 s, hostiles every 2 s). A hostile goes for a standing member of the party (the nearest, in the game; here one at random,
 kept until it falls); a party member goes for the foe the fewest of its side are fighting. With flanking on, an
 attacker its target is not fighting stands behind it and gets its full flanking bonus. Foes come in waves: the
 first `wave` are in the fight and each death brings the next one in (the larder's rats: each of the first six
@@ -27,7 +28,9 @@ from . import stats
 
 FORMAT = "DAODream.Simulation 1"
 PLAYER = "player"
-INTERVAL = {"player": 1.0, "party": 1.5, "foe": 2.0}  # seconds between attacks (the Unreal prototype)
+# Seconds between attacks: the export's (NpcInterval, PlayerStats[12]: the game's timing) when it has them,
+# else the Unreal prototype's fixed ones; "export": False always uses the fixed ones.
+INTERVAL = {"player": 1.0, "party": 1.5, "foe": 2.0, "export": True}
 TIME_LIMIT = 600.0
 RULES = ("Armour", "Penetration", "Crit", "Flanking", "DamageBonus")  # area.RULES
 
@@ -63,12 +66,13 @@ def _rules(values: list, i: int) -> dict:
 
 
 def player_fighter(area: dict) -> Fighter:
-    """PlayerStats: health, attack, defense, damage min and max, threshold, RULES, stamina."""
+    """PlayerStats: health, attack, defense, damage min and max, threshold, RULES, stamina, seconds between
+    attacks (INTERVAL["player"] when the export has none)."""
     p = area["PlayerStats"]
     r = dict(zip(RULES, p[6:11])) if len(p) > 10 else {}
     return Fighter(PLAYER, "party", p[0], p[1], p[2], (p[3], p[4]), 1.0, p[5], r.get("Armour", 0.0),
                    r.get("Penetration", 0.0), r.get("Crit", 0.0), r.get("Flanking", 0.0), r.get("DamageBonus", 0.0),
-                   INTERVAL["player"])
+                   p[12] if len(p) > 12 and INTERVAL.get("export", True) else INTERVAL["player"])
 
 
 def npc_fighter(area: dict, i: int, side: str) -> Fighter:
@@ -77,7 +81,16 @@ def npc_fighter(area: dict, i: int, side: str) -> Fighter:
     return Fighter(area["NpcTags"][i], side, area["NpcHealth"][i], area["NpcAttack"][i], area["NpcDefense"][i],
                    (area["NpcDamage"][2 * i], area["NpcDamage"][2 * i + 1]), area["NpcDamageScale"][i], threshold,
                    r.get("Armour", 0.0), r.get("Penetration", 0.0), r.get("Crit", 0.0), r.get("Flanking", 0.0),
-                   r.get("DamageBonus", 0.0), INTERVAL["party" if side == "party" else "foe"])
+                   r.get("DamageBonus", 0.0), _interval(area, i, side))
+
+
+def _interval(area: dict, i: int, side: str) -> float:
+    """NpcInterval (the game's attack timing, stats.attack_interval) when the export has it and INTERVAL["export"]
+    is not False; else the prototype's fixed timing."""
+    found = area.get("NpcInterval") or []
+    if i < len(found) and INTERVAL.get("export", True):
+        return found[i]
+    return INTERVAL["party" if side == "party" else "foe"]
 
 
 def fighters(area: dict, party: list[str], foes: list[str]) -> tuple[list[Fighter], list[Fighter]]:

@@ -814,6 +814,29 @@ class StatsTests(unittest.TestCase):
         self.assertEqual(stats.crit_chance(3.0, 7.5), 7.5)         # x (1 + 7.5 / 5)
         self.assertEqual(stats.crit_chance(3.0), 3.0)
 
+    def test_natural_equipment_and_timing(self):
+        # A rat (appearance 37) wears nothing: its appearance's bite and hide are added; a dressed man keeps his.
+        tables = {"itemstats": {56: {"ID": 56, "label": "Creature - Claw, Quick", "Damage": 3.0},
+                                9: {"ID": 9, "label": "Armor - Light", "Armor": 3.0},
+                                2: {"ID": 2, "label": "Weapon - Longsword", "Damage": 7.0, "dspeed": -0.1},
+                                5: {"ID": 5, "label": "Weapon - Greatsword", "Damage": 11.0},
+                                3: {"ID": 3, "label": "Weapon - Dagger", "Damage": 4.0, "dspeed": -0.5},
+                                7: {"ID": 7, "label": "Shield - Small Round", "Defense": 1.5}},
+                  "materialtypes": {},
+                  "apr_base": {37: {"ID": 37, "DefaultWeapon": "rat_bite.uti", "DefaultArmor": "hide.uti"}}}
+        items = {"rat_bite": {"BaseItem": 56}, "hide": {"BaseItem": 9}, "sword": {"BaseItem": 2},
+                 "great": {"BaseItem": 5}, "dagger": {"BaseItem": 3}, "round": {"BaseItem": 7}}
+        self.assertEqual(stats.natural_equipment(37, [], items, tables),
+                         [{"TemplateResRef": "rat_bite"}, {"TemplateResRef": "hide"}])
+        self.assertEqual(stats.natural_equipment(37, [{"TemplateResRef": "sword"}], items, tables),
+                         [{"TemplateResRef": "hide"}])
+        eq = lambda *refs: [{"TemplateResRef": r} for r in refs]
+        self.assertEqual(stats.attack_interval(eq("sword", "round"), items, tables), 1.9)  # 2.0 - 0.1
+        self.assertEqual(stats.attack_interval(eq("dagger", "dagger"), items, tables), 1.0)  # dual 1.5 - 0.5
+        self.assertEqual(stats.attack_interval(eq("great"), items, tables), 2.5)
+        self.assertEqual(stats.attack_interval(eq("rat_bite"), items, tables, anim=0.633), 0.633)  # by animation
+        self.assertEqual(stats.attack_interval([], items, tables), 2.0)
+
     def test_overrides(self):
         # A mod's <table>_<suffix>.gda rows replace the game's rows by ID.
         with tempfile.TemporaryDirectory() as d:
