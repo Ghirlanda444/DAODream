@@ -7,6 +7,7 @@
   (Variabili|Predefinito|ImpostaNpcHelmet (Json|GetField _json "NpcHelmet"))
   (Variabili|Predefinito|ImpostaNpcIdle (Json|GetField _json "NpcIdle"))
   (Variabili|Predefinito|ImpostaNpcVariety (Json|GetField _json "NpcVariety"))
+  (Variabili|Predefinito|ImpostaNpcRules (Json|GetField _json "NpcRules"))
   (Variabili|Predefinito|ImpostaKitMeshes (Json|GetField _json "KitMeshes"))
   (Variabili|Predefinito|ImpostaKitPlaced (Json|GetField _json "KitPlaced"))
   (Funzionedichiamata|SpawnFixtureMeshes)

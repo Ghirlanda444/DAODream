@@ -1,0 +1,7 @@
+(fn Bite (Dt)
+  (Variabili|Predefinito|ImpostaAttackTimer (Utility|Operatori|Sottrai (Variabili|Predefinito|OttieniAttackTimer) Dt))
+  (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggiore(>) (Variabili|Predefinito|OttieniAttackTimer) 0.0)
+    (:else
+      (Variabili|Predefinito|ImpostaAttackTimer 2.0)
+      (Funzionedichiamata|PlayAttackAnim)
+      (Classe|BPPlotManager|StrikePlayer (Variabili|Predefinito|OttieniMgr) :Attacker (Variabili|Ottieniunriferimentoasestesso) :Atk (Variabili|Predefinito|OttieniAttack) :DmgMin (Variabili|Predefinito|OttieniDmgMin) :DmgMax (Variabili|Predefinito|OttieniDmgMax) :Scale (Variabili|Predefinito|OttieniDmgScale) :Crit (Variabili|Predefinito|OttieniCrit) :Pen (Variabili|Predefinito|OttieniPen) :Bonus (Variabili|Predefinito|OttieniDmgBonus) :Flank (Variabili|Predefinito|OttieniFlank)))))

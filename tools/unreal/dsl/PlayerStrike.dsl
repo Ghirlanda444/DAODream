@@ -1,0 +1,2 @@
+(fn PlayerStrike (Target Def Armour)
+  (Funzionedichiamata|StrikeNpc :Attacker (Gioco|GetPlayerPawn 0) :Target Target :Atk (Variabili|Predefinito|OttieniPAtk) :Def Def :DmgMin (Variabili|Predefinito|OttieniPDmgMin) :DmgMax (Variabili|Predefinito|OttieniPDmgMax) :Scale 1.0 :Crit (Variabili|Predefinito|OttieniPCrit) :Pen (Variabili|Predefinito|OttieniPPen) :Bonus (Variabili|Predefinito|OttieniPBonus) :Flank (Variabili|Predefinito|OttieniPFlank) :Armour Armour))

@@ -1,0 +1,12 @@
+(fn SetPlayerStats (InStats)
+  (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggiore(>) (Utilità|Array|Length InStats) 5)
+    (:then
+      (Variabili|Predefinito|ImpostaPlayerMaxHealth (Utilità|Array|Ottieni(unacopia) InStats 0))
+      (Variabili|Predefinito|ImpostaPlayerHealth (Utilità|Array|Ottieni(unacopia) InStats 0))
+      (Variabili|Predefinito|ImpostaPAtk (Utilità|Array|Ottieni(unacopia) InStats 1))
+      (Variabili|Predefinito|ImpostaPDef (Utilità|Array|Ottieni(unacopia) InStats 2))
+      (Variabili|Predefinito|ImpostaPDmgMin (Utilità|Array|Ottieni(unacopia) InStats 3))
+      (Variabili|Predefinito|ImpostaPDmgMax (Utilità|Array|Ottieni(unacopia) InStats 4))
+      (Variabili|Predefinito|ImpostaDmgThreshold (Utilità|Array|Ottieni(unacopia) InStats 5))
+      (Funzionedichiamata|SetPlayerRules :InStats InStats)
+      (Funzionedichiamata|ShowHealth))))

@@ -18,6 +18,10 @@ Compile success, a read-back graph or a variable value are not enough.
   - `py playtest.py dialogue day --lines 8`: Play, a picture of each line of the opening
     conversation (or the one running), always option 1.
   - `py playtest.py kill night <tag>`: Simulate, wake a creature, hit it for 1000, pictures as it dies.
+  - `py playtest.py fight day --count 2 --fall`: Play, click through the opening, wake larder rats and
+    fight them with the hit rules; prints the rules' tally (`Hits`, `Misses`, `Crits` on the plot
+    manager) and health, then lets the player fall (game over, the level reloads 5 s later, which
+    resets the tally).
 - `game.py`: play like a player in Play (`g = game.Game("night")`): `talk_to`, `converse`, `use_door`,
   `fight`, `flags()` / `has(...)` by flag name, `where()`, `errors()`. For a new kind of check, add a
   command to `playtest.py` built on `Run` and `game.Game` rather than a one-off script.

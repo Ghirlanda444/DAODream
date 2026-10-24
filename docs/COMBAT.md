@@ -4,9 +4,10 @@ The first fight of the Human Noble origin, playable in
 `/Game/Cousland/Maps/L_CastleCousland`: the mabari in the larder, three waves of
 giant rats, and what the castle does once they are dead. It is a prototype of
 the loop (hostiles chase and bite, the player strikes, deaths drive the plot).
-Health, attack, defense and damage come from the game's data tables, computed
-the way its scripts do (see "Stats" below); abilities, talents and armour are
-not there yet.
+Health, attack, defense, damage, armour, criticals and flanking come from the
+game's data tables with Dragon Age Reborn's overrides, computed the way its
+scripts and engine do (see "Stats" and "Rules" below); abilities and talents
+are not there yet.
 
 ## How the fight is put together
 
@@ -56,8 +57,9 @@ py -m daotools unreal conv extracted/dog/json/al_bhn01al_castle_cousland/dog00cr
 - `BP_DlgNPC` (every spawned creature): `SetupCombat` takes its stats from the
   area file and shows a hostile's health over its head. In `CombatTick`
   a visible hostile within 15 m turns to the player, jogs to 1.1 m at 3 m/s and
-  attacks every 2 s (`BP_PlotManager.AttackPlayer` rolls it). `TakeAttack`
-  rolls an attack against it (a hit, or "Miss" over its head); `TakeHit` and
+  attacks every 2 s (`Bite` → `BP_PlotManager.StrikePlayer`). `TakeAttack`
+  (the player's attack) and `TakeStrike` (a party member's) roll an attack
+  against it with the rules below (a hit, or "Miss" over its head); `TakeHit` and
   `Die` hide the creature, drop its `team:<id>` tag and tell the plot manager.
 - `BP_PlotManager`: the player's stats (`SetPlayerStats`, health shown top
   left), the attack on F or the left mouse button
@@ -65,11 +67,13 @@ py -m daotools unreal conv extracted/dog/json/al_bhn01al_castle_cousland/dog00cr
   the nearest live hostile within 2.3 m, at most once a second. Every creature bids its distance (`Bid` → `Offer`) and the
   nearest is hit. On a death it runs `death:<tag>`, and `teamdead:<id>` when no
   creature with that team tag is left. Fighting pauses during conversations.
-  At 0 health the player is "knocked down" and healed (there is no game over
-  yet). Test switch: with `bOneShot` set (the default for now, to make
-  playtests quick) the player's attack kills any hostile in reach outright,
-  without the to-hit roll; `ke * ToggleOneShot` in the editor's console
-  switches it during Play.
+  At 0 health the fight is lost (`GameOver`): "You have fallen", the player's
+  input stops, and 5 s later `Restart` reloads the level. In the game a fallen
+  player gets up after the fight while a companion still stands; that comes
+  when hostiles fight party members too (combat stage 4). Test switch: with
+  `bOneShot` set (off by default) the player's attack kills any hostile in
+  reach outright, without the to-hit roll; `ke * ToggleOneShot` in the
+  editor's console switches it during Play.
 - The party: plot actions of kind 8 (`party`, from `UT_HireFollower`,
   `SetFollowerRecruited`, `SetFollowerInParty`, `AddNonPartyFollower` and their
   opposites `UT_FireFollower`, `Party_SetFollowerInCamp`) call
@@ -108,41 +112,101 @@ and Gilmore leaves the party at the end of his conversation.
 the tables they use from `packages/core/data/2da.erf`: `packages_base` (a
 creature's class, strategy and minimum level), `autoscale` (per rank: level
 offset, attribute, health and damage scales), `as_data` (how a strategy spends
-attribute points), `cla_data` (class base health, attack, defense, health and
-damage per level, attribute adjustments), `race_base`, `itemstats` (weapon
-damage) and `difficulty` (the damage scaling threshold on Normal).
+attribute points), `cla_data` (class base health, stamina, attack, defense,
+health, stamina and damage per level, attribute adjustments), `race_base`,
+`itemstats` (weapon damage, armour penetration, critical chance, attribute
+factor and attributes) and `difficulty` (the damage scaling threshold on
+Normal). With `--mod-tables` the export puts a rebalance mod's override tables
+on top: Dragon Age Reborn's (`docs/COMBAT_BALANCE.md`) raise the health of
+ranks 2-5 and 11 by 30%.
 
 - Level: the area's level plus the rank's offset, at least 1 and the package's
   minimum. Attributes: 10, plus the points autoscaling spends by strategy, plus
   the class's adjustments (and the race's, for the player).
+- The attributes' derived stats are the engine's (not in the scripts), per
+  point above 10 as the game's character sheet gives them: melee attack +0.5
+  for strength and for dexterity, defense +1 for dexterity, health +5 for
+  constitution, stamina or mana +5 for willpower, armour penetration +1/7 for
+  cunning.
 - Health: class base health x the rank's health scale, plus health per level
-  for each level above 1.
+  for each level above 1, plus constitution's. Stamina: base plus per level, x
+  the rank's scale, plus willpower's (exported for stage 2).
+- Attack and defense: the class's base plus the attributes'; a shield adds its
+  defense.
 - Damage: the equipped weapon's damage to damage x range (unarmed 3 to 4.5,
-  with strength counting 1.25 times), plus 25-50% of strength above 10, plus
-  damage per level. A hit above the threshold (7 on Normal) is multiplied by
-  the rank's damage scale: critters and normal creatures deal 0.4 of it.
-- To hit: attack + 50 + 4 - the target's defense, in percent.
+  with the attribute counting 1.25 times), plus 25-50% of the weapon's
+  attribute above 10 (strength; the mean of strength and dexterity for bows) x
+  its attribute factor (a dagger 0.85, a greatsword 1.1). Damage per level is a
+  separate bonus added after armour.
+- Armour penetration: the weapon's plus cunning's. Critical chance: 3% x the
+  rank's scale, plus the weapon's (a longsword 2, a dagger 3). Flanking: up to
+  15 for rogues, 7.5 for everyone else.
 
-`daotools unreal area ... --game "<game>"` writes `NpcHealth`, `NpcAttack`,
-`NpcDefense`, `NpcDamage` (min and max per creature), `NpcDamageScale` and the
-player's `PlayerStats` (a level 1 human warrior with a longsword). Weapons
-come from the item templates, pulled once with
+`daotools unreal area ... --game "<game>" --mod-tables extracted/mods/da_reborn/erf
+--player-template extracted/player/json/chargen/default_hm_noble.utc.json`
+writes `NpcHealth`, `NpcAttack`, `NpcDefense`, `NpcDamage` (min and max per
+creature), `NpcDamageScale`, `NpcRules` (per creature: armour, armour
+penetration, critical chance, most flanking, damage bonus) and the player's
+`PlayerStats` (health, attack, defense, damage min and max, threshold, the same
+five rules, stamina). The player is a level 1 human warrior with the
+template the game starts the Human Noble from (`background_defaults` row
+3105: `default_hm_noble`, pulled with
+`py -m daotools pull "<game>" "default_hm_noble*" --out extracted/player`):
+longsword, small wooden shield, rolled-leather light armour, boots and gloves.
+Weapons and armour come from the item templates, pulled once with
 `py -m daotools pull "<game>" "gen_im_wep*" --out extracted/items`;
 `--area-level` sets the level the area scales to (1 by default).
-`BP_AreaLoader.LoadStatData` reads them.
+`BP_AreaLoader.LoadStatData` reads them; `BuildFixtures` reads `NpcRules`
+and `GiveNpcRules` hands each creature its five (`BP_DlgNPC.SetRules`).
 
-At level 1 a giant rat has 40 health, attack 60, defense 45 and bites for
-4.7-7.4 (scaled to 3 above 7); Gilmore has 106 health and hits for 8.8-13.3;
-the mabari has 100 health; the player has 100 health and hits for 8.7-13.4,
-69% of the time against a rat. Checked in Play: a rat dies after four hits
-(one miss in five), and its bites take the player from 100 to 72 in eight.
+At level 1, with Dragon Age Reborn's tables: a giant rat has 55 health,
+attack 63.5, defense 48, no armour and bites for 4.2-7.0 (+0.4); Gilmore has
+121 health and armour 6; the mabari 130 health; Bryce 275; the player 115
+health, attack 64.5, defense 50.5 (1.5 from the shield), armour 4.25, armour
+penetration 2.1, critical chance 5%, and hits for 8.3-13.0 (+0.4), 71% of the
+time against a rat. Armour now soaks most of a rat's bite (1.5-4.5 gets
+through), as in the game.
 
-Not included, because the engine adds them outside the scripts: the
-attributes' bonuses to attack, defense and health, armour, item materials and
-talents. Both sides are missing the same pieces, so the fight keeps its shape,
-but the player is weaker than in the game, where armour soaks most rat bites.
+Not included yet: item materials' effect on weapon damage, talents and
+abilities, and the unarmed damage range (the script gives a flat 3; the game's
+creatures may carry natural weapons the templates do not list).
 
-### Armour (exported, not yet used)
+## Rules
+
+`tools/unreal/combat_rules.py` builds the hit rules into the Blueprints (graph
+code in `tools/unreal/dsl`); `stats.py` has the same rules in Python
+(`hit_chance`, `flanking_bonus`, `crit_chance`, `hit_damage`) for the
+balance simulator to come. Every attack goes through `BP_PlotManager`:
+
+1. `FlankBonus`: the attacker's angle seen from the way the target faces;
+   120-180 degrees (behind it) gives up to the attacker's most flanking.
+2. `ResolveHit`: a critical is threatened when rand(100) < critical chance x
+   (1 + flanking / 5); the attack hits when rand(100) < attack + 54 +
+   flanking - defense (50 for the roll, 4 the game's bias towards hits).
+3. `RollHit`: the weapon's damage roll, x1.5 on a critical.
+4. `Mitigate`: minus the target's armour (70% fixed, 30% rolled) less the
+   attacker's armour penetration, plus the damage bonus, x the rank's damage
+   scale when above the threshold; `FloorDamage`: at least 1.
+
+`StrikeNpc` applies the outcome to a creature, `StrikePlayer` to the player,
+`PlayerStrike` is the player's attack. `LastDamage` (-1 for a miss),
+`LastCrit` and the counters `Hits`, `Misses` and `Crits` are there for tests:
+`py playtest.py fight day --fall` fights the larder's rats and reports them,
+then lets the player fall.
+
+Checked in Play (silent), sampling `ResolveHit` 400 times with known numbers:
+attack 64.5 against defense 48 hit 72.5% (70.5% expected); a 20% critical
+chance gave 19.5% criticals at 1.5 times the damage; with the attacker behind
+the target `FlankBonus` gave 7.5 and the hits and criticals rose to 80% and
+12% (78% and 12.5% expected); armour 10 let 1 to 2.97 of a 10-damage hit
+through. The player's stats arrive as exported, ten strikes killed a rat
+(11-13 a hit), rats bit through the player's armour for about 3, and at 0
+health the level reloaded. The test's own swings are slow (one console command
+every few seconds), so alone against two rats the player falls there; in play
+a swing a second kills a rat in about 7 s while two rats take about 2 health a
+second.
+
+### Armour
 
 What each creature wears is its template's `Equip_ItemList`; `stats.equipment`
 sorts the items into pieces by their base item (`itemstats` label: chest armour
@@ -156,10 +220,8 @@ export writes `NpcOutfit` ("chest=<item>,helmet=<item>,..."), `NpcArmour` and
 `NpcShieldDefense` per creature. Castle guards in medium chainmail have 7,
 Howe's men in leather 5 or 6, the nobles and servants 0.
 
-combat_damage_h takes the armour off every hit (`DmgGetArmorMitigatedDamage`):
-damage minus (armour rolled 70% fixed, 30% random, less the attacker's armour
-penetration), at least 1. Wiring that into `BP_PlotManager`'s attacks is the
-next combat step. The armour and clothing templates come from
+combat_damage_h takes the armour off every hit (`Mitigate` above). The
+armour and clothing templates come from
 `py -m daotools pull "<game>" "gen_im_arm_*" --out extracted/items` (and
 `gen_im_cth_*`, `gen_im_duncan_robe*`).
 
@@ -197,8 +259,7 @@ Movers still don't push against each other or the player.
 
 ## Not there yet
 
-Abilities, talents, armour and the attributes' bonuses; real-time with pause
-and tactics; hostiles only ever attack the player, never party members; party
-members cannot be hurt or switched to; proper animations (everyone is a
-mannequin, the rats are small ones, and the attack is a generic punch);
-a game over.
+Abilities, talents, stamina use; real-time with pause and tactics; hostiles
+only ever attack the player, never party members; party members cannot be
+hurt or switched to; a fallen player getting up after a won fight; proper
+animations (the attack is a generic punch). The plan: `docs/COMBAT_DESIGN.md`.

@@ -256,6 +256,7 @@ py -m daotools unreal area extracted/human_noble/json/al_bhn01al_castle_cousland
   --layout "<game>/packages/core/env/hrt201d.arl" --pull extracted `
   --rooms extracted/layouts/hrt201d_pull/json --game "<game>" `
   --start bhn100wp_start --fill-lights 0.3 --warm-fills `
+  --mod-tables extracted/mods/da_reborn/erf --player-template extracted/player/json/chargen/default_hm_noble.utc.json `
   --out extracted/ue/areas/bhn100ar_castle_cousland.json
 ```
 

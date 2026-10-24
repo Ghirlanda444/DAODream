@@ -43,8 +43,9 @@ From the game's own scripts (`extracted/scripts/src`, BioWare's source):
   scaling, death and injuries, and **real-time with pause**: pausing freezes the world while orders
   (move, attack, ability) can still be queued for each party member.
 
-Our prototype already follows the to-hit and damage rules and exports armour per creature
-(`docs/COMBAT.md`); it lacks attributes' derived stats, abilities, effects, threat, pause and tactics.
+Stage 1 is built (`docs/COMBAT.md`, "Stats" and "Rules"): the attributes' derived stats, to-hit,
+criticals, flanking, armour and penetration, the damage bonus and rank scaling, with Dragon Age Reborn's
+tables, and a game over. Still to come: abilities, effects, threat, pause and tactics.
 
 ## 2. Dragon Age Reborn as the balance base
 

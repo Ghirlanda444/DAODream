@@ -36,6 +36,9 @@ py -m daotools unreal balance --game-tables extracted/gda_vanilla --mod-tables e
   --out extracted/ue/combat/balance_reborn.json
 ```
 
+The area export applies the same override tables to the creatures' and the player's numbers
+(`daotools unreal area ... --mod-tables extracted/mods/da_reborn/erf`, `stats.apply_overrides`).
+
 Column names are not stored in the tables (only hashes); the scripts read columns by name, so they are
 collected from the game's and the mod's sources. What it found:
 

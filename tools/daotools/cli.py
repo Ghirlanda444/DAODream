@@ -409,7 +409,7 @@ def cmd_unreal_area(args) -> int:
     creature_stats, player, ambient_tables = None, None, None
     if args.game:
         ambient_tables = ambient.load_tables(args.game)
-        tables = stats.load_tables(args.game)
+        tables = stats.load_tables(args.game, overrides=args.mod_tables)
         items = {p.name[:-len(".uti.json")].lower(): json.loads(p.read_text(encoding="utf-8"))["root"]
                  for p in sorted(Path(args.items).rglob("*.uti.json"))} if Path(args.items).exists() else {}
 
@@ -419,10 +419,16 @@ def cmd_unreal_area(args) -> int:
                              base_item=stats.weapon_base_item(utc.get("Equip_ItemList"), items, tables["itemstats"]))
             return {**st, **stats.equipment(utc.get("Equip_ItemList"), items, tables)}
 
-        # The Human Noble starts as a level 1 human warrior with a longsword (base item 2).
-        player = stats.stats(tables, package=0, rank=stats.RANK_PLAYER, area_level=args.area_level,
-                             race=3, base_item=2, player_class=1)
-        print(f"player: {player['Health']} health, damage {player['Damage']}", file=sys.stderr)
+        # The Human Noble starts as a level 1 human warrior (background_defaults row 3105: its template's
+        # equipment), with a longsword (base item 2) when the template is not given.
+        equip = (json.loads(Path(args.player_template).read_text(encoding="utf-8"))["root"].get("Equip_ItemList")
+                 if args.player_template else [])
+        player = stats.stats(tables, package=0, rank=stats.RANK_PLAYER, area_level=args.area_level, race=3,
+                             base_item=stats.weapon_base_item(equip, items, tables["itemstats"]) or 2, player_class=1)
+        player.update(stats.equipment(equip, items, tables))
+        print(f"player: {player['Health']} health, attack {player['Attack']}, defense {player['Defense']} "
+              f"+ {player['ShieldDefense']}, damage {player['Damage']} + {player['DamageBonus']}, "
+              f"armour {player['Armour']}", file=sys.stderr)
     out = area.area(are_root, layout_root, area.creature_templates(args.pull), start=args.start or "",
                     solids=solids, door_models=door_models, creature_stats=creature_stats, player=player,
                     ambient_tables=ambient_tables, trigger_templates=area.trigger_templates(args.pull),
@@ -601,6 +607,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--add-creature", action="append", metavar="TEMPLATE@WAYPOINT",
                    help="spawn a creature the game brings along (a party member) at a waypoint; repeatable")
     s.add_argument("--area-level", type=int, default=1, help="the level the area scales creatures to (default 1)")
+    s.add_argument("--mod-tables", help="a rebalance mod's override tables (<table>_<suffix>.gda), applied over the "
+                                        "game's for the combat numbers (docs/COMBAT_BALANCE.md)")
+    s.add_argument("--player-template", help="the player's template (.utc.json, from pull 'default_hm_noble*'): "
+                                             "the starting equipment; without it a longsword and nothing worn")
     s.add_argument("--fill-lights", type=float, default=0.0, metavar="BRIGHTNESS",
                    help="add dim fill lights (cool, see --warm-fills) of this brightness (e.g. 0.25) where the rooms' lights do not "
                         "reach the floor, standing in for the game's baked ambient light (night areas)")

@@ -217,6 +217,20 @@ DYES = [(0.33, 0.28, 0.20), (0.25, 0.22, 0.17), (0.08, 0.055, 0.035), (0.17, 0.0
 UNDER = [2, 9, 10]  # the second layer (hose, apron, sleeves): brown, grey, dark (linen there read white)
 DYED_CLOTHES = ("cth_com_",)  # servants' common clothes; uniforms and nobles' colours stay as made
 VARIETY = 11  # floats per creature
+# Per creature, the numbers a hit needs beyond attack and damage (stats.py, docs/COMBAT.md): armour,
+# armour penetration, critical chance (percent), the most flanking adds, the damage bonus after armour.
+RULES = ("Armour", "Penetration", "Crit", "Flanking", "DamageBonus")
+
+
+def rules(st: dict) -> list[float]:
+    return [float(st.get(k, 0.0)) for k in RULES]
+
+
+def player_stats(player: dict) -> list[float]:
+    """PlayerStats, flat for Blueprint: health, attack, defense, damage min and max, the damage scaling
+    threshold, then RULES, then stamina."""
+    return [player["Health"], player["Attack"], player["Defense"] + player.get("ShieldDefense", 0.0),
+            *player["Damage"], player["DamageThreshold"], *rules(player), player.get("Stamina", 0.0)]
 
 
 def variety(key: str, chest: str) -> list[float]:
@@ -763,7 +777,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     npc_team, npc_scale, npc_hostile, npc_rank, npc_dead, npc_ally = [], [], [], [], [], []
     npc_morph, npc_crowd, npc_variety = [], [], []
     npc_health, npc_attack, npc_defense, npc_damage, npc_dscale = [], [], [], [], []
-    npc_outfit, npc_chest, npc_helmet, npc_armour, npc_shield = [], [], [], [], []
+    npc_outfit, npc_chest, npc_helmet, npc_armour, npc_shield, npc_rules = [], [], [], [], [], []
     npc_ambient, npc_ambient_prefix = [], []
     creatures = list(are_root.get("CreatureList") or [])
     waypoints = {w.get("Tag"): w for w in are_root.get("WaypointList") or []}
@@ -814,7 +828,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
             st = creature_stats(utc)
             npc_health.append(st["Health"])
             npc_attack.append(st["Attack"])
-            npc_defense.append(st["Defense"])
+            npc_defense.append(st["Defense"] + st.get("ShieldDefense", 0.0))  # a shield's defense counts
             npc_damage.extend(st["Damage"])
             npc_dscale.append(st["DamageScale"])
             outfit = st.get("Outfit") or {}
@@ -823,6 +837,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
             npc_helmet.append(outfit.get("helmet", "").removeprefix("gen_im_arm_hel_"))  # med_hel, lgt_ltr...
             npc_armour.append(st.get("Armour", 0.0))
             npc_shield.append(st.get("ShieldDefense", 0.0))
+            npc_rules.extend(rules(st))
         chest = npc_chest[-1] if creature_stats is not None else ""
         coat = mabari_coat(str(c.get("TemplateResRef", "")), key)
         beast = beast_look(str(c.get("TemplateResRef", "")))
@@ -938,12 +953,12 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcIdle": npc_idle,
         "NpcArmour": npc_armour,
         "NpcShieldDefense": npc_shield,
+        # Per creature, len(RULES) floats: armour, armour penetration, critical chance, most flanking, damage bonus.
+        "NpcRules": npc_rules,
         # Per creature, VARIETY floats: skin, hair and clothes dye for crowd looks (variety), a mabari's coat.
         "NpcVariety": npc_variety,
         "Player": player or {},
-        # Flat for Blueprint: health, attack, defense, damage min and max, damage scaling threshold.
-        "PlayerStats": ([player["Health"], player["Attack"], player["Defense"], *player["Damage"],
-                         player["DamageThreshold"]] if player else []),
+        "PlayerStats": player_stats(player) if player else [],
         # Per creature: ambient state flags, move pattern, animation pattern, animation frequency.
         "NpcAmbient": npc_ambient if ambient_tables else [],
         "NpcAmbientDest": npc_amb_dest if ambient_tables else [],

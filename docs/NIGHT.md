@@ -13,6 +13,7 @@ py -m daotools unreal area extracted/human_noble/json/al_bhn02al_castle_after_si
   --layout "<game>/packages/core/env/hrt201n.arl" --pull extracted --start bhn200wp_pc_bedroom `
   --rooms extracted/layouts/hrt201n_pull/json --kit extracted/kit/json --game "<game>" `
   --add-creature gen00fl_dog@bhn200wp_dog_bedroom --fill-lights 0.25 `
+  --mod-tables extracted/mods/da_reborn/erf --player-template extracted/player/json/chargen/default_hm_noble.utc.json `
   --out extracted/ue/areas/bhn200ar_castle_after_siege.json
 ```
 

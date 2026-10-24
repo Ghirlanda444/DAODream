@@ -40,6 +40,12 @@ def script_column_names(*dirs: str | Path) -> list[str]:
     return sorted(names)
 
 
+def override_files(mod_dir: str | Path, table: str) -> list[Path]:
+    """A mod's override tables for `table` (`<table>_<suffix>.gda`): abi_base_ao.gda, not
+    passive_abilities_gxa_ao.gda for passive_abilities."""
+    return sorted(p for p in Path(mod_dir).glob(f"{table}_*.gda") if p.stem[len(table) + 1:].isalnum())
+
+
 def _by_id(table: GDA) -> dict:
     key = table.column_names[0]  # the ID column comes first
     return {r[key]: r for r in table.records()}
@@ -67,8 +73,7 @@ def export(game_dir: str | Path, mod_dir: str | Path, names: list[str], talk: Ta
     out = {"Format": FORMAT, "Source": source, "Tables": {}, "Text": {}}
     for table in TABLES:
         game_path = Path(game_dir) / f"{table}.gda"
-        # abi_base_ao.gda, not passive_abilities_gxa_ao.gda for passive_abilities
-        overrides = sorted(p for p in Path(mod_dir).glob(f"{table}_*.gda") if p.stem[len(table) + 1:].isalnum())
+        overrides = override_files(mod_dir, table)
         if not game_path.exists() or not overrides:
             continue
         game = GDA.open(game_path, names)

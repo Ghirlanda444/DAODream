@@ -8,6 +8,7 @@ run are printed at the end.
     python playtest.py look night bhn200cr_howe_east_hall1 --dog           side and front of a dog
     python playtest.py dialogue night --lines 6                            Play: each line, option 1
     python playtest.py kill night bhn200cr_howe_east_hall1                 Simulate: wake, kill, watch it fall
+    python playtest.py fight day --fall                                    Play: fight the larder rats, then fall
 
 Characters are named by their tag (NpcTags in extracted/ue/areas/<area>.json). Hidden ones (waiting for a
 plot) are shown for the pictures. The editor must be open with its MCP server running (docs/UNREAL_SETUP.md);
@@ -190,6 +191,75 @@ def kill(args):
         run.finish()
 
 
+MGR = '''
+w = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_game_world()
+m = [a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor) if a.get_class().get_name() == "BP_PlotManager_C"][0]
+'''
+TALLY = ("Hits", "Misses", "Crits", "PlayerHealth", "PlayerMaxHealth", "bGameOver")
+
+
+def fight(args):
+    """Play: wake creatures (default: --count of the larder's giant rats), fight them as the player with the
+    hit rules, and report the rules' tally (hits, misses, criticals) and both sides' health. --fall then
+    wakes two more and lowers the player's health so they finish them: the game over and the level's restart."""
+    run = Run("fight", args.area)
+    run.start(simulate=False)
+    try:
+        g = run.g
+        for _ in range(8):  # the opening conversation is long; fighting waits while anyone talks
+            g.converse(seconds=90)
+            if not g.talking().get("bTalking"):
+                break
+        tags = args.tags or sorted(t for t in g.a["NpcTags"] if t.startswith("bhn100cr_rat_giant"))[:args.count]
+        for t in tags:
+            pyrun.run(NPC % run.npc(t) + 'a.call_method("SetPlotActive", (True,))\n', 60)
+        x, y, z = g.loc(run.npc(tags[0]))
+        g.go(x + 150, y, z, wait=1.0)
+        run.shot("start")
+        tally = lambda: pyrun.run(MGR + "OUT.update({k: m.get_editor_property(k) for k in %r})" % (TALLY,), 60)
+        print("before", tally())
+        # Swing once a second where the rats come to bite (game.fight scans every hostile: too slow here).
+        t0, k = time.time(), 0
+        while time.time() - t0 < args.seconds:
+            g.attack()
+            time.sleep(1.0)
+            k += 1
+            if k % 6 == 0:
+                left = [t for t in tags if not g.npc_state(g.npc(t), ("bDead",))["bDead"]]
+                st = tally()
+                print("  %3ds" % (time.time() - t0), "rats left", len(left), st, flush=True)
+                if k == 6:
+                    run.shot("fighting")
+                if not left or st.get("bGameOver"):
+                    break
+        run.shot("after_fight")
+        print("after", tally())
+        for t in tags:
+            print("  ", t, g.npc_state(g.npc(t), ("bDead", "Health", "Defense", "Armour", "Crit", "Flank")))
+        if args.fall:
+            # wake more creatures so the player is struck, at 5 health
+            print("hurt", pyrun.run(MGR + 'm.call_method("HurtPlayer", (m.get_editor_property("PlayerHealth") - 5.0,))\n', 60))
+            for t in sorted(t for t in g.a["NpcTags"] if t.startswith("bhn100cr_rat_giant"))[args.count:args.count + 2]:
+                pyrun.run(NPC % run.npc(t) + 'a.call_method("SetPlotActive", (True,))\n', 60)
+                x, y, z = g.loc(run.npc(t))
+            g.go(x + 120, y, z, wait=0.5)
+            for k in range(8):
+                time.sleep(1.5)
+                st = tally()
+                print("  falling", st)
+                if st.get("bGameOver") or st.get("PlayerHealth", 1) <= 0:
+                    run.shot("fallen")
+                    break
+            time.sleep(8)  # Restart reloads the level after 5 s
+            try:
+                print("after restart", tally())
+            except Exception as e:  # the world is being replaced
+                print("after restart: (reloading)", e)
+            run.shot("restarted")
+    finally:
+        run.finish()
+
+
 def view(args):
     """Simulate: pictures from given camera poses "x,y,z,yaw,pitch" (cm, degrees), or "near:x,y,z" for
     two views of a spot (from 4.5 m west and east of it, 2 m above, looking down at it)."""
@@ -281,6 +351,13 @@ def main():
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("tag")
     s.set_defaults(fn=kill)
+    s = sub.add_parser("fight", help=fight.__doc__)
+    s.add_argument("area", choices=game.AREAS)
+    s.add_argument("tags", nargs="*")
+    s.add_argument("--seconds", type=int, default=60)
+    s.add_argument("--count", type=int, default=2, help="how many of the larder's rats to wake (the game: 6)")
+    s.add_argument("--fall", action="store_true", help="then let the player fall: game over and restart")
+    s.set_defaults(fn=fight)
     args = p.parse_args()
     global SOUND
     SOUND = args.sound
