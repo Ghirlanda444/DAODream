@@ -35,7 +35,8 @@ to fix it. The roadmap (`ROADMAP.md`) stays the list of what plays; this is how 
    which is built for exactly this (abilities as data, effects with durations and stacking, tags for
    states such as stunned or knocked down), fed from the game's ability tables (`ABI_base` and its
    2DAs) the way stats are fed today. One system for every class, creature and module. Before that,
-   the cheap fixes: armour in hits, a game over, one-hit kills off.
+   the cheap fixes: armour in hits, a game over, one-hit kills off. The plan, with Combat Tweaks as the
+   balance base and Awakening's specializations in the main campaign: `docs/COMBAT_DESIGN.md`.
 4. **Cutscenes are captions.** Most are a few shots of characters talking or walking. Fix: play the
    cutscene's own tracks (who moves where, who speaks, camera cuts) with the dialogue camera and the
    walk system we already have, rather than a hand-made sequence each. Started 2026-10-24: characters
