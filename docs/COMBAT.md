@@ -370,7 +370,16 @@ passes over the same clip), so only what the passes agree on is used: an animal'
 least 2 s (`stats.attack_interval`; the rat 2.0, the mabari 2.07). With it the simulator still loses the
 fight: it has all six rats biting from the first second, where the recordings show far less damage taken
 than that, so fewer rats bite at any moment in the game (they arrive in waves and run in from the corners).
-That is the fight's shape, which needs positions; a playtest in Unreal measures it. Unreal still uses the
+That is the fight's shape, which needs positions; a playtest in Unreal measures it.
+
+What the game's files say about a rat's rhythm (2026-10-25): its bite (`c_rat.attk_v1.ani`) lasts 0.63 s with
+the impact at 0.40 s (`.evt`, event type 1; the mabari's at 0.70 of 2.3 s); its combat stance between moves
+(`pause`, `c_rat.pause.ani`) 0.97 s; `anim_combat.gda` only chains the moves. Each `CommandAttack` makes one
+swing (`Combat_HandleCommandAttack` returns after it, setting a duration only for humanoids); on completion
+`rules_core` runs the AI round at once (`AI_DetermineCombatRound_Light`: a random enemy, the next
+`CommandAttack`, timeout 5 s, 1 s the first time). What the engine plays between two commands is compiled into
+`DAOrigins.exe`, which names no combat timing setting. A bite and a stance (0.63 + 0.97 = 1.6 s) is the
+reading the files allow, and fits the recordings' 5 bites in 10 s; the export keeps the 2 s round. Unreal still uses the
 prototype's fixed timers; it reads `NpcInterval` next.
 
 ## Path finding
