@@ -748,6 +748,7 @@ class StatsTests(unittest.TestCase):
                       3: {"ID": 3, "Damage": 4.0, "DamageRange": 1.5, "AttributeMod": 0.85, "Attribute0": 1,
                           "Attribute1": 2}},
         "difficulty": {1: {"ID": 1, "DmgScalingThresh": 7.0}},
+        "alwarrior_default": {1: {"ID": 1, "AttInit": 3}, 2: {"ID": 2, "AttInit": 1}},
     }
 
     def test_equipment(self):
@@ -766,23 +767,26 @@ class StatsTests(unittest.TestCase):
         self.assertEqual(stats.equipment([{"TemplateResRef": "hide"}], items, tables)["Armour"], 3.0)  # no multiplier: x1
 
     def test_creature(self):
-        # Rank 1 at area level 2 is level 3; STR = 10 + 2 levels x 0.5 x 3 points x (1/1)/3 = 11, +2 class.
+        # Rank 1 at area level 2 is level 3. Each level above 1 brings 0.5 x 3 + 5 = 6.5 points, the start 5;
+        # STR weighs 1/3: 10 + (2 x 6.5 + 5) / 3 = 16, + 2 class = 18; DEX 1/6: 10 + 18 / 6 = 13; CON 1/3: 16.
         st = stats.stats(self.TABLES, package=5, rank=1, area_level=2)
         self.assertEqual((st["Level"], st["Attributes"]["Str"], st["Attributes"]["Dex"], st["Attributes"]["Con"]),
-                         (3, 13.0, 11.0, 11.0))
-        self.assertEqual(st["Health"], 55.0)  # (80 + 10 x 2 levels) x 0.5, + 5 for CON 11
+                         (3, 18.0, 13.0, 16.0))
+        self.assertEqual(st["Health"], 80.0)  # (80 + 10 x 2 levels) x 0.5, + 5 x CON 6 above 10
         self.assertEqual(st["Stamina"], 30.0)  # (50 + 5 x 2 levels) x 0.5
-        self.assertEqual((st["Attack"], st["Defense"]), (52.0, 41.0))  # + 0.5 x (STR 3 + DEX 1); + DEX 1
-        # Unarmed 3-4.5, + strength (13 - 10) x 25-50% x 1.25; 0.5 per level (3 levels) after armour.
-        self.assertEqual((st["Damage"], st["DamageBonus"]), ((3.94, 6.38), 1.5))
+        self.assertEqual((st["Attack"], st["Defense"]), (55.5, 43.0))  # + 0.5 x (STR 8 + DEX 3); + DEX 3
+        # Unarmed 3-4.5, + strength (18 - 10) x 25-50% x 1.25; 0.5 per level (3 levels) after armour.
+        self.assertEqual((st["Damage"], st["DamageBonus"]), ((5.5, 9.5), 1.5))
         self.assertEqual((st["Crit"], st["Penetration"], st["Flanking"]), (1.5, 0.0, 7.5))  # 3 x 0.5; half of 15
         self.assertEqual(stats.damage_after_scaling(7.88, st["DamageScale"], st["DamageThreshold"]), 3.94)
         self.assertEqual(stats.damage_after_scaling(5.44, st["DamageScale"], st["DamageThreshold"]), 5.44)
 
     def test_player_and_weapon(self):
-        st = stats.stats(self.TABLES, package=0, rank=100, race=3, base_item=2, player_class=1)
-        self.assertEqual((st["Level"], st["Attributes"]["Str"], st["Health"], st["Attack"]), (1, 13.0, 80.0, 51.5))
-        self.assertEqual((st["Damage"], st["DamageBonus"]), ((6.75, 10.5), 0.5))  # 6-9 + 3 x 25-50%
+        # The hero: 10 + race 1 + class 2 + the class's default 3 of the free points = STR 16; DEX 10 + 1.
+        st = stats.stats(self.TABLES, package=0, rank=100, race=3, base_item=2, player_class=1, hero=True)
+        self.assertEqual((st["Level"], st["Attributes"]["Str"], st["Attributes"]["Dex"], st["Health"], st["Attack"]),
+                         (1, 16.0, 11.0, 80.0, 53.5))
+        self.assertEqual((st["Damage"], st["DamageBonus"]), ((7.5, 12.0), 0.5))  # 6-9 + 6 x 25-50%
         self.assertEqual((st["Crit"], st["Penetration"]), (5.0, 2.0))  # 3 + the longsword's 2; its 2
         self.assertEqual(stats.hit_chance(50.0, 40.0), 64.0)
         self.assertEqual(stats.hit_chance(50.0, 40.0, flanking=7.5), 71.5)
@@ -794,7 +798,7 @@ class StatsTests(unittest.TestCase):
     def test_rogue_dagger(self):
         # A rogue: all of the flanking bonus; a dagger's bonus is the mean of STR and DEX above 10 x 0.85;
         # cunning 17 gives 1 armour penetration.
-        st = stats.stats(self.TABLES, package=0, rank=100, base_item=3, player_class=3)
+        st = stats.stats(self.TABLES, package=0, rank=100, base_item=3, player_class=3, hero=True)
         self.assertEqual((st["Flanking"], st["Penetration"], st["Defense"]), (15.0, 1.0, 49.0))
         self.assertEqual(st["Damage"], (4.42, 6.85))  # 4-6 + (0 + 4) / 2 x 25-50% x 0.85
 
@@ -846,7 +850,7 @@ class StatsTests(unittest.TestCase):
             Path(d, "autoscale_gxa_ao.gda").write_bytes(b"not ours")  # another table's override: left alone
             tables = stats.apply_overrides({k: dict(v) for k, v in self.TABLES.items()}, d)
         self.assertEqual((tables["autoscale"][1]["fHealthScale"], tables["autoscale"][100]["fHealthScale"]), (0.75, 1.0))
-        self.assertEqual(stats.stats(tables, package=5, rank=1, area_level=2)["Health"], 80.0)  # 100 x 0.75 + 5
+        self.assertEqual(stats.stats(tables, package=5, rank=1, area_level=2)["Health"], 105.0)  # 100 x 0.75 + 30
 
 
 class SimulateTests(unittest.TestCase):

@@ -422,7 +422,7 @@ def cmd_unreal_area(args) -> int:
             worn = utc.get("Equip_ItemList") or []
             equip = worn + stats.natural_equipment(appearance(utc), worn, items, tables)
             st = stats.stats(tables, package=int(utc.get("Package") or 0), rank=int(utc.get("Rank") or 0),
-                             area_level=args.area_level,
+                             area_level=args.area_level, race=int(utc.get("Race") or 0) or None,
                              base_item=stats.weapon_base_item(equip, items, tables["itemstats"]))
             st["Interval"] = stats.attack_interval(equip, items, tables, anims.get(appearance(utc)))
             numbers = stats.equipment(equip, items, tables)
@@ -433,10 +433,11 @@ def cmd_unreal_area(args) -> int:
         equip = (json.loads(Path(args.player_template).read_text(encoding="utf-8"))["root"].get("Equip_ItemList")
                  if args.player_template else [])
         player = stats.stats(tables, package=0, rank=stats.RANK_PLAYER, area_level=args.area_level, race=3,
-                             base_item=stats.weapon_base_item(equip, items, tables["itemstats"]) or 2, player_class=1)
+                             base_item=stats.weapon_base_item(equip, items, tables["itemstats"]) or 2, player_class=1,
+                             hero=True)
         player.update(stats.equipment(equip, items, tables))
         player["Interval"] = stats.attack_interval(equip, items, tables)
-        print(f"player: {player['Health']} health, attack {player['Attack']}, defense {player['Defense']} "
+        print(f"player: {player['Attributes']}, {player['Health']} health, attack {player['Attack']}, defense {player['Defense']} "
               f"+ {player['ShieldDefense']}, damage {player['Damage']} + {player['DamageBonus']}, "
               f"armour {player['Armour']}, an attack every {player['Interval']} s", file=sys.stderr)
     out = area.area(are_root, layout_root, area.creature_templates(args.pull), start=args.start or "",

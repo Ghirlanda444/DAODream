@@ -308,11 +308,38 @@ and the rats' hides outweigh the mabari's real bite. Sweeping the two open numbe
 | 1.6 s (bite and pause) | 55 / 40 | 0% / 2% | 100% / 99% | 100% / 99% |
 | 2.0 s | 55 / 40 | 0% / 43% | 100% / 78% | 100% / 86% |
 
-Since the fight is easy in the game, something on the party's side is still missing from the port, or the
-engine paces creatures more slowly than their animations. Not yet in the port and worth checking next:
-the warrior's starting talents and the player's five free attribute points at character creation, and the
-original game itself (how many sword hits a rat takes, how often rats bite) as the ground truth. Unreal
-still uses the prototype's fixed timers; it reads `NpcInterval` once this is settled.
+Then the starting points (2026-10-24), from the scripts:
+
+- **The hero**: character creation skipped spends the 5 free points by the class's auto level-up table
+  (`AL_DoAutoLevelUp` with `alwarrior_default`'s `AttInit`: strength +3, dexterity +1, willpower +1). The
+  Human Noble warrior starts at strength 18, dexterity 15, willpower 11, magic 11, cunning 11, constitution
+  13 (the wiki's 15/14/10/11/11/13 before the points): attack 66.5, damage 9-14.5.
+- **Talents**: the same table's first picks for 2 talent points are Shield Bash (activated) and Precise
+  Striking (sustained: +5 attack with Reborn, +10 in the game, a crit bonus, slower swings, stamina upkeep);
+  the class adds the hidden passive Hidden Warrior, which changes no numbers. So the talents change nothing
+  until stage 2 brings abilities and stamina.
+- **Every other creature** (`AS_CommenceAutoScaling`, party members included): `Chargen_InitializeCharacter`
+  gives it the same 5 points and its race first; each attribute its strategy weighs is then set to 10 + its
+  share of the rank's bonus points, the 5 points and (rank scale x 3 + 5) per level above 1, so the race
+  counts only where the strategy does not weigh; class adjustments last. The port had missed the 5 points
+  and scaled no player-rank creature (Gilmore, the mabari) at all. Now: a rat 60 health, attack 64.5,
+  defense 49; Gilmore 136 health, attack 66.5, damage 8.75-14; the mabari 140 health, bite 7-9.5.
+
+With all of it the larder fight is still lost (2,000 fights each, by how often a rat bites):
+
+| Rat bites every | Won | Player falls | Gilmore falls | Mabari falls |
+| --- | --- | --- | --- | --- |
+| 0.63 s (its bite animation) | 0% | 100% | 100% | 100% |
+| 1.6 s (bite and pause) | 0% | 100% | 100% | 100% |
+| 2.0 s | 1% | 100% | 100% | 100% |
+| 3.0 s | 82% | 62% | 19% | 74% |
+
+What the scripts and tables hold is now ported; what still makes the game's fight easy is the engine's
+own: how it derives a creature's health from constitution (a rat's 60 is 40 + 20 from constitution 14,
+if it applies to critters), how fast an animal really attacks, and the fight's shape (rats running in from
+the larder's corners, not all biting at once). The original game is the ground truth for those: how many
+sword hits a giant rat takes, how often one bites, how much health the party loses. Unreal still uses the
+prototype's fixed timers; it reads `NpcInterval` once this is settled.
 
 ## Path finding
 

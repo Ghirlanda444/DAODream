@@ -37,6 +37,9 @@ from .gff4 import GFF4
 ATTRIBUTES = ("Str", "Dex", "Will", "Mag", "Int", "Con")  # creature properties 1-6
 BASE_ATTRIBUTE = 10.0  # CHARGEN_BASE_ATTRIBUTE_VALUE, RULES_ATTRIBUTE_MODIFIER
 POINTS_PER_LEVEL = 3.0  # AS_POINTS_PER_LEVEL
+CHARGEN_POINTS = 5.0  # PROPERTY_SIMPLE_ATTRIBUTE_POINTS from Chargen_InitializeCharacter
+# The class's auto level-up table: how character creation spends the hero's 5 points when it is skipped.
+HERO_LEVELUP = {1: "alwarrior_default", 2: "alwizard_default", 3: "alrogue_default"}
 UNARMED_DAMAGE = 3.0  # COMBAT_DEFAULT_UNARMED_DAMAGE
 UNARMED_ATTRIBUTE_FACTOR = 1.25  # UNARMED_ATTRIBUTE_BONUS_FACTOR
 HIT_BIAS = 4.0  # ATTACK_HIT_BIAS
@@ -65,6 +68,9 @@ _COLUMNS = {
     "materialtypes.gda": ["ID", "label", "Armor"],
     "difficulty.gda": ["ID", "label", "DmgScalingThresh"],
     "apr_base.gda": ["ID", "label", "creature_type", "DefaultWeapon", "DefaultArmor", "MovementTree"],
+    "alwarrior_default.gda": ["ID", "AttInit"],
+    "alwizard_default.gda": ["ID", "AttInit"],
+    "alrogue_default.gda": ["ID", "AttInit"],
 }
 # CalculateAttackTiming (core_h): a humanoid's seconds per attack by how it wields its weapons (BASE_TIMING_*),
 # plus the weapon's dspeed; anything else attacks as fast as its attack animations play.
@@ -196,12 +202,18 @@ def equipment(equip: list[dict], items: dict[str, dict], tables: dict) -> dict:
 
 
 def stats(tables: dict, *, package: int, rank: int, area_level: int = 1, race: int | None = None,
-          base_item: int | None = None, player_class: int | None = None) -> dict:
+          base_item: int | None = None, player_class: int | None = None, hero: bool = False) -> dict:
     """Level, attributes, max health, stamina (or mana), attack, defense, the damage
     range (min, max) before armour and the flat damage bonus after it, armour
     penetration, critical chance and the most flanking can add, for one creature.
-    `race` is applied for the player only, as character creation does; creatures
-    get their attributes from the autoscale strategy."""
+
+    Attributes: the hero (`hero`) as character creation leaves them when skipped: 10, plus race and class
+    adjustments, plus the class's default spending of the 5 free points (al<class>_default AttInit,
+    AL_DoAutoLevelUp). Every other creature, party members too, as AS_CommenceAutoScaling sets them:
+    Chargen_InitializeCharacter gives it the same 5 points (CHARGEN_POINTS) and its race; each attribute its
+    strategy weighs is then set afresh to 10 + its share of the rank's bonus points, the 5 points, and
+    (rank scale x 3 + 5) for each level above 1 (so the race counts only for attributes the strategy does not
+    weigh); the class adjustments come last (AS_AddClassLevels)."""
     pkg = tables["packages_base"].get(package, {})
     cls_id = player_class or int(pkg.get("StartingClass") or 1)
     cls = tables["cla_data"].get(cls_id, {})
@@ -212,17 +224,22 @@ def stats(tables: dict, *, package: int, rank: int, area_level: int = 1, race: i
     level = max(1, area_level + int(auto.get("nLevelScale") or 0), int(pkg.get("MinLevel") or 0))
     fscale = float(auto.get("fscale") or 1.0)
     bonus = float(auto.get("nBonusPoints") or 0)
+    effective = fscale * POINTS_PER_LEVEL + CHARGEN_POINTS  # fEffectivePoints
+    free = tables.get(HERO_LEVELUP.get(cls_id, ""), {})
 
     attrs = {}
     for i, name in enumerate(ATTRIBUTES, 1):
         per = float(strategy.get(f"s{i}") or 0.0)
-        value = BASE_ATTRIBUTE
-        if per > 0 and rank != RANK_PLAYER:
+        racial = float(tables["race_base"].get(race, {}).get(f"{name}Adjust") or 0) if race is not None else 0.0
+        if hero:
+            value = BASE_ATTRIBUTE + racial + float(free.get(i, {}).get("AttInit") or 0)
+        elif per > 0:
             weight = (1 / per) / POINTS_PER_LEVEL
-            value = int((level - 1) * fscale * POINTS_PER_LEVEL * weight + weight * bonus + BASE_ATTRIBUTE + 0.5)
+            value = float(int((level - 1) * effective * weight + weight * bonus + weight * CHARGEN_POINTS
+                              + BASE_ATTRIBUTE + 0.5))
+        else:
+            value = BASE_ATTRIBUTE + racial
         value += float(cls.get(f"{name}Adjust") or 0)  # Chargen_ApplyClassAttributeModifiers at level 1
-        if race is not None:
-            value += float(tables["race_base"].get(race, {}).get(f"{name}Adjust") or 0)
         attrs[name] = value
 
     mod = {k: max(0.0, v - BASE_ATTRIBUTE) for k, v in attrs.items()}  # GetAttributeModifier
