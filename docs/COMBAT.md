@@ -358,8 +358,20 @@ What remains is the engine's pacing: simple creatures run the AI's light round (
 a random enemy from the threat list, one `CommandAttack`), and how often that command lands a bite is
 decided inside the engine, so neither the scripts, the tables nor a save show it. The fight's shape (rats
 running in from the larder's corners) plays a part too. That needs the original running: counted by hand,
-or from a recording of the fight. Unreal still uses the prototype's fixed timers; it reads `NpcInterval`
-once this is settled.
+or from a recording of the fight.
+
+**From recordings of the original** (2026-10-24; two YouTube playthroughs of the fight, "Let's Play Dragon
+Age: Origins Episode 2 - Defending The Pantry" by Zamidge and "Origin Quest (Human Noble) 1/3" by
+DragonAgez, read by a video model since YouTube refused a download): a rat bites about every 2 s (5 bites in
+10 s, in both), a bite takes 2-3 off the player, the player's hits on a rat read 12-13 in the first; the
+fight lasts 20-35 s, rats run in in waves, and the player ends it 15-20% down, Gilmore and the mabari 5-10%,
+nobody falls. The model's exact counts were not reliable (rats killed and damage numbers changed between
+passes over the same clip), so only what the passes agree on is used: an animal's attack round is now at
+least 2 s (`stats.attack_interval`; the rat 2.0, the mabari 2.07). With it the simulator still loses the
+fight: it has all six rats biting from the first second, where the recordings show far less damage taken
+than that, so fewer rats bite at any moment in the game (they arrive in waves and run in from the corners).
+That is the fight's shape, which needs positions; a playtest in Unreal measures it. Unreal still uses the
+prototype's fixed timers; it reads `NpcInterval` next.
 
 ## Path finding
 

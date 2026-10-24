@@ -847,7 +847,8 @@ class StatsTests(unittest.TestCase):
         self.assertEqual(stats.attack_interval(eq("sword", "round"), items, tables), 1.9)  # 2.0 - 0.1
         self.assertEqual(stats.attack_interval(eq("dagger", "dagger"), items, tables), 1.0)  # dual 1.5 - 0.5
         self.assertEqual(stats.attack_interval(eq("great"), items, tables), 2.5)
-        self.assertEqual(stats.attack_interval(eq("rat_bite"), items, tables, anim=0.633), 0.633)  # by animation
+        self.assertEqual(stats.attack_interval(eq("rat_bite"), items, tables, anim=0.633), 2.0)  # a round at least
+        self.assertEqual(stats.attack_interval(eq("rat_bite"), items, tables, anim=2.3), 2.3)  # or the animation
         self.assertEqual(stats.attack_interval([], items, tables), 2.0)
 
     def test_overrides(self):

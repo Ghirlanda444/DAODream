@@ -166,7 +166,7 @@ def attack_anims(game_dir: str | Path, tables: dict, appearances) -> dict[int, f
 def attack_interval(equip: list[dict], items: dict[str, dict], tables: dict, anim: float | None = None) -> float:
     """Seconds between attacks (CalculateAttackTiming): with a weapon ("Weapon - ..." in itemstats), the wield
     style's base timing plus the weapon's dspeed: two weapons and no shield 1.5, a two-handed one 2.5, else 2.0;
-    otherwise `anim` (attack_anims), or 2.0 if unknown."""
+    otherwise its attack animations' length (`anim`, attack_anims), but at least 2.0."""
     weapons = []
     shield = False
     for e in equip or []:
@@ -177,7 +177,9 @@ def attack_interval(equip: list[dict], items: dict[str, dict], tables: dict, ani
         if label.startswith("Weapon - ") and float(row.get("Damage") or 0) > 0 and not label.endswith("bow"):
             weapons.append(row)
     if not weapons:
-        return anim or BASE_TIMING["single"]
+        # Recordings of the original's larder fight show a rat biting about every 2 s (5 in 10 s), not once per
+        # 0.63 s bite animation: an animal's attack round is at least the 2 s base round.
+        return max(anim or 0.0, BASE_TIMING["single"])
     main = weapons[0]
     if str(main.get("label")).startswith(_TWO_HANDED):
         style = "twohanded"
