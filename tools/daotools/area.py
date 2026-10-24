@@ -217,6 +217,9 @@ DYES = [(0.33, 0.28, 0.20), (0.25, 0.22, 0.17), (0.08, 0.055, 0.035), (0.17, 0.0
 UNDER = [2, 9, 10]  # the second layer (hose, apron, sleeves): brown, grey, dark (linen there read white)
 DYED_CLOTHES = ("cth_com_",)  # servants' common clothes; uniforms and nobles' colours stay as made
 VARIETY = 11  # floats per creature
+# Creatures the area's plots hire into the party (UT_HireFollower in bhn100pt_gilmore; GEN_DOG_RECRUITED): their
+# numbers are those the game rebuilds when they join (stats.follower_attributes).
+FOLLOWERS = {"bhn100cr_gilmore", "gen00fl_dog"}
 # Per creature, the numbers a hit needs beyond attack and damage (stats.py, docs/COMBAT.md): armour,
 # armour penetration, critical chance (percent), the most flanking adds, the damage bonus after armour.
 RULES = ("Armour", "Penetration", "Crit", "Flanking", "DamageBonus")

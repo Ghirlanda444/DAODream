@@ -795,6 +795,15 @@ class StatsTests(unittest.TestCase):
                                                 self.TABLES["itemstats"]), 2)
 
 
+    def test_follower(self):
+        # Gilmore as the game rebuilds him on joining (checked against a save): level 2, 10 + race + class =
+        # 15/14/10/11/11/13, then 5 + 3 points up to 14 + level x weight: STR +1 (target 16.4), DEX +2, WIL +5.
+        weights = {1: {"AttWeight": 1.2}, 2: {"AttWeight": 1.0}, 3: {"AttWeight": 0.75}, 5: {"AttWeight": 0.25},
+                   6: {"AttWeight": 1.0}}
+        start = {"Str": 15.0, "Dex": 14.0, "Will": 10.0, "Mag": 11.0, "Int": 11.0, "Con": 13.0}
+        self.assertEqual(stats.follower_attributes(start, 2, weights),
+                         {"Str": 16.0, "Dex": 16.0, "Will": 15.0, "Mag": 11.0, "Int": 11.0, "Con": 13.0})
+
     def test_rogue_dagger(self):
         # A rogue: all of the flanking bonus; a dagger's bonus is the mean of STR and DEX above 10 x 0.85;
         # cunning 17 gives 1 armour penetration.

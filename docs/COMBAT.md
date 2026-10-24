@@ -334,12 +334,32 @@ With all of it the larder fight is still lost (2,000 fights each, by how often a
 | 2.0 s | 1% | 100% | 100% | 100% |
 | 3.0 s | 82% | 62% | 19% | 74% |
 
-What the scripts and tables hold is now ported; what still makes the game's fight easy is the engine's
-own: how it derives a creature's health from constitution (a rat's 60 is 40 + 20 from constitution 14,
-if it applies to critters), how fast an animal really attacks, and the fight's shape (rats running in from
-the larder's corners, not all biting at once). The original game is the ground truth for those: how many
-sword hits a giant rat takes, how often one bites, how much health the party loses. Unreal still uses the
-prototype's fixed timers; it reads `NpcInterval` once this is settled.
+**Checked against the original game's own numbers** (2026-10-24): a Dragon Age save (`.das`, GFF4 `SAVE`)
+keeps every area the character has visited with its creatures' stored properties (`ARE1` → `CRE1`: `ATTR`
+base attributes by property id, `DPLT` depletables with base and total, field 16612 the rank). A save of the
+owner's (Aedan, Korcari Wilds, 153 areas) holds Castle Cousland with Eleanor and Gilmore as the engine left
+them:
+
+- Eleanor (autoscaled, never hired): 15/14/11/10/10/14, health 100 → 120, stamina 100 → 105; the port gives
+  exactly that.
+- Gilmore (hired): 16/16/15/11/11/13 at level 2, health 106 → 121, stamina 105 → 130. A follower is rebuilt
+  when it joins (`EVENT_TYPE_PARTY_MEMBER_HIRED` → `AL_DoAutoLevelUp`): 10 + race + class, then 5 points
+  plus 3 a level above 1, attribute by attribute up to 14 + level x its table's `AttWeight`
+  (`alwarrior_default`; the mabari `aldog`). `stats.follower_attributes` does this for `area.FOLLOWERS`; the
+  port now gives Gilmore exactly the save's numbers.
+- Health from constitution: across the save's living creatures at full health the commonest result by far is
+  exactly 5 health per constitution point above 10, at every rank, critters included (79 rank 1
+  creatures); the rest have constitution from equipment the stored base leaves out. So a level 1 giant rat's
+  60 health is right.
+
+The rats themselves are not in it (killed creatures are not saved). With every creature's numbers now
+confirmed, the larder fight is still lost in simulation unless rats bite only about every 3 s (won 65%).
+What remains is the engine's pacing: simple creatures run the AI's light round (`AI_DetermineCombatRound_Light`:
+a random enemy from the threat list, one `CommandAttack`), and how often that command lands a bite is
+decided inside the engine, so neither the scripts, the tables nor a save show it. The fight's shape (rats
+running in from the larder's corners) plays a part too. That needs the original running: counted by hand,
+or from a recording of the fight. Unreal still uses the prototype's fixed timers; it reads `NpcInterval`
+once this is settled.
 
 ## Path finding
 

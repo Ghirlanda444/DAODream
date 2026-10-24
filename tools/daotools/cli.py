@@ -423,7 +423,8 @@ def cmd_unreal_area(args) -> int:
             equip = worn + stats.natural_equipment(appearance(utc), worn, items, tables)
             st = stats.stats(tables, package=int(utc.get("Package") or 0), rank=int(utc.get("Rank") or 0),
                              area_level=args.area_level, race=int(utc.get("Race") or 0) or None,
-                             base_item=stats.weapon_base_item(equip, items, tables["itemstats"]))
+                             base_item=stats.weapon_base_item(equip, items, tables["itemstats"]),
+                             follower=utc.get("Tag") if utc.get("Tag") in area.FOLLOWERS else "")
             st["Interval"] = stats.attack_interval(equip, items, tables, anims.get(appearance(utc)))
             numbers = stats.equipment(equip, items, tables)
             return {**st, **numbers, "Outfit": stats.equipment(worn, items, tables)["Outfit"]}

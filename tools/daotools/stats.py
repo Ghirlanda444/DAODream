@@ -40,6 +40,25 @@ POINTS_PER_LEVEL = 3.0  # AS_POINTS_PER_LEVEL
 CHARGEN_POINTS = 5.0  # PROPERTY_SIMPLE_ATTRIBUTE_POINTS from Chargen_InitializeCharacter
 # The class's auto level-up table: how character creation spends the hero's 5 points when it is skipped.
 HERO_LEVELUP = {1: "alwarrior_default", 2: "alwizard_default", 3: "alrogue_default"}
+# _GetTableToUseForAL: a follower's auto level-up table by tag, before its class's default.
+FOLLOWER_LEVELUP = {"gen00fl_dog": "aldog"}
+
+
+def follower_attributes(start: dict[str, float], level: int, weights: dict) -> dict[str, float]:
+    """AL_DoAutoLevelUp for a follower when hired (EVENT_TYPE_PARTY_MEMBER_HIRED): the creature is rebuilt like a
+    hero (`start`: 10 + race + class) and spends 5 points plus 3 a level above 1, attribute by attribute, up to
+    a target of 14 + level x its table's AttWeight (at least one point each time it is below the target)."""
+    attrs = dict(start)
+    points = int(CHARGEN_POINTS + POINTS_PER_LEVEL * (level - 1))
+    for i, name in enumerate(ATTRIBUTES, 1):
+        if points <= 0:
+            break
+        target = 14.0 + level * float((weights.get(i) or {}).get("AttWeight") or 0.0)
+        if attrs[name] < target:
+            spend = int(min(points, max(1.0, target - attrs[name])))
+            attrs[name] += spend
+            points -= spend
+    return attrs
 UNARMED_DAMAGE = 3.0  # COMBAT_DEFAULT_UNARMED_DAMAGE
 UNARMED_ATTRIBUTE_FACTOR = 1.25  # UNARMED_ATTRIBUTE_BONUS_FACTOR
 HIT_BIAS = 4.0  # ATTACK_HIT_BIAS
@@ -68,9 +87,10 @@ _COLUMNS = {
     "materialtypes.gda": ["ID", "label", "Armor"],
     "difficulty.gda": ["ID", "label", "DmgScalingThresh"],
     "apr_base.gda": ["ID", "label", "creature_type", "DefaultWeapon", "DefaultArmor", "MovementTree"],
-    "alwarrior_default.gda": ["ID", "AttInit"],
-    "alwizard_default.gda": ["ID", "AttInit"],
-    "alrogue_default.gda": ["ID", "AttInit"],
+    "alwarrior_default.gda": ["ID", "AttInit", "AttWeight"],
+    "alwizard_default.gda": ["ID", "AttInit", "AttWeight"],
+    "alrogue_default.gda": ["ID", "AttInit", "AttWeight"],
+    "aldog.gda": ["ID", "AttWeight"],
 }
 # CalculateAttackTiming (core_h): a humanoid's seconds per attack by how it wields its weapons (BASE_TIMING_*),
 # plus the weapon's dspeed; anything else attacks as fast as its attack animations play.
@@ -202,7 +222,8 @@ def equipment(equip: list[dict], items: dict[str, dict], tables: dict) -> dict:
 
 
 def stats(tables: dict, *, package: int, rank: int, area_level: int = 1, race: int | None = None,
-          base_item: int | None = None, player_class: int | None = None, hero: bool = False) -> dict:
+          base_item: int | None = None, player_class: int | None = None, hero: bool = False,
+          follower: str = "") -> dict:
     """Level, attributes, max health, stamina (or mana), attack, defense, the damage
     range (min, max) before armour and the flat damage bonus after it, armour
     penetration, critical chance and the most flanking can add, for one creature.
@@ -213,7 +234,9 @@ def stats(tables: dict, *, package: int, rank: int, area_level: int = 1, race: i
     Chargen_InitializeCharacter gives it the same 5 points (CHARGEN_POINTS) and its race; each attribute its
     strategy weighs is then set afresh to 10 + its share of the rank's bonus points, the 5 points, and
     (rank scale x 3 + 5) for each level above 1 (so the race counts only for attributes the strategy does not
-    weigh); the class adjustments come last (AS_AddClassLevels)."""
+    weigh); the class adjustments come last (AS_AddClassLevels). A follower (`follower`: its tag) is rebuilt when
+    it joins the party (follower_attributes). Checked against a save: Eleanor (autoscaled) and Gilmore (hired)
+    have exactly these attributes in the game."""
     pkg = tables["packages_base"].get(package, {})
     cls_id = player_class or int(pkg.get("StartingClass") or 1)
     cls = tables["cla_data"].get(cls_id, {})
@@ -241,6 +264,12 @@ def stats(tables: dict, *, package: int, rank: int, area_level: int = 1, race: i
             value = BASE_ATTRIBUTE + racial
         value += float(cls.get(f"{name}Adjust") or 0)  # Chargen_ApplyClassAttributeModifiers at level 1
         attrs[name] = value
+    if follower:
+        start = {name: BASE_ATTRIBUTE + float(cls.get(f"{name}Adjust") or 0)
+                 + (float(tables["race_base"].get(race, {}).get(f"{name}Adjust") or 0) if race is not None else 0.0)
+                 for name in ATTRIBUTES}
+        table = FOLLOWER_LEVELUP.get(follower) or HERO_LEVELUP.get(cls_id) or HERO_LEVELUP[1]
+        attrs = follower_attributes(start, level, tables.get(table, {}))
 
     mod = {k: max(0.0, v - BASE_ATTRIBUTE) for k, v in attrs.items()}  # GetAttributeModifier
     health_scale = float(auto.get("fHealthScale") or 1.0)
