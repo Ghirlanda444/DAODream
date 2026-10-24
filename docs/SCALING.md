@@ -38,7 +38,9 @@ to fix it. The roadmap (`ROADMAP.md`) stays the list of what plays; this is how 
    the cheap fixes: armour in hits, a game over, one-hit kills off.
 4. **Cutscenes are captions.** Most are a few shots of characters talking or walking. Fix: play the
    cutscene's own tracks (who moves where, who speaks, camera cuts) with the dialogue camera and the
-   walk system we already have, rather than a hand-made sequence each.
+   walk system we already have, rather than a hand-made sequence each. Started 2026-10-24: characters
+   now stand and move where the cutscene puts them (`docs/SCRIPTS.md`, Staging); the cutscene's own
+   camera paths and body animations are next.
 5. **Levels load as one world each.** Fine for a castle; the campaign needs many areas and day/night
    or before/after states of the same place. Fix: World Partition with Data Layers for area states
    (Cousland by day and by night is the same castle), loaded by the area loader.

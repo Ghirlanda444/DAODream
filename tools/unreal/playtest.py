@@ -212,6 +212,48 @@ def view(args):
         run.finish()
 
 
+def cut(args):
+    """Simulate: a cutscene's staging (extracted/ue/cutscenes/<name>.json, daotools cutscene.staging) at given
+    times: its characters moved to their poses, a picture from its camera (no player pawn in Simulate)."""
+    stage = json.load(open(args.staging, encoding="utf-8"))
+    run = Run("cut", args.area)
+    run.start(simulate=True)
+    try:
+        rate, cam, tags = stage["CamRate"], stage["Cam"], stage["ActorTags"]
+        frames = stage["ActorFrames"]
+        n = len(frames) // 4 // max(len(tags), 1)
+        acts = {}
+        for tag in tags:
+            if tag == "PLAYER":
+                continue
+            try:
+                acts[tag] = run.npc(tag)
+                run.show(acts[tag])
+                pyrun.run(NPC % acts[tag] + "a.call_method('SetPlotActive', (True,))\nOUT['ok'] = 1", 60)
+            except Exception as e:  # not in this area
+                print("no", tag, str(e)[:80])
+        for t in args.times:
+            i = min(int(t * rate), n - 1)
+            for k, tag in enumerate(tags):
+                if tag not in acts:
+                    continue
+                x, y, z, yaw = frames[(k * n + i) * 4:(k * n + i) * 4 + 4]
+                pyrun.run(NPC % acts[tag] + "a.set_actor_location_and_rotation(unreal.Vector(%r, %r, %r), "
+                          "unreal.Rotator(0, 0, %r), False, True)\nOUT['ok'] = 1" % (x, y, z, yaw), 60)
+            if args.camera:  # an overview instead of the cutscene's own camera
+                x, y, z, yaw, pitch = (float(v) for v in args.camera.split(","))
+                run.shot("cut_%05.1fs" % t, {"location": {"x": x, "y": y, "z": z},
+                                              "rotation": {"pitch": pitch, "yaw": yaw, "roll": 0},
+                                              "scale": {"x": 1, "y": 1, "z": 1}})
+            elif cam:
+                x, y, z, pitch, yaw, fov = cam[i * 6:i * 6 + 6]
+                run.shot("cut_%05.1fs" % t, {"location": {"x": x, "y": y, "z": z},
+                                              "rotation": {"pitch": pitch, "yaw": yaw, "roll": 0},
+                                              "scale": {"x": 1, "y": 1, "z": 1}})
+    finally:
+        run.finish()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--sound", action="store_true", help="play the game's sound (tests are silent otherwise)")
@@ -229,6 +271,12 @@ def main():
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("poses", nargs="+")
     s.set_defaults(fn=view)
+    s = sub.add_parser("cut", help=cut.__doc__)
+    s.add_argument("area", choices=game.AREAS)
+    s.add_argument("staging")
+    s.add_argument("times", nargs="+", type=float)
+    s.add_argument("--camera", help="an overview pose x,y,z,yaw,pitch instead of the cutscene's camera")
+    s.set_defaults(fn=cut)
     s = sub.add_parser("kill", help=kill.__doc__)
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("tag")

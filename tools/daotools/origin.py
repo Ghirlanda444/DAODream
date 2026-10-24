@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 
 from . import cutscene, fsb, mfdecode, unreal
+from .gff4 import GFF4
 
 
 def pick_conversations(json_dir: str | Path) -> tuple[dict[str, Path], list[str]]:
@@ -116,14 +117,25 @@ def export(pull_dir: str | Path, out_dir: str | Path, *, plots: dict[str, dict] 
             "Warnings": rt["Warnings"],
         }
     index["Cutscenes"] = {}
+    cut_files = {}
+    for p in sorted(Path(pull).rglob("*.cut")):
+        cut_files.setdefault(p.stem.lower(), p)
+    (out / "cutscenes").mkdir(parents=True, exist_ok=True)
     for name, cut in cutscene.scan(pull).items():
         caption = not cut["Conversation"] and name in cutscene.CAPTIONS
+        conv = cutscene.conversation_for(name, {name: cut}) or ""
+        staged = 0
+        if conv and name in cut_files:  # where its characters stand, by the conversation Unreal plays for it
+            stage = cutscene.staging(GFF4.open(cut_files[name]))
+            if stage["ActorTags"]:
+                stage.update({"Format": cutscene.STAGE_FORMAT, "Cutscene": name, "Conversation": conv})
+                (out / "cutscenes" / f"{conv}.json").write_text(json.dumps(stage) + "\n", encoding="utf-8")
+                staged = len(stage["ActorTags"])
         if caption:
             (out / "conversations" / f"{name}.json").write_text(
                 json.dumps(cutscene.caption_conversation(name), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         index["Cutscenes"][name] = {"Length": cut["Length"], "Area": cut["Area"], "Lines": len(cut["Lines"]),
-                                    "Conversation": cutscene.conversation_for(name, {name: cut}) or "",
-                                    "Caption": caption}
+                                    "Conversation": conv, "Caption": caption, "Staged": staged}
     (out / "conversations" / "index.json").write_text(
         json.dumps(index, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return index

@@ -1,0 +1,12 @@
+(fn StageCut (Conv)
+  (bind _path (Utilità|Stringa|Append (Utilità|Stringa|Append (Utilità|Percorsi|GetProjectDirectory) "../../extracted/ue/cutscenes/") (Utilità|Stringa|Append Conv ".json")))
+  (bind _json (Json|LoadJsonfromFile (Utilità|Struttura|MakeFilePath _path)))
+  (Variabili|Predefinito|ImpostaStageTags (Json|GetField _json "ActorTags"))
+  (Variabili|Predefinito|ImpostaStageFrames (Json|GetField _json "ActorFrames"))
+  (Variabili|Predefinito|ImpostaStageRate (Json|GetField _json "CamRate"))
+  (Variabili|Predefinito|ImpostaStageLen (Json|GetField _json "Length"))
+  (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggiore(>) (Utilità|Array|Length (Variabili|Predefinito|OttieniStageTags)) 0)
+    (:then
+      (Variabili|Predefinito|ImpostaStageN (Utility|Operatori|Dividi (Utilità|Array|Length (Variabili|Predefinito|OttieniStageFrames)) (Utility|Operatori|Moltiplica (Utilità|Array|Length (Variabili|Predefinito|OttieniStageTags)) 4)))
+      (Variabili|Predefinito|ImpostaStageStart (Utilità|Testo|GetGameTimeinSeconds))
+      (Utilità|Testo|SetTimerbyFunctionName (Variabili|Ottieniunriferimentoasestesso) "StageTick" 0.033 "true"))))

@@ -1305,6 +1305,34 @@ class CutsceneTests(unittest.TestCase):
         self.assertEqual(cutscene.conversation_for("bhn200cs_night_falls", scanned), "bhn200cs_night_falls")
         self.assertIsNone(cutscene.conversation_for("unknown", scanned))
 
+    def test_staging(self):
+        # A made-up scene: the origin at (60, 40) m; the mother starts beside it, ignores a key before the start
+        # (where she stood before the scene) and one in another frame (small values), walks between two area
+        # keys half a second apart, and is put back in the last half second (ignored). A camera looks at her.
+        path_keys = [(-0.1, (30.0, 40.0, 0.0)), (2.0, (0.5, 0.5, 0.0)), (5.0, (63.0, 42.0, 0.0)),
+                     (5.5, (63.5, 42.0, 0.0)), (9.9, (30.0, 40.0, 0.0))]
+        pos = ("curve", 17, [(base, [(t, v[i]) for t, v in path_keys]) for i, base in enumerate((61.0, 41.0, 0.0))])
+        rot = ("curve", 18, [(90.0, [(t, 90.0) for t, _ in path_keys]), (0.0, []), (0.0, [])])
+        cam = [("curve", 17, [(56.0, []), (41.0, []), (1.5, [])]), ("curve", 18, [(0.0, []), (0.0, []), (0.0, [])]),
+               ("curve", 13, [(45.0, [])])]
+        data = build_cut([{"tag": "MASTER", "tracks": [("cut", 0.0, 7)]},
+                          {"tag": "", "id": 7, "tracks": cam},
+                          {"tag": "my_cr_mother", "tracks": [pos, rot]}], length=10.0, origin=(60.0, 40.0, 0.0))
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "my.cut"
+            p.write_bytes(data)
+            st = cutscene.staging(GFF4.open(p))
+        self.assertEqual(st["ActorTags"], ["my_cr_mother"])
+        f = st["ActorFrames"]
+        frame = lambda t: f[int(t * st["CamRate"]) * 4:int(t * st["CamRate"]) * 4 + 4]
+        yaw = cutscene._ue_yaw_deg(90.0)
+        self.assertEqual(frame(0.0), [6100.0, -4100.0, 0.0, yaw])
+        self.assertEqual(frame(3.0), [6100.0, -4100.0, 0.0, yaw])  # the key in another frame is held over
+        self.assertAlmostEqual(frame(5.2)[0], 6320.0, delta=1.0)  # walking from 63 to 63.5 m
+        self.assertEqual(frame(9.95)[:2], [6350.0, -4200.0])  # not put back at the end
+        self.assertEqual(st["Framed"], 1.0)
+        self.assertEqual(st["Cam"][:6], [5600.0, -4100.0, 150.0, 0.0, 0.0, 72.7])
+
     def test_caption_conversation(self):
         rt = cutscene.caption_conversation("bhn200cs_night_falls")
         n = len(cutscene.CAPTIONS["bhn200cs_night_falls"][1])

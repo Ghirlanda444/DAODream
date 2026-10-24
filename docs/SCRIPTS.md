@@ -180,6 +180,44 @@ character. The player can click ahead or press Escape to skip it.
 queued cutscene, and only then a queued talk, so the mabari speaks after the
 night caption, as in the game.
 
+#### Staging (2026-10-24)
+
+A cutscene's characters now stand where the game's cutscene puts them.
+`cutscene.staging` reads every actor's position (kind 17) and rotation (18)
+curves: a base value and keys (time, value), in the area's metres. Keys come in
+two frames: positions in the area (near the cutscene's origin, root field 5014)
+and, for stretches, small values relative to something not decoded yet (an
+animation's own reference); keys before the start and in the last half second
+put actors back where they stood before the scene (the farewell's Eleanor at
+the larder door, though she kneels by Bryce in it). So only area keys inside
+the scene count, an actor holds its last one over the rest, and keys a second
+or less apart are walked between. `daotools unreal origin` writes
+`extracted/ue/cutscenes/<conversation>.json` (git-ignored) for every cutscene
+that plays a conversation: `ActorTags` ("PLAYER", creature tags, the hero's dog)
+and `ActorFrames` (x, y, z, yaw per actor, 30 times a second).
+
+In Unreal `BP_PlotManager.PlayCut` calls `StageCut`, which loads that file and
+starts `StageTick` (30 Hz): until the cutscene ends or its length has passed,
+`StageAll` moves each actor to its frame (`StagePlace`; the player's capsule 90
+cm up; NPCs by tag, `StageNpc`). The dialogue camera frames each speaker as in
+any conversation. Checked in Simulate (`playtest.py cut night <staging>
+<times> --camera x,y,z,yaw,pitch`): in the farewell Eleanor, Bryce and Duncan
+stand together in the larder; in Play the farewell's lines frame Bryce in close
+up. Not yet: Bryce stands instead of lying wounded (no such pose), nobody plays
+the cutscene's body animations (the game's own, not ours), and night falls has
+no area positions (its actors are all in a frame of their own), so it stays a
+caption.
+
+The cutscene's own camera is read too (`Cam`: position, rotation and field of
+view per sample, cuts from the MASTER's kind 11 tracks by actor id), but not
+played: a keyed camera (night falls) reads as yaw about z, pitch about y, roll
+about x, looking along x, and a camera driven by a baked animation (AANI: per
+frame an offset and a rotation in a y-up frame) is not decoded well enough.
+Fitted conventions put the farewell's camera on its characters on average but
+not consistently, and in pictures it looked at the larder's walls. The export
+keeps `Cam` only when the path frames someone in 70% of its samples (`Framed`),
+which none does yet.
+
 Checked in Play on `L_CastleNight`: the night opens on the three caption
 lines (about 10, 10 and 5 s), then the mabari's
 barking line. `BHN_MAIN_CUTSCENE_FAMILY_FAREWELL` set from the console during

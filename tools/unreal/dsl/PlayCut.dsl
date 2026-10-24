@@ -1,0 +1,5 @@
+(fn PlayCut (Conv Flag)
+  (Variabili|Predefinito|ImpostaCutFlag Flag)
+  (Variabili|Predefinito|ImpostaCutPlaying "true")
+  (Classe|BPCDialogueRunner|PlayCutscene (Variabili|Predefinito|OttieniCutRunner) Conv)
+  (Funzionedichiamata|StageCut :Conv Conv))

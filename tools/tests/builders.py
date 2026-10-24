@@ -8,7 +8,7 @@ import zlib
 
 from daotools import fields as F
 from daotools.gff4 import (FIELD_SIZES, FLAG_LIST, FLAG_REFERENCE, FLAG_STRUCT, NULL, T_FLOAT32, T_GENERIC,
-                           T_SINT32, T_STRING, T_TLKSTRING, T_UINT8, T_UINT32)
+                           T_SINT32, T_STRING, T_TLKSTRING, T_UINT8, T_UINT32, T_VECTOR3F)
 
 
 # --- ERF --------------------------------------------------------------------
@@ -284,27 +284,42 @@ def build_cnv(lines: list[dict], starts: list[int], children_as_structs: bool = 
 
 # --- cutscenes ----------------------------------------------------------------------
 
-def build_cut(actors: list[dict], length: float = 10.0, area: str = "my_area") -> bytes:
+def build_cut(actors: list[dict], length: float = 10.0, area: str = "my_area",
+              origin: tuple = (0.0, 0.0, 0.0)) -> bytes:
     """A cutscene laid out as the retail ones: actors, each with a generic list of tracks.
-    actors: dicts with tag and tracks, a track being ("line", start, end, conversation, strref, text)
-    or ("anim", start, animation)."""
+    actors: dicts with tag and tracks, a track being ("line", start, end, conversation, strref, text),
+    ("anim", start, animation), ("curve", kind, [(base, [(time, value), ...]) per axis]) for position (17),
+    rotation (18) or field of view (13), or ("cut", start, actor id) on the MASTER; an actor may have an "id"."""
     asln = Tmpl("ASLN", [(F.CUT_TRACK_START, T_FLOAT32), (F.CUT_TRACK_END, T_FLOAT32),
                          (F.CUT_LINE_CONVERSATION, "string"), (22, "tlk")])
     aani = Tmpl("AANI", [(F.CUT_TRACK_START, T_FLOAT32), (5400, "string")])
-    actor = Tmpl("ACTR", [(F.CUT_ACTOR_TAG, "string"), (F.CUT_TRACK_LIST, ("genericlist", None))])
-    root = Tmpl("CUT ", [(F.CUT_AREA, "string"), (F.CUT_LENGTH, T_FLOAT32), (F.CUT_ACTOR_LIST, ("structlist", actor))])
+    vert = Tmpl("VERT", [(F.CUT_KEY_TIME, T_FLOAT32), (F.CUT_KEY_VALUE, T_FLOAT32)])
+    curv = Tmpl("CURV", [(F.CUT_CURVE_BASE, T_FLOAT32), (F.CUT_CURVE_KEYS, ("structlist", vert))])
+    trak = Tmpl("TRAK", [(F.CUT_TRACK_KIND, T_UINT32), (F.CUT_TRACK_START, T_FLOAT32),
+                         (F.CUT_TRACK_CURVES, ("structlist", curv))])
+    aacc = Tmpl("AACC", [(F.CUT_TRACK_KIND, T_UINT32), (F.CUT_TRACK_START, T_FLOAT32), (F.CUT_CAMERA_ACTOR, T_SINT32)])
+    actor = Tmpl("ACTR", [(F.CUT_ACTOR_ID, T_SINT32), (F.CUT_ACTOR_TAG, "string"),
+                          (F.CUT_TRACK_LIST, ("genericlist", None))])
+    root = Tmpl("CUT ", [(F.CUT_AREA, "string"), (F.CUT_LENGTH, T_FLOAT32), (5014, T_VECTOR3F),
+                         (F.CUT_ACTOR_LIST, ("structlist", actor))])
 
     def track(tr):
         if tr[0] == "line":
             _, start, end, conv, strref, text = tr
             return asln, {F.CUT_TRACK_START: start, F.CUT_TRACK_END: end, F.CUT_LINE_CONVERSATION: conv,
                           22: (strref, text)}
+        if tr[0] == "curve":
+            return trak, {F.CUT_TRACK_KIND: tr[1], F.CUT_TRACK_CURVES: [
+                {F.CUT_CURVE_BASE: base, F.CUT_CURVE_KEYS: [{F.CUT_KEY_TIME: t, F.CUT_KEY_VALUE: v} for t, v in keys]}
+                for base, keys in tr[2]]}
+        if tr[0] == "cut":
+            return aacc, {F.CUT_TRACK_KIND: 11, F.CUT_TRACK_START: tr[1], F.CUT_CAMERA_ACTOR: tr[2]}
         return aani, {F.CUT_TRACK_START: tr[1], 5400: tr[2]}
 
-    return GFF4Writer("CUT ", "V1.0", [root, actor, asln, aani]).build({
-        F.CUT_AREA: area, F.CUT_LENGTH: length,
-        F.CUT_ACTOR_LIST: [{F.CUT_ACTOR_TAG: a["tag"], F.CUT_TRACK_LIST: [track(tr) for tr in a["tracks"]]}
-                           for a in actors],
+    return GFF4Writer("CUT ", "V1.0", [root, actor, asln, aani, vert, curv, trak, aacc]).build({
+        F.CUT_AREA: area, F.CUT_LENGTH: length, 5014: list(origin),
+        F.CUT_ACTOR_LIST: [{F.CUT_ACTOR_ID: a.get("id", -1), F.CUT_ACTOR_TAG: a["tag"],
+                            F.CUT_TRACK_LIST: [track(tr) for tr in a["tracks"]]} for a in actors],
     })
 
 

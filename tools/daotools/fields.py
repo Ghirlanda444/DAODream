@@ -78,6 +78,17 @@ CUT_TRACK_START = 5301
 CUT_TRACK_END = 5302
 CUT_LINE_CONVERSATION = 5562  # ASLN: the conversation the line comes from
 CUT_SOUND_EVENT = 5670  # ACSP: the FMOD event it plays
+CUT_ACTOR_ID = 5201  # what the MASTER's camera cuts name
+CUT_ACTOR_TEMPLATE = 5208
+CUT_TRACK_KIND = 5300  # 4 animation, 11 camera cut (MASTER), 13 field of view, 17 position, 18 rotation, 23 line
+CUT_TRACK_CURVES = 5303  # CURV per axis
+CUT_CURVE_BASE = 5350  # the value at the start
+CUT_CURVE_KEYS = 5351  # VERT keys: time, value
+CUT_KEY_TIME = 5370
+CUT_KEY_VALUE = 5371
+CUT_ANIM_POSITIONS = 5408  # AANI: baked offsets, (time, x, y, z) per frame, y-up
+CUT_ANIM_ROTATIONS = 5409  # AANI: baked rotations, (time, x, y, z, w) per frame, y-up
+CUT_CAMERA_ACTOR = 5610  # MASTER camera cut: the actor id it cuts to
 
 # Talk tables (.tlk, GFF type "TLK ")
 TALK_BUCKET_LIST = 19000
