@@ -345,6 +345,99 @@ OUT.update({k: m.get_editor_property(k) for k in ("bPlayerDown", "bGameOver", "S
         run.finish()
 
 
+SAMPLE = '''
+w = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_game_world()
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+m = [a for a in acts.values() if a.get_class().get_name() == "BP_PlotManager_C"][0]
+rats, party = %r, %r
+alive = engaged = dead = waiting = 0
+for name in rats:
+    a = acts[name]
+    if a.get_editor_property("bDead"):
+        dead += 1
+    elif a.get_editor_property("hidden"):
+        waiting += 1
+    else:
+        alive += 1
+        f = a.get_editor_property("Foe")
+        if f and a.get_horizontal_distance_to(f) <= 150.0:
+            engaged += 1
+OUT["rats"] = {"alive": alive, "biting": engaged, "dead": dead, "waiting": waiting}
+OUT["health"] = {"player": round(m.get_editor_property("PlayerHealth"), 1)}
+for tag, name in party:
+    OUT["health"][tag] = round(acts[name].get_editor_property("Health"), 1)
+OUT["down"] = [tag for tag, name in party if acts[name].get_editor_property("bDown")] + (["player"] if m.get_editor_property("bPlayerDown") else [])
+OUT["tally"] = [m.get_editor_property(k) for k in ("Hits", "Misses", "Crits")]
+OUT["game"] = round(unreal.GameplayStatics.get_time_seconds(w), 2)
+OUT["talking"] = m.get_editor_property("bTalking")
+OUT["probe"] = []
+for name in rats:
+    a = acts[name]
+    f = a.get_editor_property("Foe")
+    if a.get_editor_property("bDead") or a.get_editor_property("hidden") or not f:
+        continue
+    OUT["probe"].append((f.get_name()[:10], round(a.get_horizontal_distance_to(f)), round(a.get_distance_to(f)),
+                         round(a.get_editor_property("AttackTimer"), 2), a.get_editor_property("bChasing"),
+                         round(a.get_editor_property("Interval"), 2)))
+if PRESS:
+    m.call_method("PlayerAttack")
+'''
+
+
+def larder(args):
+    """Play: the whole larder fight as the game stages it, with the game's attack timing: Gilmore and the mabari
+    join, the first six rats wake and each death brings the next in (the rats' death scripts). The player swings
+    as often as the rules let them. Every 2 s it records how many rats are biting (alive, visible, within 1.5 m
+    of their foe), everyone's health and who is down; at the end the fight's length, the most and mean rats
+    biting at once and the health each party member lost, to compare with recordings of the original."""
+    run = Run("larder", args.area)
+    run.start(simulate=False)
+    try:
+        g = run.g
+        for _ in range(8):
+            g.converse(seconds=90)
+            if not g.talking().get("bTalking"):
+                break
+        rats = sorted(t for t in g.a["NpcTags"] if t.startswith("bhn100cr_rat_giant"))
+        party = [("gilmore", "bhn100cr_gilmore"), ("dog", "gen00fl_dog")]
+        x, y, z = g.loc(run.npc(rats[0]))
+        g.go(x + 300, y, z, wait=0.5)
+        for k, (_, t) in enumerate(party):
+            print("join", t, pyrun.run(NPC % run.npc(t) + 'a.call_method("SetInParty", (True,))\n'
+                                       'a.set_actor_location(unreal.Vector(%f, %f, %f), False, True)\n'
+                                       'OUT["in_party"] = a.get_editor_property("bInParty")\n'
+                                       % (x + 300, y + 120 * (k * 2 - 1), z), 60))
+        start = "PRESS = %s\n" + SAMPLE % ([run.npc(t) for t in rats], [(n, run.npc(t)) for n, t in party])
+        full = pyrun.run(start % False, 60)["health"]
+        for t in rats[:6]:
+            pyrun.run(NPC % run.npc(t) + 'a.call_method("SetPlotActive", (True,))\n', 60)
+        t0, samples, shots = time.time(), [], 0
+        while time.time() - t0 < args.seconds:
+            # the player presses attack once a sample; the rules' pace decides when a swing happens
+            s = pyrun.run(start % True, 60)
+            s["t"] = round(time.time() - t0, 1)
+            samples.append(s)
+            print("  %5.1fs game %s" % (s["t"], s.get("game")), s["rats"], s["health"], s["down"], "talking" if s.get("talking") else "",
+                  s.get("probe"), s.get("error", "")[-300:], flush=True)
+            time.sleep(0.3)
+            if shots < 3 and s["rats"]["biting"] >= 2:
+                run.shot("fight_%d" % shots)
+                shots += 1
+            if (s["rats"]["dead"] == len(rats) or s["rats"]["alive"] + s["rats"]["waiting"] == 0
+                    or len(s["down"]) == len(party) + 1):
+                break
+        run.shot("end")
+        last = samples[-1]
+        biting = [s["rats"]["biting"] for s in samples if s["rats"]["alive"]]
+        print("RESULT", json.dumps({
+            "seconds": last["t"], "game_seconds": round(last["game"] - samples[0]["game"], 1), "rats_dead": last["rats"]["dead"], "rats_total": len(rats),
+            "biting_max": max(biting or [0]), "biting_mean": round(sum(biting) / max(1, len(biting)), 2),
+            "health_lost": {k: round(1 - last["health"][k] / full[k], 2) for k in full}, "down": last["down"],
+            "tally": last["tally"]}))
+    finally:
+        run.finish()
+
+
 def view(args):
     """Simulate: pictures from given camera poses "x,y,z,yaw,pitch" (cm, degrees), or "near:x,y,z" for
     two views of a spot (from 4.5 m west and east of it, 2 m above, looking down at it)."""
@@ -443,6 +536,10 @@ def main():
     s.add_argument("--count", type=int, default=2, help="how many of the larder's rats to wake (the game: 6)")
     s.add_argument("--fall", action="store_true", help="then let the player fall: game over and restart")
     s.set_defaults(fn=fight)
+    s = sub.add_parser("larder", help=larder.__doc__)
+    s.add_argument("area", choices=game.AREAS)
+    s.add_argument("--seconds", type=int, default=180)
+    s.set_defaults(fn=larder)
     s = sub.add_parser("party", help=party.__doc__)
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("--seconds", type=int, default=120)

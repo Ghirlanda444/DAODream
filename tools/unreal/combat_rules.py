@@ -14,7 +14,8 @@ target), TakeAttack (struck by the player). Graph code: dsl/<function>.dsl.
 
 Hostiles fight the party too: every 0.5 s a hostile asks PickFoe for the nearest of the player and the standing
 party members within 15 m (OfferPlayer, and FoeBid from each BP_DlgNPC to FoeOffer), chases it (ChaseFoe) and
-strikes it every 2 s (Bite -> StrikeFoe: TakeStrike on a party member, StrikePlayer on the player). A party member
+strikes it every 2 s (Bite -> StrikeFoe: StrikePlayer on the player, else StrikeNpcFoe: TakeStrike on the
+party member; the cast to BP_DlgNPC only on that branch, since a failed cast leaves by its unwired exit). A party member
 at 0 health falls (KnockOut: A_Fallen, bDead and bDown) instead of dying; the player falls the same way while a
 party member stands (PlayerFalls -> PlayerDown), and when nobody stands the fight is lost (MemberDown or
 PlayerFalls -> GameOver). RegenTick (every 0.5 s, started by SetPlayerStats): 4 s after the last blow
@@ -25,7 +26,9 @@ The mabari's animation Blueprint stands it up again when its BP_DlgNPC is no lon
 Phases: setup adds variables, functions and their parameters (only to functions it creates) and compiles;
 graphs writes the graphs, callees first; party points PartyFight's attack at TakeStrike (node surgery: the
 graph reads back with ids the DSL cannot write); beasts writes the animals' WatchDeath; save turns the one-hit
-test switch off and saves.
+test switch off and saves. pace (on its own) gives everyone the game's attack timing: BP_DlgNPC.Interval from the
+export's NpcInterval (SetInterval, via GiveNpcRules; default 2 s) for Bite and PartyFight, the player's
+PInterval from PlayerStats[12] (SetPlayerPace; default 1 s) for PlayerAttack.
 """
 import json
 import os
@@ -46,10 +49,10 @@ VARIABLES = {
     PM: [("LastDamage", F), ("LastCrit", "bool"), ("LastFlank", F), ("Hits", "int"), ("Misses", "int"),
          ("Crits", "int"), ("PArmour", F), ("PPen", F), ("PCrit", F), ("PFlank", F), ("PBonus", F),
          ("bGameOver", "bool"), ("bPlayerDown", "bool"), ("FoeBest", ACTOR), ("FoeDist", F), ("Standing", "int"),
-         ("LastCombat", F)],
+         ("LastCombat", F), ("PInterval", F)],
     NPC: [("Armour", F), ("Pen", F), ("Crit", F), ("Flank", F), ("DmgBonus", F), ("Foe", ACTOR), ("FoeTimer", F),
-          ("bDown", "bool")],
-    AL: [("NpcRules", F, "ARRAY")],
+          ("bDown", "bool"), ("Interval", F)],
+    AL: [("NpcRules", F, "ARRAY"), ("NpcInterval", F, "ARRAY")],
 }
 # function -> parameters: (name, type) with type a primitive, "float[]", or an object class path
 FUNCTIONS = {
@@ -79,14 +82,17 @@ FUNCTIONS = {
         "ReviveMembers": [],
         "RegenAll": [],
         "RegenTick": [],
+        "SetPlayerPace": [("InStats", "float[]")],
     },
     NPC: {
         "SetRules": [("InRules", "float[]"), ("K", "int")],
+        "SetInterval": [("InInterval", F)],
         "TakeStrike": [("Attacker", ACTOR), ("InAttack", F), ("InMin", F), ("InMax", F), ("InScale", F),
                        ("InCrit", F), ("InPen", F), ("InBonus", F), ("InFlank", F)],
         "SetFoe": [("InFoe", ACTOR)],
         "FoeBid": [("InMgr", PM + "_C"), ("Hostile", ACTOR)],
         "ChaseFoe": [("Dt", F)],
+        "StrikeNpcFoe": [],
         "StrikeFoe": [],
         "FoeStep": [("Dt", F)],
         "HostileTick": [("Dt", F)],
@@ -105,9 +111,9 @@ GRAPHS = [
     (PM, ["FloorDamage", "Mitigate", "RollHit", "FlankBonus", "ResolveHit", "StrikeNpc", "Restart", "GameOver",
           "FoeOffer", "OfferPlayer", "CountStanding", "PlayerDown", "PlayerFalls", "MemberDown", "HurtPlayer",
           "StrikePlayer", "PlayerStrike", "RevivePlayer"]),
-    (NPC, ["SetRules", "TakeStrike", "TakeAttack", "SetFoe", "FoeBid", "ChaseFoe", "StrikeFoe", "Bite", "CombatStep",
+    (NPC, ["SetRules", "SetInterval", "TakeStrike", "TakeAttack", "SetFoe", "FoeBid", "ChaseFoe", "StrikeNpcFoe", "StrikeFoe", "Bite", "CombatStep",
            "ShowPartyBar", "KnockOut", "Wounded", "TakeHit", "GetUp", "Regen"]),
-    (PM, ["PickFoe", "ReviveMembers", "RegenAll", "RegenTick", "SetPlayerRules", "SetPlayerStats"]),
+    (PM, ["PickFoe", "ReviveMembers", "RegenAll", "RegenTick", "SetPlayerRules", "SetPlayerPace", "SetPlayerStats"]),
     (NPC, ["FoeStep", "HostileTick", "CombatTick"]),
     (AL, ["GiveNpcRules", "GiveNpcAlly", "BuildFixtures"]),
 ]
@@ -205,6 +211,42 @@ def beasts():
         call("compile_blueprint", {"blueprint": {"refPath": abp}})
 
 
+# The game's attack timing (the export's NpcInterval and PlayerStats[12], stats.attack_interval): written graphs
+# and the two fixed waits the read-back graphs hold, wired to the variables instead.
+PACE_GRAPHS = [(NPC, ["SetInterval", "Bite"]), (PM, ["SetPlayerPace", "SetPlayerStats"]),
+               (AL, ["GiveNpcRules", "BuildFixtures"])]
+PACE_WIRES = [(NPC, "PartyFight", "1.5", "Variabili|Predefinito|OttieniInterval"),  # SetAttackTimer 1.5
+              (PM, "PlayerAttack", "1.0", "Variabili|Predefinito|OttieniPInterval")]  # at most once a second
+
+
+def pace():
+    setup()
+    for bp, names in PACE_GRAPHS:
+        for fn in names:
+            code = open(os.path.join(HERE, "dsl", fn + ".dsl"), encoding="utf-8").read()
+            print(fn, str(call("write_graph_dsl", {"graph": {"refPath": "%s:%s" % (bp, fn)}, "code": code}))[:200])
+        call("compile_blueprint", {"blueprint": {"refPath": bp}})
+    for bp, graph, literal, getter in PACE_WIRES:
+        g = {"refPath": "%s:%s" % (bp, graph)}
+        wired = 0
+        for node in call("find_nodes", {"graph": g, "title": ""}):
+            for p in pins(node)["input_pins"]:
+                if p["value"] == literal and not p["connected_pins"] and "Float" in p["type_id"]:
+                    get = call("create_node", {"graph": g, "type_id": getter, "pos": {"x": 0, "y": 900}})
+                    call("connect_pins", {"output_pin": pins(get)["output_pins"][0]["pin_id"], "input_pin": p["pin_id"]})
+                    wired += 1
+        print(graph, "wired", wired)
+        call("compile_blueprint", {"blueprint": {"refPath": bp}})
+    import pyrun
+    print(pyrun.run('''
+EAL = unreal.EditorAssetLibrary
+for path, var, value in (("/Game/Cousland/Dialogue/BP_DlgNPC", "Interval", 2.0), ("/Game/Cousland/Plots/BP_PlotManager", "PInterval", 1.0)):
+    unreal.get_default_object(EAL.load_asset(path).generated_class()).set_editor_property(var, value)
+OUT["ok"] = 1
+''', 120))
+    save()
+
+
 def save():
     import pyrun
     print(pyrun.run('''
@@ -220,6 +262,8 @@ OUT["saved"] = [EAL.save_asset(p, only_if_is_dirty=False) for p in ("/Game/Cousl
 if __name__ == "__main__":
     ue.init()
     phase = sys.argv[1] if len(sys.argv) > 1 else "all"
+    if phase == "pace":
+        pace()
     for name, f in (("setup", setup), ("graphs", graphs), ("party", party), ("beasts", beasts), ("save", save)):
         if phase in (name, "all"):
             f()

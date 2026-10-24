@@ -379,8 +379,26 @@ swing (`Combat_HandleCommandAttack` returns after it, setting a duration only fo
 `rules_core` runs the AI round at once (`AI_DetermineCombatRound_Light`: a random enemy, the next
 `CommandAttack`, timeout 5 s, 1 s the first time). What the engine plays between two commands is compiled into
 `DAOrigins.exe`, which names no combat timing setting. A bite and a stance (0.63 + 0.97 = 1.6 s) is the
-reading the files allow, and fits the recordings' 5 bites in 10 s; the export keeps the 2 s round. Unreal still uses the
-prototype's fixed timers; it reads `NpcInterval` next.
+reading the files allow, and fits the recordings' 5 bites in 10 s; the export keeps the 2 s round.
+
+**The game's timing in Unreal and the fight's shape** (2026-10-25). `combat_rules.py pace`: every creature
+attacks every `BP_DlgNPC.Interval` seconds (the export's `NpcInterval`, given by `GiveNpcRules` →
+`SetInterval`; 2 s by default) in `Bite` and `PartyFight`, and the player swings at most every `PInterval`
+(`PlayerStats[12]`, `SetPlayerPace`: 1.9 s with the longsword and shield). Measuring this found a bug that
+had hidden the player from every bite since hostiles began fighting the party: `StrikeFoe` cast its foe to
+`BP_DlgNPC` and branched on the result, but a failed impure cast leaves by its own unwired exit, so a bite on
+the player did nothing; it now compares the foe with the player first and casts only on the other branch
+(`StrikeNpcFoe`).
+
+`py playtest.py larder day` plays the whole fight as the game stages it (Gilmore and the mabari join, the first
+six rats wake, each death brings the next) and samples it every few seconds: rats biting (alive, visible, within
+1.5 m of their foe), health, who is down. With the game's numbers and real positions, 4.8 rats bite at once on
+average (6 at most): what the simulator assumed. The player went from 115 to 34 in the first 12 s and fell at
+about 40 s, the mabari at 55 s, Gilmore last; the level reloaded. In the recordings the player ends the fight
+15-20% down, roughly an eighth of the bites landing here. Nothing in the game's data accounts for that (every
+creature's numbers are confirmed against a save), so the next evidence has to be exact: a recording of the
+original's fight that can be counted frame by frame (the YouTube readings were too loose), or the owner's own
+count in the original.
 
 ## Path finding
 

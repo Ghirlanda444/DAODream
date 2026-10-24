@@ -22,6 +22,9 @@ Compile success, a read-back graph or a variable value are not enough.
     fight them with the hit rules; prints the rules' tally (`Hits`, `Misses`, `Crits` on the plot
     manager) and health, then lets the player fall (game over, the level reloads 5 s later, which
     resets the tally).
+  - `py playtest.py larder day`: Play, the whole larder fight as the game stages it (all 18 rats in their
+    waves) with the game's attack timing; samples rats biting, health and who is down, then a RESULT line.
+    Measured in game time (it may run slower than real time when the PC is busy).
   - `py playtest.py party day --wipe`: Play, Gilmore and the mabari join against six larder rats; the
     player is dropped, the test wins the fight and checks everyone gets up, then knocks all out (game
     over). Winning starts Gilmore's end-of-fight conversation, as the castle's script does.
