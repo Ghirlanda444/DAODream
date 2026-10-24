@@ -4,15 +4,14 @@ The combat plan (`docs/COMBAT_DESIGN.md`) takes its balance from **Dragon Age Re
 https://www.nexusmods.com/dragonage/mods/5173). This page says how its numbers are read and where they
 stay. Credit: Tyragon, with fixes from dainbramage's Dain's Fixes that the mod includes.
 
-## Permission (open question)
+## Permission
 
-The mod's Nexus permissions allow using its assets with credit, never in anything sold, but say: "You
-are not allowed to convert this file to work on other games under any circumstances". Building our
-combat on its balance is arguably such a conversion, so **nothing of the mod is in this repository**:
-its files, the tables read from them and its texts stay in the git-ignored `extracted/`. Before its
-rules and numbers are built into the Unreal project, the owner asks Tyragon (Nexus) for permission for
-a non-commercial fan remake. Without it, the combat keeps the game's own numbers and our own measured
-changes (`docs/COMBAT_DESIGN.md`, 5).
+The mod's Nexus permissions allow using its assets with credit, never in anything sold, forbid
+uploading its files elsewhere, and say it may not be converted to other games. The owner decided
+(2026-10-24) to import its rule system into this non-commercial fan remake as the starting point, then
+tune it to our own balance. Its files, the tables read from them and its texts stay out of this public
+repository (git-ignored `extracted/`, read from the owner's install like the game's own data); what is
+committed is our code that reads them and our own implementation of the rules, with credit here.
 
 ## Where the files are
 

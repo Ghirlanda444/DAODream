@@ -10,8 +10,8 @@ specializations come with it into the main campaign. Combat Tweaks (v3.23, Denni
 the older and more conservative rebalance, stays a reference for vanilla bug fixes. This page is the
 plan; `docs/COMBAT.md` describes what is built.
 
-Permission: Dragon Age Reborn's Nexus permissions forbid converting it to other games, so nothing of it
-is in this repository and the owner asks its author before its rules are built in
+Dragon Age Reborn's rules are imported as the starting point (the owner's decision for this
+non-commercial remake); its files stay out of the repository and are read from the install
 (`docs/COMBAT_BALANCE.md`, which also says how its numbers are read).
 
 ## 1. The original's rules (kept as they are)
