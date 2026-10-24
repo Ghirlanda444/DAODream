@@ -1,4 +1,5 @@
 (fn ResolveHit (Atk Def DmgMin DmgMax Scale Crit Pen Bonus Armour)
+  (Variabili|Predefinito|ImpostaLastCombat (Utilità|Testo|GetGameTimeinSeconds))
   (Variabili|Predefinito|ImpostaLastCrit (Utility|Operatori|Minore(<) (Utility|Operatori|Moltiplica (Matematica|Casuale|RandomFloat) 100.0) (Utility|Operatori|Moltiplica Crit (Utility|Operatori|Aggiungi (Utility|Operatori|Dividi (Variabili|Predefinito|OttieniLastFlank) 5.0) 1.0))))
   (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Minore(<) (Utility|Operatori|Moltiplica (Matematica|Casuale|RandomFloat) 100.0) (Utility|Operatori|Sottrai (Utility|Operatori|Aggiungi (Utility|Operatori|Aggiungi Atk 54.0) (Variabili|Predefinito|OttieniLastFlank)) Def))
     (:then

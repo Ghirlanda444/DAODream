@@ -286,7 +286,7 @@ BEAST_COATS = {"giant_rat": ((0.085, 0.07, 0.055), 0.35, 0.0)}
 
 # Held poses, by area and creature tag: animations in /Game/Cousland/Anims an NPC idles in instead of standing.
 # The game shows these through its cutscenes' body animations, which Unreal cannot play: Teyrn Bryce lies wounded
-# in the night castle's larder (tools/blender/pose_wounded.py).
+# in the night castle's larder (tools/blender/poses.py).
 IDLE_POSES = {"bhn200ar_castle_after_siege": {"bhn100cr_father": "A_WoundedSlump"}}
 
 

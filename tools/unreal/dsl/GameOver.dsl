@@ -1,5 +1,5 @@
 (fn GameOver ()
   (Variabili|Predefinito|ImpostaGameOver "true")
-  (Funzionedichiamata|ShowMsg :Txt "You have fallen")
+  (Funzionedichiamata|ShowMsg :Txt "Your party has fallen")
   (Input|DisableInput (Gioco|GetPlayerPawn 0) (Gioco|GetPlayerController 0))
   (Utilità|Testo|SetTimerbyFunctionName :Object (Variabili|Ottieniunriferimentoasestesso) :FunctionName "Restart" :Time 5.0 :bLooping "false"))

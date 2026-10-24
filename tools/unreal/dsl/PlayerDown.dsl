@@ -1,0 +1,6 @@
+(fn PlayerDown ()
+  (Variabili|Predefinito|ImpostaPlayerDown "true")
+  (Funzionedichiamata|ShowMsg :Txt "You have fallen")
+  (Input|DisableInput (Gioco|GetPlayerPawn 0) (Gioco|GetPlayerController 0))
+  (bind _mesh (Utilità|Casting|CastToSkeletalMeshComponent (Attore|GetComponentbyClass (Gioco|GetPlayerPawn 0) "/Script/Engine.SkeletalMeshComponent")))
+  (Componenti|Animazione|PlayAnimation _mesh "/Game/Cousland/Anims/A_Fallen.A_Fallen" "true"))

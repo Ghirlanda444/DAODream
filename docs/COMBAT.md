@@ -56,8 +56,12 @@ py -m daotools unreal conv extracted/dog/json/al_bhn01al_castle_cousland/dog00cr
   (`GroupId` 1 or 36, `GROUP_HOSTILE*`) and its rank (`CREATURE_RANK_*`).
 - `BP_DlgNPC` (every spawned creature): `SetupCombat` takes its stats from the
   area file and shows a hostile's health over its head. In `CombatTick`
-  a visible hostile within 15 m turns to the player, jogs to 1.1 m at 3 m/s and
-  attacks every 2 s (`Bite` → `BP_PlotManager.StrikePlayer`). `TakeAttack`
+  (`HostileTick`) a visible hostile picks its foe every 0.5 s
+  (`BP_PlotManager.PickFoe`): the nearest of the player and the standing party
+  members within 15 m (the player offers itself, each party member bids with
+  `FoeBid` → `FoeOffer`). It jogs to 1.1 m of its foe at 3 m/s (`ChaseFoe`) and
+  attacks every 2 s (`Bite` → `StrikeFoe`: `TakeStrike` on a party member,
+  `BP_PlotManager.StrikePlayer` on the player). `TakeAttack`
   (the player's attack) and `TakeStrike` (a party member's) roll an attack
   against it with the rules below (a hit, or "Miss" over its head); `TakeHit` and
   `Die` hide the creature, drop its `team:<id>` tag and tell the plot manager.
@@ -67,10 +71,20 @@ py -m daotools unreal conv extracted/dog/json/al_bhn01al_castle_cousland/dog00cr
   the nearest live hostile within 2.3 m, at most once a second. Every creature bids its distance (`Bid` → `Offer`) and the
   nearest is hit. On a death it runs `death:<tag>`, and `teamdead:<id>` when no
   creature with that team tag is left. Fighting pauses during conversations.
-  At 0 health the fight is lost (`GameOver`): "You have fallen", the player's
-  input stops, and 5 s later `Restart` reloads the level. In the game a fallen
-  player gets up after the fight while a companion still stands; that comes
-  when hostiles fight party members too (combat stage 4). Test switch: with
+  Falling, as in the game (`player_core`, `effect_resurrection_h`): a party
+  member at 0 health falls instead of dying (`Wounded` → `KnockOut`: it lies
+  in `/Game/Cousland/Anims/A_Fallen`, the mabari in its death pose, with
+  `bDead` and `bDown` set, and its health bar shows over it once hurt). The
+  player at 0 falls the same way while a party member still stands
+  (`PlayerFalls` → `PlayerDown`: "You have fallen", the input stops, the
+  player's mesh plays `A_Fallen`, hostiles leave them be). When nobody stands
+  the fight is lost (`GameOver`: "Your party has fallen", and 5 s later
+  `Restart` reloads the level). `RegenTick` (every 0.5 s): 4 s after the last
+  blow anywhere (`LastCombat`, stamped by `ResolveHit`) the fallen get up with
+  1 health (`RevivePlayer`, `BP_DlgNPC.GetUp`; the game's
+  `ResurrectPartyMembers`, which also gives an injury: injuries come with
+  effects in stage 3), and the player and party members regain 10 health a
+  second (`RegenAll`; `REGENERATION_HEALTH_EXPLORE_DEFAULT`). Test switch: with
   `bOneShot` set (off by default) the player's attack kills any hostile in
   reach outright, without the to-hit roll; `ke * ToggleOneShot` in the
   editor's console switches it during Play.
@@ -192,7 +206,19 @@ balance simulator to come. Every attack goes through `BP_PlotManager`:
 `PlayerStrike` is the player's attack. `LastDamage` (-1 for a miss),
 `LastCrit` and the counters `Hits`, `Misses` and `Crits` are there for tests:
 `py playtest.py fight day --fall` fights the larder's rats and reports them,
-then lets the player fall.
+then lets the player fall; `py playtest.py party day --wipe` fights them with
+Gilmore and the mabari, drops the player, wins the fight and checks that
+everyone gets up, then knocks everyone out.
+
+Checked in Play (silent), with Gilmore and the mabari against the first six
+rats: the rats went for all three; the mabari fell (down, not dead) while
+Gilmore fought on from 121 to 49; the dropped player lay in `A_Fallen` among
+the rats while the party fought on. Left alone, Gilmore fell too and the level
+reloaded (the whole party down). When the test struck down the remaining rats
+and the next wave, the player and the mabari were up again a few seconds later
+in the same world, and everyone regenerated to full within 9 s; Gilmore's
+conversation for the end of the rat fight then started, as the castle's
+script has it.
 
 Checked in Play (silent), sampling `ResolveHit` 400 times with known numbers:
 attack 64.5 against defense 48 hit 72.5% (70.5% expected); a 20% critical
@@ -259,7 +285,8 @@ Movers still don't push against each other or the player.
 
 ## Not there yet
 
-Abilities, talents, stamina use; real-time with pause and tactics; hostiles
-only ever attack the player, never party members; party members cannot be
-hurt or switched to; a fallen player getting up after a won fight; proper
-animations (the attack is a generic punch). The plan: `docs/COMBAT_DESIGN.md`.
+Abilities, talents, stamina use; real-time with pause and tactics; threat
+(hostiles go for the nearest foe, not the one they hate most); allies outside
+the party (the castle's guards) cannot be struck yet; injuries; switching to a
+party member; proper animations (the attack is a generic punch, the fall and
+getting up are instant). The plan: `docs/COMBAT_DESIGN.md`.

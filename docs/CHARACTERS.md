@@ -457,13 +457,16 @@ An NPC idles in `BP_DlgNPC.IdleAnim` (default the template's `MM_Idle`; every id
 `AnimTick` plays it), and `ApplyIdle` sets it from the area export's `NpcIdle`
 (`area.IDLE_POSES`, by area and tag). The game shows Bryce wounded on the night's
 larder floor through its cutscenes' body animations, which Unreal cannot play, so
-he gets a held pose: `tools/blender/pose_wounded.py` poses the mannequin skeleton
+he gets a held pose: `tools/blender/poses.py` (`A_WoundedSlump`) poses the mannequin skeleton
 (bones aimed in world space: down onto the floor and tipped back against the wall,
 one leg out, the other knee drawn up, the back slumped, the head hanging, the right
 hand pressed to the belly, the left arm limp) and `tools/unreal/pose_make.py`
 imports it as `/Game/Cousland/Anims/A_WoundedSlump` (committed: our pose on the
 template's `SK_Mannequin`). The MetaHuman look follows the mannequin as always.
-Checked in Simulate: Bryce sits slumped against the larder wall.
+Checked in Simulate: Bryce sits slumped against the larder wall. `A_Fallen` (the
+same script, `py pose_make.py A_Fallen`) lays the body on its back, one knee up,
+the head turned aside and the arms flung out: a party member or the player knocked
+out in a fight lies so until the fight is won (`docs/COMBAT.md`).
 
 ### Outfits (2026-10-21)
 

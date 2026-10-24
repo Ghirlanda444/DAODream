@@ -196,6 +196,16 @@ w = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_game_world()
 m = [a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor) if a.get_class().get_name() == "BP_PlotManager_C"][0]
 '''
 TALLY = ("Hits", "Misses", "Crits", "PlayerHealth", "PlayerMaxHealth", "bGameOver")
+# Strike down every visible live hostile (a test's win); OUT["struck"] counts them.
+CLEAR = '''
+n = 0
+for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor):
+    if a.get_class().get_name() == "BP_DlgNPC_C" and a.get_editor_property("bHostile") and not a.get_editor_property("bDead") \
+            and not a.get_editor_property("hidden"):  # AActor::bHidden: waiting for a plot
+        a.call_method("TakeHit", (10000.0,))
+        n += 1
+OUT["struck"] = n
+'''
 
 
 def fight(args):
@@ -256,6 +266,81 @@ def fight(args):
             except Exception as e:  # the world is being replaced
                 print("after restart: (reloading)", e)
             run.shot("restarted")
+    finally:
+        run.finish()
+
+
+def party(args):
+    """Play: Gilmore and the mabari join, the larder's first six rats wake and fight the three of you (each rat's
+    foe and everyone's health are printed). The player is dropped to 0 at once and lies down while the party fights
+    on; then the test wins the fight (strikes down every live hostile, the later waves too) and the fallen get up
+    with 1 health 4 s after the last blow and regenerate. --wipe then drops the player again and knocks the party
+    out: the game over."""
+    run = Run("party", args.area)
+    run.start(simulate=False)
+    try:
+        g = run.g
+        for _ in range(8):
+            g.converse(seconds=90)
+            if not g.talking().get("bTalking"):
+                break
+        rats = sorted(t for t in g.a["NpcTags"] if t.startswith("bhn100cr_rat_giant"))[:6]
+        x, y, z = g.loc(run.npc(rats[0]))
+        g.go(x + 250, y, z, wait=0.5)
+        for k, t in enumerate(("bhn100cr_gilmore", "gen00fl_dog")):
+            pyrun.run(NPC % run.npc(t) + 'a.call_method("SetInParty", (True,))\na.set_actor_location(unreal.Vector(%f, %f, %f), False, True)\n'
+                      % (x + 250, y + 120 * (k * 2 - 1), z), 60)
+        for t in rats:
+            pyrun.run(NPC % run.npc(t) + 'a.call_method("SetPlotActive", (True,))\n', 60)
+        watch = rats + ["bhn100cr_gilmore", "gen00fl_dog"]
+        state = lambda: pyrun.run(MGR + '''
+OUT["mgr"] = {k: m.get_editor_property(k) for k in ("PlayerHealth", "bPlayerDown", "bGameOver", "Hits", "Misses")}
+for tag, name in %r:
+    a = [x for x in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor) if x.get_name() == name][0]
+    f = a.get_editor_property("Foe")
+    OUT[tag[-12:]] = (round(a.get_editor_property("Health")), a.get_editor_property("bDead"), a.get_editor_property("bDown"),
+                      f.get_name()[:14] if f else None)
+''' % ([(t, run.npc(t)) for t in watch],), 60)
+        time.sleep(4)
+        print("start", state(), flush=True)
+        run.shot("fight")
+        print("drop the player", pyrun.run(MGR + 'm.call_method("HurtPlayer", (m.get_editor_property("PlayerHealth"),))\n', 60))
+        time.sleep(1)
+        run.shot("player_down")
+        time.sleep(6)
+        st = state()
+        print("  player down", st, flush=True)
+        if any(v[2] for k, v in st.items() if k != "mgr" and isinstance(v, list)):
+            run.shot("member_down")
+        # win the fight: strike down every live hostile, the waves their deaths bring in too
+        t0 = time.time()
+        while time.time() - t0 < args.seconds:
+            n = pyrun.run(MGR + CLEAR, 120).get("struck", 0)
+            print("  cleared", n, flush=True)
+            if not n:
+                break
+            time.sleep(3)
+        for k in range(4):
+            time.sleep(3)
+            st = state()
+            print("  after the fight", st, flush=True)
+            if not st["mgr"]["bPlayerDown"] and st["mgr"]["PlayerHealth"] > 1:
+                run.shot("got_up")
+                break
+        if args.wipe:
+            # winning set off Gilmore's conversation: finish it, then everyone falls in one go
+            for _ in range(4):
+                g.converse(seconds=60)
+                if not g.talking().get("bTalking"):
+                    break
+            print("wipe", pyrun.run(MGR + '''
+m.call_method("HurtPlayer", (m.get_editor_property("PlayerHealth"),))
+for name in %r:
+    [x for x in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor) if x.get_name() == name][0].call_method("TakeHit", (10000.0,))
+OUT.update({k: m.get_editor_property(k) for k in ("bPlayerDown", "bGameOver", "Standing")})
+''' % ([run.npc(t) for t in ("bhn100cr_gilmore", "gen00fl_dog")],), 60))
+            time.sleep(1)
+            run.shot("wipe")
     finally:
         run.finish()
 
@@ -358,6 +443,11 @@ def main():
     s.add_argument("--count", type=int, default=2, help="how many of the larder's rats to wake (the game: 6)")
     s.add_argument("--fall", action="store_true", help="then let the player fall: game over and restart")
     s.set_defaults(fn=fight)
+    s = sub.add_parser("party", help=party.__doc__)
+    s.add_argument("area", choices=game.AREAS)
+    s.add_argument("--seconds", type=int, default=120)
+    s.add_argument("--wipe", action="store_true", help="then knock everyone out: the game over")
+    s.set_defaults(fn=party)
     args = p.parse_args()
     global SOUND
     SOUND = args.sound

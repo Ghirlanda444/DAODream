@@ -9,4 +9,5 @@
       (Variabili|Predefinito|ImpostaPDmgMax (Utilità|Array|Ottieni(unacopia) InStats 4))
       (Variabili|Predefinito|ImpostaDmgThreshold (Utilità|Array|Ottieni(unacopia) InStats 5))
       (Funzionedichiamata|SetPlayerRules :InStats InStats)
+      (Utilità|Testo|SetTimerbyFunctionName :Object (Variabili|Ottieniunriferimentoasestesso) :FunctionName "RegenTick" :Time 0.5 :bLooping "true")
       (Funzionedichiamata|ShowHealth))))

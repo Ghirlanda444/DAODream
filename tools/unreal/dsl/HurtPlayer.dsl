@@ -3,4 +3,4 @@
   (Funzionedichiamata|ShowHealth)
   (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggiore(>) (Variabili|Predefinito|OttieniPlayerHealth) 0.0)
     (:else
-      (Funzionedichiamata|GameOver))))
+      (Funzionedichiamata|PlayerFalls))))

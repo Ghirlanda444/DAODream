@@ -10,11 +10,22 @@ and Crits count them for tests. StrikeNpc applies it to a creature (TakeHit or M
 the player (HurtPlayer; at 0 health GameOver, then Restart reloads the level), PlayerStrike is the player's
 attack. BP_DlgNPC: SetRules (its armour, penetration, crit, flanking and damage bonus from the area file's
 NpcRules, given by BP_AreaLoader.GiveNpcRules), TakeStrike (struck by a party member: PartyFight calls it on its
-target), TakeAttack (struck by the player), Bite (strikes the player). Graph code: dsl/<function>.dsl.
+target), TakeAttack (struck by the player). Graph code: dsl/<function>.dsl.
+
+Hostiles fight the party too: every 0.5 s a hostile asks PickFoe for the nearest of the player and the standing
+party members within 15 m (OfferPlayer, and FoeBid from each BP_DlgNPC to FoeOffer), chases it (ChaseFoe) and
+strikes it every 2 s (Bite -> StrikeFoe: TakeStrike on a party member, StrikePlayer on the player). A party member
+at 0 health falls (KnockOut: A_Fallen, bDead and bDown) instead of dying; the player falls the same way while a
+party member stands (PlayerFalls -> PlayerDown), and when nobody stands the fight is lost (MemberDown or
+PlayerFalls -> GameOver). RegenTick (every 0.5 s, started by SetPlayerStats): 4 s after the last blow
+(LastCombat, stamped by ResolveHit) the fallen get up with 1 health (RevivePlayer, GetUp) and everyone regains
+10 health a second (RegenAll, Regen), as the game's ResurrectPartyMembers and REGENERATION_HEALTH_EXPLORE_DEFAULT.
+The mabari's animation Blueprint stands it up again when its BP_DlgNPC is no longer dead (dsl/BeastWatchDeath.dsl).
 
 Phases: setup adds variables, functions and their parameters (only to functions it creates) and compiles;
 graphs writes the graphs, callees first; party points PartyFight's attack at TakeStrike (node surgery: the
-graph reads back with ids the DSL cannot write); save turns the one-hit test switch off and saves.
+graph reads back with ids the DSL cannot write); beasts writes the animals' WatchDeath; save turns the one-hit
+test switch off and saves.
 """
 import json
 import os
@@ -34,8 +45,10 @@ F = "float"
 VARIABLES = {
     PM: [("LastDamage", F), ("LastCrit", "bool"), ("LastFlank", F), ("Hits", "int"), ("Misses", "int"),
          ("Crits", "int"), ("PArmour", F), ("PPen", F), ("PCrit", F), ("PFlank", F), ("PBonus", F),
-         ("bGameOver", "bool")],
-    NPC: [("Armour", F), ("Pen", F), ("Crit", F), ("Flank", F), ("DmgBonus", F)],
+         ("bGameOver", "bool"), ("bPlayerDown", "bool"), ("FoeBest", ACTOR), ("FoeDist", F), ("Standing", "int"),
+         ("LastCombat", F)],
+    NPC: [("Armour", F), ("Pen", F), ("Crit", F), ("Flank", F), ("DmgBonus", F), ("Foe", ACTOR), ("FoeTimer", F),
+          ("bDown", "bool")],
     AL: [("NpcRules", F, "ARRAY")],
 }
 # function -> parameters: (name, type) with type a primitive, "float[]", or an object class path
@@ -55,11 +68,33 @@ FUNCTIONS = {
         "SetPlayerRules": [("InStats", "float[]")],
         "Restart": [],
         "GameOver": [],
+        "FoeOffer": [("Cand", ACTOR), ("Dist", F)],
+        "OfferPlayer": [("Hostile", ACTOR)],
+        "PickFoe": [("Hostile", NPC_CLASS)],
+        "CountStanding": [],
+        "PlayerDown": [],
+        "PlayerFalls": [],
+        "MemberDown": [],
+        "RevivePlayer": [],
+        "ReviveMembers": [],
+        "RegenAll": [],
+        "RegenTick": [],
     },
     NPC: {
         "SetRules": [("InRules", "float[]"), ("K", "int")],
         "TakeStrike": [("Attacker", ACTOR), ("InAttack", F), ("InMin", F), ("InMax", F), ("InScale", F),
                        ("InCrit", F), ("InPen", F), ("InBonus", F), ("InFlank", F)],
+        "SetFoe": [("InFoe", ACTOR)],
+        "FoeBid": [("InMgr", PM + "_C"), ("Hostile", ACTOR)],
+        "ChaseFoe": [("Dt", F)],
+        "StrikeFoe": [],
+        "FoeStep": [("Dt", F)],
+        "HostileTick": [("Dt", F)],
+        "ShowPartyBar": [],
+        "KnockOut": [],
+        "Wounded": [],
+        "GetUp": [],
+        "Regen": [("Amount", F)],
     },
     AL: {
         "GiveNpcRules": [("Npc", NPC_CLASS), ("K", "int")],
@@ -68,10 +103,15 @@ FUNCTIONS = {
 # Graphs written from dsl/, in order: a call's keyword pins exist only once the callee is compiled.
 GRAPHS = [
     (PM, ["FloorDamage", "Mitigate", "RollHit", "FlankBonus", "ResolveHit", "StrikeNpc", "Restart", "GameOver",
-          "HurtPlayer", "StrikePlayer", "PlayerStrike", "SetPlayerRules", "SetPlayerStats"]),
-    (NPC, ["SetRules", "TakeStrike", "TakeAttack", "Bite"]),
+          "FoeOffer", "OfferPlayer", "CountStanding", "PlayerDown", "PlayerFalls", "MemberDown", "HurtPlayer",
+          "StrikePlayer", "PlayerStrike", "RevivePlayer"]),
+    (NPC, ["SetRules", "TakeStrike", "TakeAttack", "SetFoe", "FoeBid", "ChaseFoe", "StrikeFoe", "Bite", "CombatStep",
+           "ShowPartyBar", "KnockOut", "Wounded", "TakeHit", "GetUp", "Regen"]),
+    (PM, ["PickFoe", "ReviveMembers", "RegenAll", "RegenTick", "SetPlayerRules", "SetPlayerStats"]),
+    (NPC, ["FoeStep", "HostileTick", "CombatTick"]),
     (AL, ["GiveNpcRules", "GiveNpcAlly", "BuildFixtures"]),
 ]
+BEASTS = ("/Game/ThirdParty/Mabari/ABP_Mabari.ABP_Mabari", "/Game/ThirdParty/GiantRat/ABP_GiantRat.ABP_GiantRat")
 
 
 def call(tool, args):
@@ -93,7 +133,11 @@ def setup():
             if len(v) > 2:
                 args["container_type"] = v[2]
             try:
-                call("add_variable", args)
+                if v[1].startswith("/"):
+                    call("add_object_variable", {"blueprint": {"refPath": bp}, "name": v[0],
+                                                 "object_class": {"refPath": v[1]}})
+                else:
+                    call("add_variable", args)
             except RuntimeError as e:  # already there from an earlier run
                 print("variable", v[0], str(e)[:160])
     for bp, functions in FUNCTIONS.items():
@@ -154,6 +198,13 @@ def party():
     print("PartyFight: TakeAttack -> TakeStrike")
 
 
+def beasts():
+    code = open(os.path.join(HERE, "dsl", "BeastWatchDeath.dsl"), encoding="utf-8").read()
+    for abp in BEASTS:
+        print(abp, call("write_graph_dsl", {"graph": {"refPath": abp + ":WatchDeath"}, "code": code}))
+        call("compile_blueprint", {"blueprint": {"refPath": abp}})
+
+
 def save():
     import pyrun
     print(pyrun.run('''
@@ -161,13 +212,14 @@ EAL = unreal.EditorAssetLibrary
 pm = EAL.load_asset("/Game/Cousland/Plots/BP_PlotManager")
 unreal.get_default_object(pm.generated_class()).set_editor_property("bOneShot", False)
 OUT["saved"] = [EAL.save_asset(p, only_if_is_dirty=False) for p in ("/Game/Cousland/Plots/BP_PlotManager",
-                "/Game/Cousland/Dialogue/BP_DlgNPC", "/Game/Cousland/Areas/BP_AreaLoader")]
+                "/Game/Cousland/Dialogue/BP_DlgNPC", "/Game/Cousland/Areas/BP_AreaLoader",
+                "/Game/ThirdParty/Mabari/ABP_Mabari", "/Game/ThirdParty/GiantRat/ABP_GiantRat")]
 ''', 300))
 
 
 if __name__ == "__main__":
     ue.init()
     phase = sys.argv[1] if len(sys.argv) > 1 else "all"
-    for name, f in (("setup", setup), ("graphs", graphs), ("party", party), ("save", save)):
+    for name, f in (("setup", setup), ("graphs", graphs), ("party", party), ("beasts", beasts), ("save", save)):
         if phase in (name, "all"):
             f()

@@ -22,6 +22,11 @@ Compile success, a read-back graph or a variable value are not enough.
     fight them with the hit rules; prints the rules' tally (`Hits`, `Misses`, `Crits` on the plot
     manager) and health, then lets the player fall (game over, the level reloads 5 s later, which
     resets the tally).
+  - `py playtest.py party day --wipe`: Play, Gilmore and the mabari join against six larder rats; the
+    player is dropped, the test wins the fight and checks everyone gets up, then knocks all out (game
+    over). Winning starts Gilmore's end-of-fight conversation, as the castle's script does.
+  - The user may be watching a test run in the editor: clicks and attacks there mix into what it
+    measures, so say what a run will do (e.g. "it drops your health on purpose") before it starts.
 - `game.py`: play like a player in Play (`g = game.Game("night")`): `talk_to`, `converse`, `use_door`,
   `fight`, `flags()` / `has(...)` by flag name, `where()`, `errors()`. For a new kind of check, add a
   command to `playtest.py` built on `Run` and `game.Game` rather than a one-off script.
