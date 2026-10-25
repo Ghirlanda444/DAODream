@@ -408,22 +408,22 @@ creature's numbers are confirmed against a save), so the next evidence has to be
 original's fight that can be counted frame by frame (the YouTube readings were too loose), or the owner's own
 count in the original.
 
-**PROVISIONAL tuning, until such a recording** (the owner's choice, 2026-10-25). Only the two engine behaviours
-the data cannot show were tuned; every creature's numbers stay as confirmed:
+**Solved: the larder's rats are one-shot creatures** (2026-10-25). A provisional tuning (one attacker per
+target, animals every 3 s) briefly stood in for the answer; then the owner's own screen recording of the
+original's fight showed a full-health rat dying from a single 5-damage hit. The scripts say why:
+`AS_InitCreature` never scales a creature whose appearance has `OneShotKills` (`IsOneShotKillCreature`;
+`apr_base`: "Squirel", "Rat, Large", "Rat, Small"); it only gives it level 1 and 1 health. So a giant rat
+keeps no attributes, attack, defense, critical chance or damage bonus of its own (they are never set), only
+its natural bite (3 damage, armour penetration 2, critical chance 1.5) and its hide. Every hit that lands
+kills it, and its own attack (0 + 54 against the player's 51.5 defense) lands about one bite in forty, or
+one in thirteen from behind. `stats.stats(..., one_shot=True)` and `stats.is_one_shot` do this; the
+export applies it to such appearances.
 
-- At most one creature attacks the same target at once (`BP_PlotManager.Slots` = 1, `combat_rules.py slots`;
-  `simulate.SLOTS`, `--slots`): each re-pick recounts who is on whom (`CountAttackers`), and the player and
-  party members offer themselves only while free; the others wait.
-- An animal attacks at most every 3 s (`stats.ANIMAL_ROUND`): rats 3.0, the mabari 3.0 (its animations
-  average 2.07).
-
-Chosen with the simulator (1,500 fights each): one per target and 3 s give a won fight with nobody falling,
-the player 57% down, Gilmore 29%, the mabari 71%, about 95 s, a damage rate per second close to the
-recordings' (their fights are shorter: our party kills about three times slower, a separate open question).
-Two per target, or 2 to 2.5 s, still has party members falling. Checked in Unreal (`playtest.py larder`): all
-18 rats killed, never more than 3 biting (one per party member), the player down to 17 at worst and 63% lost,
-the mabari falling only at the very end and up again after; the test presses attack once a sample (about
-every 12 s), far less often than a player, so it runs longer and harder than play.
+With it the provisional tuning is undone: the animal round is 2 s again (`stats.ANIMAL_ROUND`, the
+recordings' rhythm), the simulator has no cap by default (`simulate.SLOTS` = 0), and Unreal's
+`BP_PlotManager.Slots` is 99 (the cap stays available: `combat_rules.py slots`). Simulated (2,000 fights):
+won every time in about 11 s with every party hit a kill, the party losing about 1% of its health; in the
+game the rats' running in and the fighters' moving make it longer, as in the recordings.
 
 ## Path finding
 

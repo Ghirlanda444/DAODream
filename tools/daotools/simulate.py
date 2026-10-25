@@ -33,7 +33,7 @@ PLAYER = "player"
 INTERVAL = {"player": 1.0, "party": 1.5, "foe": 2.0, "export": True}
 TIME_LIMIT = 600.0
 RULES = ("Armour", "Penetration", "Crit", "Flanking", "DamageBonus")  # area.RULES
-SLOTS = 1  # PROVISIONAL: foes attacking the same party member at once, as BP_PlotManager.Slots in Unreal
+SLOTS = 0  # foes attacking the same party member at once (0: no limit; BP_PlotManager.Slots in Unreal)
 
 
 @dataclass

@@ -88,7 +88,7 @@ _COLUMNS = {
     "materialrules.gda": ["ID", "label", "Damage", "Armor", "CritChanceModifier", "ArmorPenetration", "ShieldRating",
                           "MissileDeflection"],
     "difficulty.gda": ["ID", "label", "DmgScalingThresh"],
-    "apr_base.gda": ["ID", "label", "creature_type", "DefaultWeapon", "DefaultArmor", "MovementTree"],
+    "apr_base.gda": ["ID", "label", "creature_type", "DefaultWeapon", "DefaultArmor", "MovementTree", "OneShotKills"],
     "alwarrior_default.gda": ["ID", "AttInit", "AttWeight"],
     "alwizard_default.gda": ["ID", "AttInit", "AttWeight"],
     "alrogue_default.gda": ["ID", "AttInit", "AttWeight"],
@@ -99,7 +99,7 @@ _COLUMNS = {
 BASE_TIMING = {"single": 2.0, "dual": 1.5, "twohanded": 2.5}
 _TWO_HANDED = ("Weapon - Greatsword", "Weapon - Battleaxe", "Weapon - Maul", "Weapon - Staff")
 ANIM_LENGTH = 4009  # an animation's length in seconds (.ani, GFF4)
-ANIMAL_ROUND = 3.0  # PROVISIONAL: the least seconds between an animal's attacks (see attack_interval)
+ANIMAL_ROUND = 2.0  # the least seconds between an animal's attacks: recordings show a rat biting about every 2 s
 
 
 def load_tables(game_dir: str | Path, overrides: str | Path | None = None) -> dict[str, dict[int, dict]]:
@@ -161,6 +161,11 @@ def natural_equipment(appearance: int, equip: list[dict], items: dict[str, dict]
     return extra
 
 
+def is_one_shot(appearance: int, tables: dict) -> bool:
+    """IsOneShotKillCreature: the appearance's OneShotKills (apr_base: squirrels, large and small rats)."""
+    return bool(int((tables.get("apr_base", {}).get(appearance) or {}).get("OneShotKills") or 0))
+
+
 def attack_anims(game_dir: str | Path, tables: dict, appearances) -> dict[int, float]:
     """Per appearance, the mean length of its attack animations (seconds): the attack nodes ("attk..." or
     "atk...") of its combat tree in anims.erf, named like its MovementTree with _cbt for _expmvt (C_DOGa_expmvt.anb
@@ -186,7 +191,7 @@ def attack_anims(game_dir: str | Path, tables: dict, appearances) -> dict[int, f
 def attack_interval(equip: list[dict], items: dict[str, dict], tables: dict, anim: float | None = None) -> float:
     """Seconds between attacks (CalculateAttackTiming): with a weapon ("Weapon - ..." in itemstats), the wield
     style's base timing plus the weapon's dspeed: two weapons and no shield 1.5, a two-handed one 2.5, else 2.0;
-    otherwise its attack animations' length (`anim`, attack_anims), but at least ANIMAL_ROUND (provisional)."""
+    otherwise its attack animations' length (`anim`, attack_anims), but at least ANIMAL_ROUND."""
     weapons = []
     shield = False
     for e in equip or []:
@@ -198,8 +203,7 @@ def attack_interval(equip: list[dict], items: dict[str, dict], tables: dict, ani
             weapons.append(row)
     if not weapons:
         # The engine times an animal's attacks itself (compiled, undocumented). Recordings of the original's
-        # larder fight show far fewer bites than one per 0.63 s bite animation; ANIMAL_ROUND is provisional,
-        # chosen with the simulator so the fight's damage rate matches them (docs/COMBAT.md).
+        # larder fight show a rat biting about every 2 s, not once per 0.63 s bite animation (docs/COMBAT.md).
         return max(anim or 0.0, ANIMAL_ROUND)
     main = weapons[0]
     if str(main.get("label")).startswith(_TWO_HANDED):
@@ -246,7 +250,7 @@ def equipment(equip: list[dict], items: dict[str, dict], tables: dict) -> dict:
 
 def stats(tables: dict, *, package: int, rank: int, area_level: int = 1, race: int | None = None,
           base_item: int | None = None, player_class: int | None = None, hero: bool = False,
-          follower: str = "", weapon_material: int | None = None) -> dict:
+          follower: str = "", weapon_material: int | None = None, one_shot: bool = False) -> dict:
     """Level, attributes, max health, stamina (or mana), attack, defense, the damage
     range (min, max) before armour and the flat damage bonus after it, armour
     penetration, critical chance and the most flanking can add, for one creature.
@@ -257,7 +261,10 @@ def stats(tables: dict, *, package: int, rank: int, area_level: int = 1, race: i
     Chargen_InitializeCharacter gives it the same 5 points (CHARGEN_POINTS) and its race; each attribute its
     strategy weighs is then set afresh to 10 + its share of the rank's bonus points, the 5 points, and
     (rank scale x 3 + 5) for each level above 1 (so the race counts only for attributes the strategy does not
-    weigh); the class adjustments come last (AS_AddClassLevels). A follower (`follower`: its tag) is rebuilt when
+    weigh); the class adjustments come last (AS_AddClassLevels). A one-shot creature (`one_shot`: its appearance's
+    OneShotKills, see is_one_shot) is not scaled at all: AS_InitCreature gives it level 1 and 1 health and nothing
+    else, so it keeps no attributes, attack, defense, critical chance or damage bonus of its own; its weapon's
+    damage, critical chance and armour penetration still count. A follower (`follower`: its tag) is rebuilt when
     it joins the party (follower_attributes). Checked against a save: Eleanor (autoscaled) and Gilmore (hired)
     have exactly these attributes in the game."""
     pkg = tables["packages_base"].get(package, {})
@@ -326,6 +333,12 @@ def stats(tables: dict, *, package: int, rank: int, area_level: int = 1, race: i
         bonus, penetration, weapon_crit = mod["Str"], 0.0, 0.0
     threshold = float(tables["difficulty"].get(NORMAL, {}).get("DmgScalingThresh") or 0)
     scale = float(auto.get("fDamageScale") or 1.0)
+    if one_shot:
+        return {"Level": 1, "Class": cls.get("label", ""), "Attributes": {k: BASE_ATTRIBUTE for k in ATTRIBUTES},
+                "Health": 1.0, "Stamina": 0.0, "Attack": 0.0, "Defense": 0.0,
+                "Damage": (round(low, 2), round(high, 2)), "DamageBonus": 0.0, "Penetration": round(penetration, 2),
+                "Crit": round(weapon_crit, 2), "Flanking": FLANKING_MAX * 0.5,
+                "DamageScale": float(auto.get("fDamageScale") or 1.0), "DamageThreshold": threshold, "OneShot": True}
     return {"Level": level, "Class": cls.get("label", ""), "Attributes": attrs, "Health": round(health, 1),
             "Stamina": round(stamina, 1), "Attack": attack, "Defense": defense,
             # Each hit rolls in this range, then hit_damage() applies criticals, armour, the bonus and rank scaling.

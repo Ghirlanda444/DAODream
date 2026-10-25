@@ -425,7 +425,8 @@ def cmd_unreal_area(args) -> int:
                              area_level=args.area_level, race=int(utc.get("Race") or 0) or None,
                              base_item=stats.weapon_base_item(equip, items, tables["itemstats"]),
                              weapon_material=int((stats.weapon_item(equip, items, tables["itemstats"]) or {}).get("Material") or 0),
-                             follower=utc.get("Tag") if utc.get("Tag") in area.FOLLOWERS else "")
+                             follower=utc.get("Tag") if utc.get("Tag") in area.FOLLOWERS else "",
+                             one_shot=stats.is_one_shot(appearance(utc), tables))
             st["Interval"] = stats.attack_interval(equip, items, tables, anims.get(appearance(utc)))
             numbers = stats.equipment(equip, items, tables)
             return {**st, **numbers, "Outfit": stats.equipment(worn, items, tables)["Outfit"]}

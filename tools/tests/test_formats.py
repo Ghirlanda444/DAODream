@@ -795,6 +795,14 @@ class StatsTests(unittest.TestCase):
                                                 self.TABLES["itemstats"]), 2)
 
 
+    def test_one_shot(self):
+        # A one-shot creature (a giant rat) is not scaled: 1 health, no attack or defense, its weapon's raw damage.
+        st = stats.stats(self.TABLES, package=5, rank=1, area_level=2, base_item=2, one_shot=True)
+        self.assertEqual((st["Level"], st["Health"], st["Attack"], st["Defense"], st["DamageBonus"]), (1, 1.0, 0.0, 0.0, 0.0))
+        self.assertEqual((st["Damage"], st["Crit"], st["Penetration"]), ((6.0, 9.0), 2.0, 2.0))
+        self.assertTrue(stats.is_one_shot(37, {"apr_base": {37: {"OneShotKills": 1}}}))
+        self.assertFalse(stats.is_one_shot(35, {"apr_base": {35: {"OneShotKills": 0}}}))
+
     def test_weapon_material(self):
         # A grey iron weapon (materialtypes 41 -> tier 2): x1.1 damage, x1.15 armour penetration.
         tables = {k: dict(v) for k, v in self.TABLES.items()}

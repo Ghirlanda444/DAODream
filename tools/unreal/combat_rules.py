@@ -28,8 +28,8 @@ graphs writes the graphs, callees first; party points PartyFight's attack at Tak
 graph reads back with ids the DSL cannot write); beasts writes the animals' WatchDeath; save turns the one-hit
 test switch off and saves. pace (on its own) gives everyone the game's attack timing: BP_DlgNPC.Interval from the
 export's NpcInterval (SetInterval, via GiveNpcRules; default 2 s) for Bite and PartyFight, the player's
-PInterval from PlayerStats[12] (SetPlayerPace; default 1 s) for PlayerAttack. slots (on its own, PROVISIONAL):
-at most BP_PlotManager.Slots (1) creatures attack the same target at once: PickFoe recounts every hostile's foe
+PInterval from PlayerStats[12] (SetPlayerPace; default 1 s) for PlayerAttack. slots (on its own): at most
+BP_PlotManager.Slots creatures attack the same target at once (99: no limit, the default): PickFoe recounts every hostile's foe
 (CountAttackers, TallyAttacker; the picking hostile not counted), and the player (OfferPlayer) and party members
 (FoeBid) offer themselves only while fewer than Slots are on them; the rest wait.
 """
@@ -255,7 +255,8 @@ OUT["ok"] = 1
     save()
 
 
-# PROVISIONAL (docs/COMBAT.md): at most Slots creatures attack the same target at once; the rest wait.
+# At most Slots creatures attack the same target at once; the rest wait. 99 (no limit): the larder rats turned out
+# to be one-shot creatures, so the cap that stood in for that is off but kept (docs/COMBAT.md).
 SLOT_GRAPHS = [(NPC, ["ClearAttackers", "AddAttacker"]), (PM, ["AddAttackerTo", "TallyAttacker", "CountAttackers",
                "OfferPlayer", "PickFoe"]), (NPC, ["FoeBid"])]
 
@@ -270,7 +271,7 @@ def slots():
     import pyrun
     print(pyrun.run('''
 pm = unreal.EditorAssetLibrary.load_asset("/Game/Cousland/Plots/BP_PlotManager")
-unreal.get_default_object(pm.generated_class()).set_editor_property("Slots", 1)
+unreal.get_default_object(pm.generated_class()).set_editor_property("Slots", 99)
 OUT["ok"] = 1
 ''', 120))
     save()
