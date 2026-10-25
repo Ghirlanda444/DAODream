@@ -352,7 +352,11 @@ them:
   creatures); the rest have constitution from equipment the stored base leaves out. So a level 1 giant rat's
   60 health is right.
 
-The rats themselves are not in it (killed creatures are not saved). With every creature's numbers now
+The rats themselves are not in it (killed creatures are not saved), but level 1 critters of the same kind
+are (rank 1, the default warrior package, damage bonus 0.4 = level 1): a raven on the road to Denerim
+(`ran401ar_highway_zevran1`) has STR 15, DEX 14, WIL 11, MAG 10, CUN 10, CON 14, base attack 60, base defense
+45, health 40 → 60, exactly the port's giant rat (the save keeps base attack and defense, not their totals
+with the attributes' bonus). With every creature's numbers now
 confirmed, the larder fight is still lost in simulation unless rats bite only about every 3 s (won 65%).
 What remains is the engine's pacing: simple creatures run the AI's light round (`AI_DetermineCombatRound_Light`:
 a random enemy from the threat list, one `CommandAttack`), and how often that command lands a bite is
