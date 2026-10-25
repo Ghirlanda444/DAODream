@@ -231,21 +231,24 @@ def rules(st: dict) -> list[float]:
 
 # NpcStatus, per creature: level, effect duration scale, percent it resists the player's knockdown, the threat
 # it draws when seen (threat.seen_threat), 1 for a rogue (less threat from its damage), stamina, fatigue
-# (percent more for each talent), its shield's damage min and max (Shield Pummel)
+# (percent more for each talent), its shield's damage min and max (Shield Pummel), its bow's optimum range (0 for
+# a melee weapon in hand) and its missile shield (a shield's missile deflection: defense against arrows)
 STATUS = ("Level", "DurationScale", "Resist", "SeenThreat", "Rogue", "Stamina", "Fatigue", "OffhandMin",
-          "OffhandMax")
+          "OffhandMax", "Range", "MissileShield")
 
 
 def player_stats(player: dict) -> list[float]:
     """PlayerStats, flat for Blueprint: health, attack, defense, damage min and max, the damage scaling
     threshold, then RULES, then stamina, seconds between attacks, fatigue (percent), level, displacement (percent
     of attacks that miss it outright: Evasion), 1 for a rogue (backstabs), and the shield's damage min and max
-    (Shield Bash), and the threat it draws when seen (threat.seen_threat)."""
+    (Shield Bash), the threat it draws when seen (threat.seen_threat), its missile shield, and its bow (the other
+    weapon set): damage min and max, armour penetration, critical chance, seconds between shots, optimum range."""
     return [player["Health"], player["Attack"], player["Defense"] + player.get("ShieldDefense", 0.0),
             *player["Damage"], player["DamageThreshold"], *rules(player), player.get("Stamina", 0.0),
             player.get("Interval", 2.0), player.get("Fatigue", 0.0), float(player.get("Level", 1)),
             player.get("Displacement", 0.0), 1.0 if player.get("Rogue") else 0.0, *player.get("Offhand", (0.0, 0.0)),
-            player.get("SeenThreat", 15.0)]
+            player.get("SeenThreat", 15.0), player.get("MissileDeflection", 0.0),
+            *(player.get("Bow") or [0.0] * 6)]
 
 
 def variety(key: str, chest: str) -> list[float]:
@@ -858,7 +861,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
             npc_shield.append(st.get("ShieldDefense", 0.0))
             npc_rules.extend(rules(st))
             npc_interval.append(st.get("Interval", 2.0))
-            npc_status.extend(st.get("Status") or [1.0, 1.0, 0.0, 15.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+            npc_status.extend(st.get("Status") or [1.0, 1.0, 0.0, 15.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
             rows = [x for r in st.get("TalentRows", []) for x in r]
             npc_talents.extend(rows + [0.0] * (len(abilities.TALENT_FIELDS) * tactics.MAX_TALENTS - len(rows)))
             npc_tactics.extend(tactics.flat_rows(st.get("Tactics")))

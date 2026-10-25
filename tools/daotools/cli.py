@@ -452,7 +452,9 @@ def cmd_unreal_area(args) -> int:
             offhand = stats.stats(tables, package=int(utc.get("Package") or 0), rank=rank, area_level=args.area_level,
                                   race=int(utc.get("Race") or 0) or None, base_item=shield)["Damage"] if shield \
                 else (0.0, 0.0)
-            st["Status"] += [st.get("Stamina", 0.0), st.get("Fatigue", 0.0), *offhand]
+            bow = tables["itemstats"].get(stats.weapon_base_item(equip, items, tables["itemstats"]) or -1) or {}
+            st["Status"] += [st.get("Stamina", 0.0), st.get("Fatigue", 0.0), *offhand,
+                             float(bow.get("OptimumRange") or 0.0), st.get("MissileDeflection", 0.0)]
             return st
 
         # The Human Noble starts as a level 1 human warrior (background_defaults row 3105: its template's
@@ -481,6 +483,14 @@ def cmd_unreal_area(args) -> int:
         player = abilities.with_passives(player, known, table, cls)
         player["Rogue"] = cls == stats.CLASS_ROGUE
         player["SeenThreat"] = threat.seen_threat(chest_label(equip))
+        bow = stats.weapon_base_item(equip, items, tables["itemstats"], weapon_set=1)
+        if bow and stats.is_ranged(tables["itemstats"].get(bow, {})):  # the other weapon set: the Human Noble's shortbow
+            b = stats.stats(tables, package=0, rank=stats.RANK_PLAYER, area_level=args.area_level, race=3, base_item=bow,
+                            player_class=cls, hero=True, weapon_material=int(
+                                (stats.weapon_item(equip, items, tables["itemstats"], 1) or {}).get("Material") or 0))
+            player["Bow"] = [*b["Damage"], b["Penetration"], b["Crit"],
+                             stats.attack_interval(equip, items, tables, weapon_set=1),
+                             float(tables["itemstats"][bow].get("OptimumRange") or 0.0)]
         player["TalentRows"] = [abilities.talent_row(i, table[i], player) for i in known
                                 if i in table and table[i]["Use"] != abilities.PASSIVE]
         player["Passives"] = [i for i in known if i in table and table[i]["Use"] == abilities.PASSIVE]

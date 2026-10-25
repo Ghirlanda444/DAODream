@@ -104,7 +104,7 @@ _COLUMNS = {
     "race_base.gda": ["ID", "label", "StrAdjust", "DexAdjust", "WillAdjust", "MagAdjust", "IntAdjust", "ConAdjust"],
     "itemstats.gda": ["ID", "label", "Damage", "DamageRange", "ArmorPenetration", "CritChanceModifier", "AttributeMod",
                       "Attribute0", "Attribute1", "Armor", "Defense", "MissileDeflection", "dspeed",
-                      "AbilityCostModifier"],
+                      "AbilityCostModifier", "OptimumRange", "BaseAimDelay"],
     "materialtypes.gda": ["ID", "label", "Armor", "Material"],
     "materialrules.gda": ["ID", "label", "Damage", "Armor", "CritChanceModifier", "ArmorPenetration", "ShieldRating",
                           "MissileDeflection", "AbilityCostModifier"],
@@ -145,9 +145,16 @@ def apply_overrides(tables: dict[str, dict[int, dict]], overrides: str | Path) -
     return tables
 
 
-def weapon_item(equip: list[dict], items: dict[str, dict], itemstats: dict[int, dict]) -> dict | None:
-    """The template of the first equipped item that is a weapon (weapon_base_item), or None."""
-    for e in equip or []:
+def in_set(entry: dict, weapon_set: int) -> bool:
+    """An Equip_ItemList entry belongs to a weapon set (SetNumber; 0 is the one in hand, 1 the other; armour has
+    none and belongs to both)."""
+    return int(entry.get("SetNumber") or 0) == weapon_set or "SetNumber" not in entry
+
+
+def weapon_item(equip: list[dict], items: dict[str, dict], itemstats: dict[int, dict],
+                weapon_set: int = 0) -> dict | None:
+    """The template of the first item of the weapon set that is a weapon (weapon_base_item), or None."""
+    for e in (x for x in equip or [] if in_set(x, weapon_set)):
         uti = items.get(str(e.get("TemplateResRef") or "").lower())
         base = int((uti or {}).get("BaseItem") or 0)
         if base and float(itemstats.get(base, {}).get("Damage") or 0) > 0:
@@ -162,10 +169,11 @@ def material_rule(material: int | None, tables: dict) -> dict:
     return tables.get("materialrules", {}).get(tier) or {}
 
 
-def weapon_base_item(equip: list[dict], items: dict[str, dict], itemstats: dict[int, dict]) -> int | None:
-    """The base item type of the first equipped item that is a weapon (its base type
-    has weapon damage in itemstats), or None: unarmed."""
-    for e in equip or []:
+def weapon_base_item(equip: list[dict], items: dict[str, dict], itemstats: dict[int, dict],
+                     weapon_set: int = 0) -> int | None:
+    """The base item type of the first item of the weapon set (0: in hand; an archer's bow, its dagger in set 1) that
+    is a weapon (its base type has weapon damage in itemstats), or None: unarmed."""
+    for e in (x for x in equip or [] if in_set(x, weapon_set)):
         uti = items.get(str(e.get("TemplateResRef") or "").lower())
         base = int((uti or {}).get("BaseItem") or 0)
         if base and float(itemstats.get(base, {}).get("Damage") or 0) > 0:
@@ -213,19 +221,45 @@ def attack_anims(game_dir: str | Path, tables: dict, appearances) -> dict[int, f
     return out
 
 
-def attack_interval(equip: list[dict], items: dict[str, dict], tables: dict, anim: float | None = None) -> float:
+def is_ranged(row: dict) -> bool:
+    """A bow or crossbow (itemstats OptimumRange)."""
+    return float(row.get("OptimumRange") or 0.0) > 0.0
+
+
+# A shot (GetCreatureRangedDrawSpeed and the bow animations, mh_c.bw_*): fire (0.43 s), reload (1.53 s), then the
+# aim held for the draw time: the creature's ranged aim speed (0 unless a talent changes it) + the bow's
+# BaseAimDelay (shortbow 0.2, longbow 0.3, crossbow 0.8). That the engine runs them in this order, with the first
+# raise (mh_c.bw_aim, 1.57 s) only once, is an assumption: the data holds the pieces, not the loop.
+RANGED_FIRE, RANGED_RELOAD = 0.43, 1.53
+POINT_BLANK = 8.0  # POINT_BLANK_RANGE: no range penalty within this, or within the weapon's OptimumRange
+
+
+def ranged_interval(row: dict, aim_speed: float = 0.0) -> float:
+    return round(RANGED_FIRE + RANGED_RELOAD + aim_speed + max(0.0, float(row.get("BaseAimDelay") or 0.0)), 3)
+
+
+def range_penalty(distance: float, optimum: float) -> float:
+    """Combat_GetAttackResult: -1 attack a metre past max(POINT_BLANK_RANGE, the weapon's OptimumRange)."""
+    return max(distance - max(POINT_BLANK, optimum), 0.0)
+
+
+def attack_interval(equip: list[dict], items: dict[str, dict], tables: dict, anim: float | None = None,
+                    weapon_set: int = 0) -> float:
     """Seconds between attacks (CalculateAttackTiming): with a weapon ("Weapon - ..." in itemstats), the wield
     style's base timing plus the weapon's dspeed: two weapons and no shield 1.5, a two-handed one 2.5, else 2.0;
-    otherwise its attack animations' length (`anim`, attack_anims), but at least ANIMAL_ROUND."""
+    a bow or crossbow its shot (ranged_interval); otherwise its attack animations' length (`anim`,
+    attack_anims), but at least ANIMAL_ROUND."""
     weapons = []
     shield = False
-    for e in equip or []:
+    for e in (x for x in equip or [] if in_set(x, weapon_set)):
         uti = items.get(str(e.get("TemplateResRef") or "").lower()) or {}
         row = tables["itemstats"].get(int(uti.get("BaseItem") or -1)) or {}
         label = str(row.get("label") or "")
         shield = shield or piece(label) == "shield"
-        if label.startswith("Weapon - ") and float(row.get("Damage") or 0) > 0 and not label.endswith("bow"):
+        if label.startswith("Weapon - ") and float(row.get("Damage") or 0) > 0:
             weapons.append(row)
+    if weapons and is_ranged(weapons[0]):
+        return ranged_interval(weapons[0])
     if not weapons:
         # The engine times an animal's attacks itself (compiled, undocumented). Recordings of the original's
         # larder fight show a rat biting about every 2 s, not once per 0.63 s bite animation (docs/COMBAT.md).

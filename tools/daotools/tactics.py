@@ -11,11 +11,11 @@ chance roll passes, its condition holds and its command can run (an ability it h
 cooldown, and for a mode not already on); a jump row goes on from the row it names (-1: no more rows). When no row
 fires it attacks its most hated enemy (AI_ExecuteDefaultAction).
 
-Conditions handled (the rest never hold, as their situations do not come up in melee yet): any (16); health level
-(2: a negative parameter means below that percent, a positive one at least that), of the target; mana or stamina
-level (14), of the target (the creature itself for a self row); the target using an attack type (23, 36: everyone
-fights in melee here); being attacked by an attack type (22: melee when an enemy has it as its target); an enemy at
-short range (29 1: the creature's foe is beside it); surrounded by at least n enemies (31).
+Conditions handled (the rest never hold yet): any (16); health level (2: a negative parameter means below that
+percent, a positive one at least that), of the target; mana or stamina level (14), of the target (the creature
+itself for a self row); the target using an attack type (23, 36: melee or ranged, by its weapon in hand); being
+attacked by an attack type (22: by an enemy that has it as its target, in melee or at range); the target at a
+range band (29: short within 3.5 m, medium to 12, long to 80); surrounded by at least n enemies (31).
 """
 
 from __future__ import annotations
@@ -30,7 +30,8 @@ from .gff4 import GFF4
 ATTACK, WAIT, USE_ABILITY, ACTIVATE_MODE, DEACTIVATE_MODE, MOVE, JUMP = 2, 3, 4, 5, 6, 9, 10  # AI_COMMAND_*
 SELF, MOST_HATED = 1, 7  # tacticstargettypes rows: Self, Enemy: Most Hated (the rest: some enemy)
 ANY, HP, STAMINA, ATTACKED_BY, USING_ATTACK, AT_RANGE, SURROUNDED, USING_ATTACK_FOLLOWER = 16, 2, 14, 22, 23, 29, 31, 36
-MELEE = 1  # attack type bit
+MELEE, RANGED = 1, 2  # attack type bits
+RANGE_SHORT, RANGE_MEDIUM, RANGE_LONG = 3.5, 12.0, 80.0  # AI_MELEE_RANGE, AI_RANGE_MEDIUM, AI_RANGE_LONG
 MAX_TACTICS = 12  # rows a creature's table may have in the export (NpcTactics)
 FIELDS = ("Target", "Base", "Param", "Command", "Sub", "Chance")  # NpcTactics, per row
 MAX_TALENTS = 6  # talents a creature may have in the export (NpcTalents)
@@ -95,11 +96,15 @@ def condition_holds(row: dict, me: dict, target: dict) -> bool:
     if base == STAMINA:
         return level_holds(target["Stamina"], param)
     if base in (USING_ATTACK, USING_ATTACK_FOLLOWER):
-        return bool(int(param) & MELEE)
+        return bool(int(param) & (RANGED if target.get("Ranged") else MELEE))
     if base == ATTACKED_BY:
-        return bool(int(param) & MELEE) and me.get("AttackedInMelee", False)
-    if base == AT_RANGE:
-        return int(param) == 1 and me.get("Beside", True)
+        return (bool(int(param) & MELEE) and me.get("AttackedInMelee", False)
+                or bool(int(param) & RANGED) and me.get("AttackedAtRange", False))
+    if base == AT_RANGE:  # _AI_GetRangeFromID: short within 3.5 m, medium to 12, long to 80
+        d = me.get("Distance", 1.0)
+        lo, hi = {1: (0.0, RANGE_SHORT), 2: (RANGE_SHORT, RANGE_MEDIUM), 3: (RANGE_MEDIUM, RANGE_LONG)}.get(
+            int(param), (0.0, -1.0))
+        return lo <= d <= hi
     if base == SURROUNDED:
         return me.get("Surrounding", 0) >= param
     return False

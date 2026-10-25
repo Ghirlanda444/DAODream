@@ -41,6 +41,11 @@ the target's armour), Critical Strike kills a target at 25% health or less, Pomm
 knocks down, Indomitable and Precise Striking are sustained, Below the Belt keeps the player from talents for 10 s.
 A debuff on a party member is not lengthened for missing party members and party members resist nothing (their
 physical resistance is 0).
+
+Ranged (stage 4b): a foe with a bow (NpcStatus' optimum range) shoots from RANGED_DISTANCE metres: -1 attack a metre
+past its bow's optimum range (none at 10 m), the target's missile shield added to its defense, no flanking or
+backstab; its talents' aiming time adds to its shots' interval; it may switch target any time (threat). Pinning
+Shot's root changes nothing here (nobody moves); Shattering Shot takes 10 armour for 20 s and knocks down.
 """
 
 from __future__ import annotations
@@ -60,6 +65,7 @@ INTERVAL = {"player": 1.0, "party": 1.5, "foe": 2.0, "export": True}
 TIME_LIMIT = 600.0
 RULES = ("Armour", "Penetration", "Crit", "Flanking", "DamageBonus")  # area.RULES
 SLOTS = 0  # foes attacking the same party member at once (0: no limit; BP_PlotManager.Slots in Unreal)
+RANGED_DISTANCE = 10.0  # m an archer shoots from (in the castle's halls and corridors)
 
 
 @dataclass(eq=False)  # by identity: fighters key threat tables
@@ -104,6 +110,8 @@ class Fighter:
     used: dict = field(default_factory=dict)  # talent id -> uses
     tactics: list = field(default_factory=list)  # a foe's tactics rows (tactics.FIELDS dicts)
     boss: bool = False
+    range: float = 0.0  # its bow's optimum range (0: melee)
+    missile: float = 0.0  # missile shield: defense against arrows (a shield's MissileDeflection)
     disarm: tuple[float, float] = (0.0, 0.0)  # (until, attack taken away): Sunder Weapon
     locked: float = 0.0  # no talents until (Below the Belt)
 
@@ -125,13 +133,14 @@ def player_fighter(area: dict, talents: bool = True) -> Fighter:
     """PlayerStats (area.player_stats): health, attack, defense, damage min and max, threshold, RULES, stamina,
     seconds between attacks (INTERVAL["player"] when the export has none), fatigue, level, displacement, rogue,
     the shield's damage; PlayerTalents and PlayerPassives unless `talents` is False."""
-    p = list(area["PlayerStats"]) + [0.0] * 9
+    p = list(area["PlayerStats"]) + [0.0] * 10
     r = dict(zip(RULES, p[6:11]))
     f = Fighter(PLAYER, "party", p[0], p[1], p[2], (p[3], p[4]), 1.0, p[5], r["Armour"], r["Penetration"], r["Crit"],
                 r["Flanking"], r["DamageBonus"],
                 p[12] if p[12] and INTERVAL.get("export", True) else INTERVAL["player"], stamina=p[11], fatigue=p[13],
                 level=p[14] or 1.0, displacement=p[15], rogue=bool(p[16]), offhand=(p[17], p[18]),
                 seen=p[19] or 15.0)
+    f.missile = p[20]
     if talents:
         n = len(abilities.TALENT_FIELDS)
         rows = area.get("PlayerTalents") or []
@@ -143,15 +152,15 @@ def player_fighter(area: dict, talents: bool = True) -> Fighter:
 def npc_fighter(area: dict, i: int, side: str) -> Fighter:
     r = _rules(area.get("NpcRules") or [], i)
     threshold = area["PlayerStats"][5] if area.get("PlayerStats") else 0.0
-    n = len(area.get("NpcStatus") or []) // max(1, len(area["NpcTags"]))  # 9 (3 and 5 in older exports)
+    n = len(area.get("NpcStatus") or []) // max(1, len(area["NpcTags"]))  # 11 (3, 5 and 9 in older exports)
     status = list((area.get("NpcStatus") or [])[n * i:n * i + n]) if n else []
-    status += [1.0, 1.0, 0.0, 15.0, 0.0, 0.0, 0.0, 0.0, 0.0][len(status):]
+    status += [1.0, 1.0, 0.0, 15.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0][len(status):]
     f = Fighter(area["NpcTags"][i], side, area["NpcHealth"][i], area["NpcAttack"][i], area["NpcDefense"][i],
                 (area["NpcDamage"][2 * i], area["NpcDamage"][2 * i + 1]), area["NpcDamageScale"][i], threshold,
                 r.get("Armour", 0.0), r.get("Penetration", 0.0), r.get("Crit", 0.0), r.get("Flanking", 0.0),
                 r.get("DamageBonus", 0.0), _interval(area, i, side), level=status[0], duration_scale=status[1],
                 resist=status[2], seen=status[3], rogue=bool(status[4]), stamina=status[5], fatigue=status[6],
-                offhand=(status[7], status[8]))
+                offhand=(status[7], status[8]), range=status[9], missile=status[10])
     k, t = len(abilities.TALENT_FIELDS), ai.MAX_TALENTS
     rows = (area.get("NpcTalents") or [])[i * k * t:(i + 1) * k * t]
     f.talents = [dict(zip(abilities.TALENT_FIELDS, rows[j:j + k])) for j in range(0, len(rows), k) if rows[j]]
@@ -191,15 +200,23 @@ def strike(rng: random.Random, a: Fighter, d: Fighter, flanking: float = 0.0, no
     the defender, its damage scale for the attacker; a disarmed attacker (Sunder Weapon) lost its attack rating."""
     if d.displacement and rng.random() * 100.0 < d.displacement and not sure:
         return None, False
+    ranged = a.range > 0
+    if ranged:
+        flanking = 0.0
     crit = rng.random() * 100.0 < stats.crit_chance(a.crit + a.own("Crit", now) + extra_crit, flanking)
     attack = a.attack + a.own("Attack", now) + bonus - (a.disarm[1] if a.disarm[0] > now else 0.0)
-    if not sure and rng.random() * 100.0 >= stats.hit_chance(attack, d.defense + d.own("Defense", now), flanking):
+    defense = d.defense + d.own("Defense", now)
+    if ranged:  # Combat_GetAttackResult: the range penalty, the target's missile shield
+        attack -= stats.range_penalty(RANGED_DISTANCE, a.range)
+        defense += d.missile
+    if not sure and rng.random() * 100.0 >= stats.hit_chance(attack, defense, flanking):
         return None, False
-    if a.rogue and not talent and (flanking > 0 or abilities.COUP_DE_GRACE in a.passives and d.disabled > now):
+    if a.rogue and not talent and not ranged and (flanking > 0 or abilities.COUP_DE_GRACE in a.passives and d.disabled > now):
         crit = True  # Combat_CheckBackstab: COMBAT_RESULT_BACKSTAB, critical damage
     rolled = rng.uniform(*(a.offhand if offhand else a.damage)) * mul * (1.0 + a.own("DamageScale", now))
     return stats.hit_damage(rolled, crit=crit, armour=d.armour + d.own("Armour", now), armour_roll=rng.random(),
-                            penetration=a.penetration + a.own("Penetration", now), bonus=a.bonus, scale=a.scale,
+                            penetration=a.penetration + a.own("Penetration", now),
+                            bonus=a.bonus + a.own("DamageBonus", now), scale=a.scale,
                             threshold=a.threshold), crit
 
 
@@ -261,7 +278,7 @@ def affordable(a: Fighter, d: Fighter | None, r: dict, now: float) -> bool:
     return not (buff and any(b is r and until > now for until, b in a.buffs))
 
 
-_STRIKES = (3, 4, 3025, 3026, 617, 1)  # talents that strike their target (the rest of the non-sustained: buffs, 603)
+_STRIKES = (3, 4, 3025, 3026, 617, 1, 803, 3072)  # talents that strike their target (the rest of the non-sustained: buffs, 603)
 
 
 def perform(rng: random.Random, a: Fighter, d: Fighter, r: dict, now: float, party_size: int, flanking: float = 0.0,
@@ -322,6 +339,10 @@ def perform(rng: random.Random, a: Fighter, d: Fighter, r: dict, now: float, par
             d.disabled = max(d.disabled, now + seconds(r["Seconds"]))
         if i == 3025 and landed and not resisted():
             d.disarm = (now + r["Seconds"], d.attack)
+        if i == 3072 and landed:  # Shattering Shot: 10 armour off for 20 s, a knockdown on non-special ranks
+            d.buffs.append((now + r["Seconds"], {"Armour": e["ArmourFlat"]}))
+            if not d.boss:
+                d.disabled = max(d.disabled, now + abilities.KNOCKDOWN_SECONDS)
         if i == 4 and landed and not resisted():
             d.buffs.append((now + r["Seconds"], {"Armour": e["ArmourChange"] * d.armour}))
         if i == 3026 and landed:
@@ -337,9 +358,11 @@ def foe_turn(rng: random.Random, a: Fighter, d: Fighter, now: float, live: list,
     """A foe's combat round (tactics.choose): (used a talent, damage, critical)."""
     regen(a, now)
     me = {"Health": _health(a) * 100.0, "Stamina": a.stamina / a.pool * 100.0 if a.pool else 0.0,
-          "AttackedInMelee": any(f.target is a for f in party if not f.down), "Beside": True,
+          "AttackedInMelee": any(f.target is a and not f.range for f in party if not f.down),
+          "AttackedAtRange": any(f.target is a and f.range for f in party if not f.down),
+          "Distance": RANGED_DISTANCE if a.range else 1.0,
           "Surrounding": sum(1 for f in party if not f.down and f.target is a)}
-    them = {"Health": _health(d) * 100.0,
+    them = {"Health": _health(d) * 100.0, "Ranged": d.range > 0,
             "Stamina": d.stamina / d.pool * 100.0 if d.pool else 0.0}
     rows = {int(r["Id"]): r for r in a.talents}
 
@@ -408,9 +431,9 @@ def fight(party: list[Fighter], foes: list[Fighter], rng: random.Random, wave: i
         if a.disabled > now:  # stunned or knocked down: its next turn when it is up
             a.next_attack = a.disabled
             continue
-        a.next_attack += abilities.attack_interval(a.interval, 1.0 + a.own("Speed", now))
+        a.next_attack += abilities.attack_interval(a.interval, 1.0 + a.own("Speed", now)) + a.own("AimDelay", now)
         if a.side == "foe" and use_threat:
-            a.threat.change(None, 0.0, now, rng, _alive, _health)  # AI_Threat_GetThreatTarget
+            a.threat.change(None, 0.0, now, rng, _alive, _health, ranged=a.range > 0)  # AI_Threat_GetThreatTarget
             a.target = a.threat.target
             if a.target is None or a.target.down:
                 continue

@@ -29,7 +29,7 @@ STAGE = WARRIOR + ROGUE + (SHIELD_BASH,)
 # The talents Howe's men have at night (their packages' first abilities; tactics.package_talents) and use in melee:
 # Shield Pummel, Sunder Weapon, Sunder Armor, Critical Strike, Pommel Strike, Indomitable, Shield Block (no numbers
 # of its own).
-ENEMY = (1, 3025, 4, 3, 3024, 28, 3074)
+ENEMY = (1, 3025, 4, 3, 3024, 28, 3074, 803, 3072, 500, 33)
 SUSTAINED, PASSIVE, ACTIVATED = 2, 3, 4  # abi_base usetype
 CHARGEN_TALENT_POINTS = 2  # sys_chargen_h: PROPERTY_SIMPLE_TALENT_POINTS
 # Creature properties (properties.gda) the passive and scripted effects change, by name.
@@ -84,6 +84,14 @@ EFFECTS = {
     #   second, unless resisted, changes the target's armour by +30% for 10 s (SUNDER_ARMOR_DURATION): the script
     #   passes a positive amount to EffectDecreaseProperty, which applies it as given; ported as written
     3024: {"Knockdown": True, "Resist": "Str"},  # Pommel Strike: no attack roll; knocked down unless resisted
+    # The archers' (aip_archer, aip_archer_human): Reborn's numbers
+    803: {"Damage": True, "Root": 6.0},  # Pinning Shot: a hit roots for 6 s (PINNING_SHOT_DURATION, 8.5 in the game),
+    #   rank-adjusted; a lieutenant or boss is slowed to half speed instead
+    3072: {"AttackBonus": 10.0, "Damage": True, "ArmourFlat": -10.0, "Duration": 20.0,
+           "Knockdown": True},  # Shattering Shot: +10; a hit takes 10 armour for 20 s and knocks a non-special
+    #   target down for the engine's moment (an instant knockdown)
+    500: {"Self": {"Attack": 10.0, "Crit": 10.0, "Penetration": 3.0, "DamageBonus": 2.0, "AimDelay": 1.5}},  # Aim
+    33: {"Self": {"Defense": 15.0}},  # Defensive Fire (Reborn: the defense only)
     28: {"Self": {"DamageScale": -0.3}, "Indomitable": True},  # Indomitable (Reborn): +30% armour, defense +0.6
     #   a point of strength above 10, -30% damage dealt (and missile shield 10)
 }
@@ -256,10 +264,12 @@ def with_passives(st: dict, known: list[int], table: dict[int, dict], player_cla
 # Per talent the player can use, flat for Blueprint (area export PlayerTalents, TALENT_FIELDS floats each):
 # its id, use, stamina cost and upkeep, cooldown, fatigue while sustained, the attack bonus of its attack roll,
 # its seconds (stun, knockdown, or how long the debuff or buff lasts), and what it adds to its user while it
-# lasts: attack, armour penetration, attack speed modifier, critical chance, defense, armour, damage scale; and
-# its damage multiplier (Shield Pummel's strength bonus, Sunder Weapon's 60%).
+# lasts: attack, armour penetration, attack speed modifier, critical chance, defense, armour, damage scale; its
+# damage multiplier (Shield Pummel's strength bonus, Sunder Weapon's 60%); and what it adds while on: damage bonus
+# and seconds of aiming (Aim).
 TALENT_FIELDS = ("Id", "Use", "Cost", "Cooldown", "Upkeep", "Fatigue", "AttackBonus", "Seconds", "Attack",
-                 "Penetration", "Speed", "Crit", "Defense", "Armour", "DamageScale", "DamageMul")
+                 "Penetration", "Speed", "Crit", "Defense", "Armour", "DamageScale", "DamageMul", "DamageBonus",
+                 "AimDelay")
 
 
 def talent_row(i: int, talent: dict, player: dict) -> list[float]:
@@ -272,7 +282,7 @@ def talent_row(i: int, talent: dict, player: dict) -> list[float]:
         own = {k: v for k, v in tricks(player.get("Attributes") or {}, float(player.get("Attack") or 0)).items()
                if k != "CritDamage"}
     crit = own.get("Crit", 0.0) + e.get("CritPerLevel", 0.0) * float(player.get("Level") or 1)
-    seconds = e.get("Stun") or (KNOCKDOWN_SECONDS if e.get("Knockdown") else 0.0) or e.get("Duration", 0.0)
+    seconds = e.get("Stun") or e.get("Root") or e.get("Duration", 0.0) or (KNOCKDOWN_SECONDS if e.get("Knockdown") else 0.0)
     strength = float((player.get("Attributes") or {}).get("Str", stats.BASE_ATTRIBUTE))
     if e.get("Indomitable"):  # from the user's strength and armour
         own["Defense"] = round((strength - stats.BASE_ATTRIBUTE) * 0.6, 3)
@@ -281,7 +291,8 @@ def talent_row(i: int, talent: dict, player: dict) -> list[float]:
     return [float(i), float(talent["Use"]), talent["Cost"], talent["Cooldown"], talent["Upkeep"], talent["Fatigue"],
             float(e.get("AttackBonus", 0.0)), float(seconds), own.get("Attack", 0.0), own.get("Penetration", 0.0),
             own.get("Speed", own.get("AttackSpeed", 0.0)), round(crit, 3), own.get("Defense", 0.0),
-            own.get("Armour", 0.0), own.get("DamageScale", 0.0), round(mul, 3)]
+            own.get("Armour", e.get("ArmourFlat", 0.0)), own.get("DamageScale", 0.0), round(mul, 3),
+            own.get("DamageBonus", 0.0), own.get("AimDelay", 0.0)]
 
 
 def known_talents(tables: dict, player_class: int, choice: str, shield: bool) -> list[int]:

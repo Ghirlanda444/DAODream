@@ -966,7 +966,7 @@ class AbilityTests(unittest.TestCase):
         # Tricks of the Trade by the highest attribute: dexterity's is too small to export
         self.assertEqual(abilities.tricks({"Str": 11.0, "Dex": 12.0, "Int": 14.0}, 60.0), {"Attack": 12.0})
         self.assertEqual(abilities.tricks({"Str": 18.0, "Dex": 15.0, "Int": 11.0}, 60.0), {"AttackSpeed": 20.0})
-        self.assertEqual(abilities.talent_row(40003, t[40003], st)[8:], [0.0] * 7 + [1.0])
+        self.assertEqual(abilities.talent_row(40003, t[40003], st)[8:], [0.0] * 7 + [1.0, 0.0, 0.0])
 
 
 class ThreatTests(unittest.TestCase):
@@ -1124,9 +1124,9 @@ class SimulateTests(unittest.TestCase):
 
     def test_talents(self):
         # The player with Precise Striking, Dirty Fighting and Shield Bash (TALENT_FIELDS rows) and 105 stamina.
-        rows = [[19, 2, 0, 15, 40, 5, 0, 0, 5, 0, 0.1, 3, 0, 0, 0, 1],
-                [603, 4, 25, 25, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 1],
-                [617, 4, 25, 20, 0, 0, 10, 3.43, 0, 0, 0, 0, 0, 0, 0, 1]]
+        rows = [[19, 2, 0, 15, 40, 5, 0, 0, 5, 0, 0.1, 3, 0, 0, 0, 1, 0, 0],
+                [603, 4, 25, 25, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+                [617, 4, 25, 20, 0, 0, 10, 3.43, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0]]
         area = dict(self.AREA, PlayerStats=self.AREA["PlayerStats"][:11] + [105.0, 1.9, 3.5, 1.0, 0.0, 0.0, 2.0, 4.0],
                     PlayerTalents=[x for r in rows for x in r], NpcStatus=[2.0, 1.0, 0.0] + [1.0, 1.5, 0.0] * 5)
         ours, foes = simulate.fighters(area, [], ["rat_1"])
@@ -1185,7 +1185,7 @@ class SimulateTests(unittest.TestCase):
             f.threat.change(m, m.seen, 0.0, rng)
         self.assertIs(f.threat.target, ours[1])
         # Taunt: the player's row, used because a foe is on someone else
-        taunt = dict(zip(abilities.TALENT_FIELDS, [3041, 4, 40, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]))
+        taunt = dict(zip(abilities.TALENT_FIELDS, [3041, 4, 40, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0]))
         ours[0].talents = [taunt]
         used = simulate.use_talent(rng, ours[0], f, 0.0, 2, 0.0, foes=[f])
         self.assertEqual((used[0], f.threat.target, f.threat.table[ours[0]]), (True, ours[0], 330.0))
@@ -1197,11 +1197,11 @@ class SimulateTests(unittest.TestCase):
 
     def test_foe_talents(self):
         # a rat that only Shield Pummels (always, 4 s stun): the player is stunned and struck three times
-        rows = [1, 4, 30, 20, 0, 0, 10, 4.0, 0, 0, 0, 0, 0, 0, 0, 1.1]
+        rows = [1, 4, 30, 20, 0, 0, 10, 4.0, 0, 0, 0, 0, 0, 0, 0, 1.1, 0, 0]
         tac = [7, 16, 0, 4, 1, 100] + [0.0] * 66
         area = dict(self.AREA, NpcStatus=[1.0, 1.0, 0.0, 25.0, 0.0, 0.0, 0.0, 0.0, 0.0] +
                     [1.0, 1.5, 0.0, 15.0, 0.0, 50.0, 0.0, 3.0, 4.0] * 5,
-                    NpcTalents=[0.0] * 96 + (rows + [0.0] * 80) * 5, NpcTactics=[0.0] * 72 + tac * 5)
+                    NpcTalents=[0.0] * 108 + (rows + [0.0] * 90) * 5, NpcTactics=[0.0] * 72 + tac * 5)
         ours, foes = simulate.fighters(area, [], ["rat_1"])
         p, rat = ours[0], foes[0]
         self.assertEqual((rat.stamina, rat.offhand, len(rat.talents), len(rat.tactics)), (50.0, (3.0, 4.0), 1, 1))
