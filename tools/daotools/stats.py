@@ -19,7 +19,7 @@ combat_h (Combat_Damage_GetAttackDamage, Combat_GetAttackResult), reading:
 The attributes' derived stats are the engine's, not the scripts' (DERIVED: per point
 above 10, as the game's character sheet shows them). Armour is summed from the
 equipped pieces as the engine does (`equipment`); combat_damage_h subtracts it
-from each hit (`hit_damage`). Talents are not included yet.
+from each hit (`hit_damage`). Talents: abilities.py.
 
 `load_tables(..., overrides=dir)` puts a rebalance mod's override tables on top
 (docs/COMBAT_BALANCE.md): Dragon Age Reborn's raise most ranks' health by 30%.
@@ -76,23 +76,29 @@ DERIVED = {"AttackStr": 0.5, "AttackDex": 0.5, "DefenseDex": 1.0, "HealthCon": 5
 
 _COLUMNS = {
     "packages_base.gda": ["ID", "label", "Strategy", "StartingClass", "MinLevel", "LevelsPerAbility"],
-    "autoscale.gda": ["ID", "fscale", "fHealthScale", "nBonusPoints", "nLevelScale", "fDamageScale"],
+    "autoscale.gda": ["ID", "fscale", "fHealthScale", "nBonusPoints", "nLevelScale", "fDamageScale",
+                      "fEffectDurNormal", "fResistanceModifier", "fResistanceMaximum"],
     "as_data.gda": ["ID", "label", "s1", "s2", "s3", "s4", "s5", "s6"],
     "cla_data.gda": ["ID", "label", "BaseHealth", "HealthPerLevel", "BaseAttack", "BaseDefense", "DefensePerLevel",
                      "DamagePerLevel", "BaseManaStamina", "DepletableProgression",
                      "StrAdjust", "DexAdjust", "WillAdjust", "MagAdjust", "IntAdjust", "ConAdjust"],
     "race_base.gda": ["ID", "label", "StrAdjust", "DexAdjust", "WillAdjust", "MagAdjust", "IntAdjust", "ConAdjust"],
     "itemstats.gda": ["ID", "label", "Damage", "DamageRange", "ArmorPenetration", "CritChanceModifier", "AttributeMod",
-                      "Attribute0", "Attribute1", "Armor", "Defense", "MissileDeflection", "dspeed"],
+                      "Attribute0", "Attribute1", "Armor", "Defense", "MissileDeflection", "dspeed",
+                      "AbilityCostModifier"],
     "materialtypes.gda": ["ID", "label", "Armor", "Material"],
     "materialrules.gda": ["ID", "label", "Damage", "Armor", "CritChanceModifier", "ArmorPenetration", "ShieldRating",
-                          "MissileDeflection"],
+                          "MissileDeflection", "AbilityCostModifier"],
     "difficulty.gda": ["ID", "label", "DmgScalingThresh"],
     "apr_base.gda": ["ID", "label", "creature_type", "DefaultWeapon", "DefaultArmor", "MovementTree", "OneShotKills"],
-    "alwarrior_default.gda": ["ID", "AttInit", "AttWeight"],
-    "alwizard_default.gda": ["ID", "AttInit", "AttWeight"],
-    "alrogue_default.gda": ["ID", "AttInit", "AttWeight"],
+    "alwarrior_default.gda": ["ID", "AttInit", "AttWeight", "InitialTalentID"],
+    "alwizard_default.gda": ["ID", "AttInit", "AttWeight", "InitialTalentID"],
+    "alrogue_default.gda": ["ID", "AttInit", "AttWeight", "InitialTalentID"],
     "aldog.gda": ["ID", "AttWeight"],
+    # abilities.py
+    "abi_base.gda": ["ID", "label", "usetype", "cost", "cooldown", "costupkeep", "fatigue", "prereqability",
+                     "prereqlevel", "prereqattribute", "passive_id", "resistance"],
+    "passive_abilities.gda": ["ID", "Prop1", "modifier1", "Prop2", "modifier2"],
 }
 # CalculateAttackTiming (core_h): a humanoid's seconds per attack by how it wields its weapons (BASE_TIMING_*),
 # plus the weapon's dspeed; anything else attacks as fast as its attack animations play.
@@ -229,9 +235,10 @@ def equipment(equip: list[dict], items: dict[str, dict], tables: dict) -> dict:
     template}, "Armour", "ShieldDefense", "MissileDeflection"}. A piece's armour is
     its base item's Armor times its material's Armor multiplier; the leather and
     hide materials have none (0) and count as 1. Shields give defense and missile
-    deflection, not armour."""
+    deflection, not armour. Fatigue (percent more stamina for each ability, abilities.ability_cost): each
+    piece's AbilityCostModifier x its material tier's (material_rule)."""
     outfit: dict[str, str] = {}
-    armour = defense = deflection = 0.0
+    armour = defense = deflection = fatigue = 0.0
     for e in equip or []:
         ref = str(e.get("TemplateResRef") or "").lower()
         uti = items.get(ref)
@@ -244,13 +251,16 @@ def equipment(equip: list[dict], items: dict[str, dict], tables: dict) -> dict:
         armour += float(base.get("Armor") or 0.0) * (material or 1.0)
         defense += float(base.get("Defense") or 0.0)
         deflection += float(base.get("MissileDeflection") or 0.0)
+        rule = material_rule(int(uti.get("Material") or 0), tables)
+        fatigue += float(base.get("AbilityCostModifier") or 0.0) * float(rule.get("AbilityCostModifier") or 1.0)
     return {"Outfit": outfit, "Armour": round(armour, 3), "ShieldDefense": round(defense, 3),
-            "MissileDeflection": round(deflection, 3)}
+            "MissileDeflection": round(deflection, 3), "Fatigue": round(fatigue, 3)}
 
 
 def stats(tables: dict, *, package: int, rank: int, area_level: int = 1, race: int | None = None,
           base_item: int | None = None, player_class: int | None = None, hero: bool = False,
-          follower: str = "", weapon_material: int | None = None, one_shot: bool = False) -> dict:
+          follower: str = "", weapon_material: int | None = None, one_shot: bool = False,
+          lethality: bool = False) -> dict:
     """Level, attributes, max health, stamina (or mana), attack, defense, the damage
     range (min, max) before armour and the flat damage bonus after it, armour
     penetration, critical chance and the most flanking can add, for one creature.
@@ -265,7 +275,8 @@ def stats(tables: dict, *, package: int, rank: int, area_level: int = 1, race: i
     OneShotKills, see is_one_shot) is not scaled at all: AS_InitCreature gives it level 1 and 1 health and nothing
     else, so it keeps no attributes, attack, defense, critical chance or damage bonus of its own; its weapon's
     damage, critical chance and armour penetration still count. A follower (`follower`: its tag) is rebuilt when
-    it joins the party (follower_attributes). Checked against a save: Eleanor (autoscaled) and Gilmore (hired)
+    it joins the party (follower_attributes). With the talent Lethality (`lethality`) a weapon's strength bonus
+    comes from cunning when cunning is higher (core_h, the damage attribute). Checked against a save: Eleanor (autoscaled) and Gilmore (hired)
     have exactly these attributes in the game."""
     pkg = tables["packages_base"].get(package, {})
     cls_id = player_class or int(pkg.get("StartingClass") or 1)
@@ -325,7 +336,10 @@ def stats(tables: dict, *, package: int, rank: int, area_level: int = 1, race: i
         high = low * max(1.0, float(item.get("DamageRange") or 1.0))
         factor = float(item.get("AttributeMod") or 1.0)
         a0, a1 = int(item.get("Attribute0") or 1), int(item.get("Attribute1") or 0)
-        bonus = (mod[ATTRIBUTES[a0 - 1]] + mod[ATTRIBUTES[a1 - 1]]) / 2 if a1 else mod[ATTRIBUTES[a0 - 1]]
+        names = [ATTRIBUTES[a - 1] for a in (a0, a1) if a]
+        if lethality:
+            names = ["Int" if n == "Str" and mod["Int"] > mod["Str"] else n for n in names]
+        bonus = sum(mod[n] for n in names) / len(names)
         penetration = float(item.get("ArmorPenetration") or 0) * mult("ArmorPenetration")
         weapon_crit = float(item.get("CritChanceModifier") or 0) * mult("CritChanceModifier")
     else:

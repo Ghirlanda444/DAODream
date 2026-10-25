@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from daotools import ambient, area, balance, cnv, cutscene, fields as F, fsb, kit, mfdecode, plo, plotlogic, simulate, stats, toolset, unreal
+from daotools import abilities, ambient, area, balance, cnv, cutscene, fields as F, fsb, kit, mfdecode, plo, plotlogic, simulate, stats, toolset, unreal
 from daotools.cli import main
 from daotools.erf import ERF, ERFError, is_erf
 from daotools.gda import GDA, column_hash
@@ -881,6 +881,75 @@ class StatsTests(unittest.TestCase):
         self.assertEqual(stats.stats(tables, package=5, rank=1, area_level=2)["Health"], 105.0)  # 100 x 0.75 + 30
 
 
+class AbilityTests(unittest.TestCase):
+    # abi_base and passive_abilities rows as the tables hold them (abilities.talents reads them).
+    TABLES = {
+        "abi_base": {
+            19: {"ID": 19, "label": "PRECISE_STRIKING", "usetype": 2, "cooldown": 15.0, "costupkeep": 40.0,
+                 "fatigue": 5.0, "prereqability": 4022, "prereqattribute": 2, "0x7cfe85d1": 10, "passive_id": 0},
+            14: {"ID": 14, "label": "POWERFUL", "usetype": 3, "prereqability": 4022, "prereqattribute": 1,
+                 "0x7cfe85d1": 10, "passive_id": 100},
+            21: {"ID": 21, "label": "COMBAT_MOVEMENT", "usetype": 3, "prereqability": 603, "prereqlevel": 4,
+                 "prereqattribute": 2, "0x7cfe85d1": 14, "passive_id": 29},
+            603: {"ID": 603, "label": "DIRTY_FIGHTING", "usetype": 4, "cost": 25.0, "cooldown": 25.0},
+            617: {"ID": 617, "label": "SHIELD_BASH", "usetype": 4, "cost": 25.0, "cooldown": 20.0},
+            40003: {"ID": 40003, "label": "TRICKS_OF_THE_TRADE", "usetype": 4, "cost": 20.0, "cooldown": 60.0},
+        },
+        "passive_abilities": {100: {"ID": 100, "Prop1": 7, "modifier1": 25.0, "Prop2": 41, "modifier2": -10.0},
+                              29: {"ID": 29, "Prop1": 20, "modifier1": 30.0, "Prop2": 21, "modifier2": 2.0}},
+        "autoscale": {1: {"fEffectDurNormal": 1.5}, 3: {"fEffectDurNormal": 0.75, "fResistanceModifier": 10.0,
+                                                         "fResistanceMaximum": 75.0}},
+        "alwarrior_default": {0: {"InitialTalentID": 11}, 1: {"InitialTalentID": 617}, 2: {"InitialTalentID": 19},
+                              3: {"InitialTalentID": 3074}},
+    }
+
+    def test_talents(self):
+        t = abilities.talents(self.TABLES)
+        self.assertEqual(set(t), {19, 14, 21, 603, 617, 40003})
+        ps = t[19]
+        self.assertEqual((ps["Name"], ps["Use"], ps["Upkeep"], ps["Fatigue"], ps["Cooldown"], ps["Attribute"],
+                          ps["Value"]), ("Precise Striking", abilities.SUSTAINED, 40.0, 5.0, 15.0, 2, 10.0))
+        self.assertEqual(t[14]["Passive"], {"Health": 25.0, "Fatigue": -10.0})
+        self.assertEqual(abilities.starting_talents(self.TABLES, 1), [617, 19])
+        self.assertTrue(abilities.can_learn(t[21], {603}, 4, {"Dex": 14.0}))
+        self.assertFalse(abilities.can_learn(t[21], {603}, 3, {"Dex": 14.0}))
+        self.assertFalse(abilities.can_learn(t[21], set(), 4, {"Dex": 14.0}))
+
+    def test_costs_and_timing(self):
+        self.assertEqual(abilities.ability_cost(25.0, 3.5), 26.0)  # rounded after fatigue
+        self.assertEqual(abilities.ability_cost(25.0, -6.5), 23.0)
+        self.assertEqual(abilities.max_stamina(105.0, [40.0]), 65.0)
+        self.assertAlmostEqual(abilities.attack_interval(1.9, 1.1), 2.09)  # Precise Striking
+        self.assertAlmostEqual(abilities.attack_interval(1.9, 21.0), 2.85)  # capped at 1.5
+        # a critter: (4 s + 1 for the missing party member) x 1.5; party members and short effects not extended
+        self.assertEqual(abilities.effect_duration(4.0, 1, self.TABLES, party_size=3), 7.5)
+        self.assertEqual(abilities.effect_duration(4.0, 1, self.TABLES, party_size=3, party_member=True), 6.0)
+        self.assertEqual(abilities.effect_duration(0.5, 2, self.TABLES, party_size=1), 0.5)
+        # a lieutenant resists 10 - (18 - 10) = 2%; 5 more a level the attacker is below it
+        self.assertEqual(abilities.resist_chance(3, self.TABLES, attribute=18.0, level_difference=0), 2.0)
+        self.assertEqual(abilities.resist_chance(3, self.TABLES, attribute=18.0, level_difference=-3), 17.0)
+        self.assertEqual(abilities.resist_chance(1, self.TABLES, attribute=18.0, level_difference=0), 0.0)
+
+    def test_passives_and_rows(self):
+        t = abilities.talents(self.TABLES)
+        st = {"Health": 115.0, "Flanking": 7.5, "Crit": 5.0, "Fatigue": 3.5, "Level": 1, "Attack": 60.0,
+              "Attributes": {"Str": 11.0, "Dex": 18.0, "Int": 14.0}}
+        w = abilities.with_passives(st, [14, 19], t, 1)
+        self.assertEqual((w["Health"], w["Fatigue"], w["Flanking"]), (140.0, -6.5, 7.5))
+        r = abilities.with_passives(st, [21], t, stats.CLASS_ROGUE)
+        self.assertEqual((r["Flanking"], r["FlankingAngle"], r["Crit"]), (20.0, 90.0, 7.0))
+        row = dict(zip(abilities.TALENT_FIELDS, abilities.talent_row(19, t[19], st)))
+        self.assertEqual((row["Upkeep"], row["Attack"], row["Speed"], row["Crit"]), (40.0, 5.0, 0.1, 3.0))
+        stun = dict(zip(abilities.TALENT_FIELDS, abilities.talent_row(603, t[603], st)))
+        self.assertEqual((stun["Cost"], stun["Seconds"], stun["AttackBonus"]), (25.0, 4.0, 0.0))
+        bash = dict(zip(abilities.TALENT_FIELDS, abilities.talent_row(617, t[617], st)))
+        self.assertEqual((bash["AttackBonus"], bash["Seconds"]), (10.0, abilities.KNOCKDOWN_SECONDS))
+        # Tricks of the Trade by the highest attribute: dexterity's is too small to export
+        self.assertEqual(abilities.tricks({"Str": 11.0, "Dex": 12.0, "Int": 14.0}, 60.0), {"Attack": 12.0})
+        self.assertEqual(abilities.tricks({"Str": 18.0, "Dex": 15.0, "Int": 11.0}, 60.0), {"AttackSpeed": 20.0})
+        self.assertEqual(abilities.talent_row(40003, t[40003], st)[8:], [0.0, 0.0, 0.0, 0.0])
+
+
 class SimulateTests(unittest.TestCase):
     # An area export's combat fields: a knight and five rats; the player from PlayerStats.
     AREA = {
@@ -937,6 +1006,49 @@ class SimulateTests(unittest.TestCase):
         out = simulate.fight(ours, foes, rng, wave=2)
         self.assertTrue(out["Won"])
         self.assertTrue(all(f.down for f in foes))
+
+
+    def test_talents(self):
+        # The player with Precise Striking, Dirty Fighting and Shield Bash (TALENT_FIELDS rows) and 105 stamina.
+        rows = [[19, 2, 0, 15, 40, 5, 0, 0, 5, 0, 0.1, 3],
+                [603, 4, 25, 25, 0, 0, 0, 4, 0, 0, 0, 0],
+                [617, 4, 25, 20, 0, 0, 10, 3.43, 0, 0, 0, 0]]
+        area = dict(self.AREA, PlayerStats=self.AREA["PlayerStats"][:11] + [105.0, 1.9, 3.5, 1.0, 0.0, 0.0, 2.0, 4.0],
+                    PlayerTalents=[x for r in rows for x in r], NpcStatus=[2.0, 1.0, 0.0] + [1.0, 1.5, 0.0] * 5)
+        ours, foes = simulate.fighters(area, [], ["rat_1"])
+        p, rat = ours[0], foes[0]
+        self.assertEqual((p.stamina, p.fatigue, p.offhand, len(p.talents), rat.duration_scale), (105.0, 3.5, (2.0, 4.0), 3, 1.5))
+        rng = random.Random(1)
+        # first Precise Striking: 40 upkeep off the pool, 5 more fatigue, +5 attack while on
+        self.assertEqual(simulate.use_talent(rng, p, rat, 0.0, 1, 0.0), (True, None, False))
+        self.assertEqual((p.pool, p.stamina, p.fatigue, p.own("Attack", 0.0)), (65.0, 65.0, 8.5, 5.0))
+        # then Dirty Fighting: 25 x 1.085 -> 27 stamina, the rat stunned (4 + 3 missing members) x 1.5
+        self.assertEqual(simulate.use_talent(rng, p, rat, 1.0, 1, 0.0), (True, None, False))
+        self.assertEqual((p.stamina, rat.disabled), (38.0, 11.5))
+        # no Shield Bash on a stunned rat; once it is up, Shield Bash (stamina back 1 a second)
+        self.assertEqual(simulate.use_talent(rng, p, rat, 2.0, 1, 0.0)[0], False)
+        self.assertTrue(simulate.use_talent(rng, p, rat, 12.0, 1, 0.0)[0])
+        self.assertEqual((p.stamina, p.used), (38.0 + 11.0 - 27.0, {19: 1, 603: 1, 617: 1}))
+        # nothing left until the cooldowns end
+        self.assertEqual(simulate.use_talent(rng, p, rat, 13.0, 1, 0.0)[0], False)
+        # in fights the player uses its talents and wins faster against a lone knight
+        knight = simulate.simulate(area, [], ["knight"], runs=300, seed=2)
+        plain = simulate.simulate(area, [], ["knight"], runs=300, seed=2, talents=False)
+        self.assertEqual(set(knight["Talents"]), {"Precise Striking", "Dirty Fighting", "Shield Bash"})
+        self.assertEqual(plain["Talents"], {})
+        self.assertIn("Dirty Fighting", simulate.report(knight))
+
+    def test_rogue_backstab_and_evasion(self):
+        rng = random.Random(4)
+        ours, foes = simulate.fighters(self.AREA, [], ["rat_1"])
+        p, rat = ours[0], foes[0]
+        p.rogue = True
+        hits = [simulate.strike(rng, p, rat, 7.5) for _ in range(2000)]
+        self.assertTrue(all(c for d, c in hits if d is not None))  # every flanking hit a backstab
+        p.displacement = 20.0
+        misses = sum(simulate.strike(rng, rat, p)[0] is None for _ in range(5000)) / 5000
+        # the rat hits 63.5 + 54 - 50.5 = 67% of the time, 20% of it lost to Evasion
+        self.assertAlmostEqual(misses, 1 - 0.67 * 0.8, delta=0.02)
 
 
 class AmbientTests(unittest.TestCase):

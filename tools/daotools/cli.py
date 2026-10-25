@@ -30,7 +30,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import ambient, area, balance, cnv, cutscene, fsb, gda, kit, mfdecode, origin, plo, plotlogic, simulate, stats, toolset, unreal
+from . import abilities, ambient, area, balance, cnv, cutscene, fsb, gda, kit, mfdecode, origin, plo, plotlogic, simulate, stats, toolset, unreal
 from .erf import ERF, ERFError, is_erf
 from .gda import GDA
 from .fields import NAMES
@@ -428,6 +428,10 @@ def cmd_unreal_area(args) -> int:
                              follower=utc.get("Tag") if utc.get("Tag") in area.FOLLOWERS else "",
                              one_shot=stats.is_one_shot(appearance(utc), tables))
             st["Interval"] = stats.attack_interval(equip, items, tables, anims.get(appearance(utc)))
+            rank = int(utc.get("Rank") or 0)
+            st["Status"] = [float(st["Level"]), abilities.effect_duration(1.0, rank, tables, abilities.PARTY_SLOTS),
+                            abilities.resist_chance(rank, tables, attribute=player["Attributes"]["Str"],
+                                                    level_difference=player["Level"] - st["Level"])]
             numbers = stats.equipment(equip, items, tables)
             return {**st, **numbers, "Outfit": stats.equipment(worn, items, tables)["Outfit"]}
 
@@ -435,12 +439,27 @@ def cmd_unreal_area(args) -> int:
         # equipment), with a longsword (base item 2) when the template is not given.
         equip = (json.loads(Path(args.player_template).read_text(encoding="utf-8"))["root"].get("Equip_ItemList")
                  if args.player_template else [])
+        cls = stats.CLASS_ROGUE if args.player_class == "rogue" else 1
+        gear = stats.equipment(equip, items, tables)
+        table = abilities.talents(tables)
+        known = abilities.known_talents(tables, cls, args.talents, "shield" in gear["Outfit"])
         player = stats.stats(tables, package=0, rank=stats.RANK_PLAYER, area_level=args.area_level, race=3,
-                             base_item=stats.weapon_base_item(equip, items, tables["itemstats"]) or 2, player_class=1,
-                             hero=True,
+                             base_item=stats.weapon_base_item(equip, items, tables["itemstats"]) or 2, player_class=cls,
+                             hero=True, lethality=abilities.LETHALITY in known,
                              weapon_material=int((stats.weapon_item(equip, items, tables["itemstats"]) or {}).get("Material") or 0))
-        player.update(stats.equipment(equip, items, tables))
+        player.update(gear)
         player["Interval"] = stats.attack_interval(equip, items, tables)
+        shield = int((items.get(gear["Outfit"].get("shield", "")) or {}).get("BaseItem") or 0)
+        if shield:  # Shield Bash strikes with the shield: no damage of its own, the strength bonus
+            player["Offhand"] = stats.stats(tables, package=0, rank=stats.RANK_PLAYER, area_level=args.area_level,
+                                            race=3, base_item=shield, player_class=cls, hero=True)["Damage"]
+        player = abilities.with_passives(player, known, table, cls)
+        player["Rogue"] = cls == stats.CLASS_ROGUE
+        player["TalentRows"] = [abilities.talent_row(i, table[i], player) for i in known
+                                if i in table and table[i]["Use"] != abilities.PASSIVE]
+        player["Passives"] = [i for i in known if i in table and table[i]["Use"] == abilities.PASSIVE]
+        print(f"talents: {', '.join(table[i]['Name'] for i in known if i in table) or 'none'}; fatigue "
+              f"{player['Fatigue']}%", file=sys.stderr)
         print(f"player: {player['Attributes']}, {player['Health']} health, attack {player['Attack']}, defense {player['Defense']} "
               f"+ {player['ShieldDefense']}, damage {player['Damage']} + {player['DamageBonus']}, "
               f"armour {player['Armour']}, an attack every {player['Interval']} s", file=sys.stderr)
@@ -501,7 +520,7 @@ def cmd_unreal_simulate(args) -> int:
     for path in args.area:
         a = json.loads(Path(path).read_text(encoding="utf-8"))
         sim = simulate.simulate(a, args.party, args.foes, runs=args.runs, seed=args.seed, wave=args.wave,
-                                flank=not args.no_flanking, slots=args.slots)
+                                flank=not args.no_flanking, slots=args.slots, talents=not args.no_talents)
         sim["File"] = Path(path).name
         print(simulate.report(sim, Path(path).name))
         out.append(sim)
@@ -638,6 +657,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--area-level", type=int, default=1, help="the level the area scales creatures to (default 1)")
     s.add_argument("--mod-tables", help="a rebalance mod's override tables (<table>_<suffix>.gda), applied over the "
                                         "game's for the combat numbers (docs/COMBAT_BALANCE.md)")
+    s.add_argument("--player-class", choices=("warrior", "rogue"), default="warrior",
+                   help="the hero's class (give the rogue template default_hm_noble_r with --player-template)")
+    s.add_argument("--talents", default="start", help="the player's talents: start (character creation's), all "
+                   "(the class's stage 2 tree, and Shield Bash with a shield), or ability ids separated by commas")
     s.add_argument("--player-template", help="the player's template (.utc.json, from pull 'default_hm_noble*'): "
                                              "the starting equipment; without it a longsword and nothing worn")
     s.add_argument("--fill-lights", type=float, default=0.0, metavar="BRIGHTNESS",
@@ -681,6 +704,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--runs", type=int, default=1000)
     s.add_argument("--seed", type=int, default=1)
     s.add_argument("--no-flanking", action="store_true", help="never count an attacker as behind its target")
+    s.add_argument("--no-talents", action="store_true", help="the player uses no talents (PlayerTalents ignored)")
     s.add_argument("--slots", type=int, default=simulate.SLOTS,
                    help="foes attacking the same party member at once (provisional default %d; 0: no limit)" % simulate.SLOTS)
     s.add_argument("--out", help="write the results (JSON) here")

@@ -6,8 +6,9 @@ giant rats, and what the castle does once they are dead. It is a prototype of
 the loop (hostiles chase and bite, the player strikes, deaths drive the plot).
 Health, attack, defense, damage, armour, criticals and flanking come from the
 game's data tables with Dragon Age Reborn's overrides, computed the way its
-scripts and engine do (see "Stats" and "Rules" below); abilities and talents
-are not there yet.
+scripts and engine do (see "Stats" and "Rules" below). Stamina and the
+warrior's and rogue's talents (stage 2, "Talents") are in the balance
+simulator; Unreal gets them next.
 
 ## How the fight is put together
 
@@ -181,9 +182,8 @@ penetration 2.1, critical chance 5%, and hits for 8.3-13.0 (+0.4), 71% of the
 time against a rat. Armour now soaks most of a rat's bite (1.5-4.5 gets
 through), as in the game.
 
-Not included yet: item materials' effect on weapon damage, talents and
-abilities, and the unarmed damage range (the script gives a flat 3; the game's
-creatures may carry natural weapons the templates do not list).
+Added since: item materials' effect on weapons, creatures' natural weapons
+(both under "Balance simulator") and talents ("Talents").
 
 ## Rules
 
@@ -250,6 +250,123 @@ combat_damage_h takes the armour off every hit (`Mitigate` above). The
 armour and clothing templates come from
 `py -m daotools pull "<game>" "gen_im_arm_*" --out extracted/items` (and
 `gen_im_cth_*`, `gen_im_duncan_robe*`).
+
+## Talents
+
+Stage 2 (`tools/daotools/abilities.py`): stamina, ability costs, cooldowns and
+upkeep, and the warrior's and rogue's basic talents, with Dragon Age Reborn's
+numbers. Stamina and mana are one pool in the game
+(`PROPERTY_DEPLETABLE_MANA_STAMINA`), so the same rules carry the mage's
+spells in stage 3.
+
+From the tables (`abilities.talents`): `abi_base` gives each ability its use
+(sustained, passive, activated), stamina cost, cooldown, upkeep, the fatigue
+it adds while sustained, and what it needs (prerequisite ability, level,
+attribute and value; the value is an unnamed column, `0x7cfe85d1`);
+`passive_id` points a passive at its `passive_abilities` row, up to three
+creature properties and what each adds. Reborn's overrides change
+Lethality's and Coup de Grace's passive rows (critical chance) and
+Lethality's prerequisite (Tricks of the Trade).
+
+The pool and its costs:
+
+- **Stamina**: the class's base and progression x the rank's scale, plus 5 a
+  point of willpower above 10 (stage 1); it comes back 1 a second in combat
+  and 17.5 out of it (`REGENERATION_STAMINA_*_DEFAULT`).
+- **Cost** (`Ability_GetAbilityCost`): the table's cost x (1 + fatigue / 100),
+  rounded, over the difficulty's use modifier (1 for the party). Fatigue is
+  each worn piece's `AbilityCostModifier` x its material tier's (the
+  Human Noble warrior's leathers: 3.5%), Powerful's -10, and each sustained
+  ability's `fatigue` while it runs.
+- **Upkeep** (`Effects_HandleApplyEffectUpkeep`): a sustained ability lowers
+  the pool's maximum by its upkeep for as long as it runs; the upkeep is not
+  raised by fatigue.
+- **Cooldown**: from the table, counted from the use.
+- **Attack speed** (`CalculateAttackTiming`): the time between attacks x the
+  attack speed modifier (1, +0.1 with Precise Striking), capped to 0.5-1.5.
+
+What each talent does (Reborn's `talent_singletarget`, `talent_modal`,
+`combat_h`, `effect_death_h`; `abilities.EFFECTS`):
+
+| Talent | Use | Cost / upkeep, cooldown | Effect |
+| --- | --- | --- | --- |
+| Powerful | passive | | +25 health, -10 fatigue |
+| Threaten | sustained | 20 upkeep, 15 s | threat (stage 4) |
+| Bravery | passive | | +1 damage bonus, +3 physical and mental resistance, +3.5 critical chance a foe in melee past two |
+| Death Blow | passive | | a kill gives back 20% of the creature's base health as stamina |
+| Precise Striking | sustained | 40 upkeep, 15 s | +5 attack (10 in the game), +2.5 + 0.5 a level critical chance, 10% slower attacks |
+| Taunt | activated | 40, 20 s | threat (stage 4) |
+| Disengage | activated | 10, 10 s | threat (stage 4) |
+| Perfect Strike | activated | 30, 30 s | +100 attack and +10 armour penetration for 10 s (Reborn adds the penetration) |
+| Dirty Fighting | activated | 25, 25 s | stuns 4 s, no attack roll |
+| Combat Movement | passive | | flanking angle 60 -> 90 degrees, most flanking 15 -> 20, +2 critical chance |
+| Coup de Grace | passive | | +1 critical chance (+2 ranged, Reborn); attacks on a stunned or paralysed target are backstabs |
+| Feign Death | sustained | 40 upkeep, 30 s | no talents, 4% health a second; foes dropping its user: stage 4 |
+| Below the Belt | activated | 25, 30 s | an attack at +5; on a hit, half speed and no talents for 10 s, sustained abilities ended (not bosses); Reborn drops the defense penalty and the resistance check |
+| Tricks of the Trade (Reborn) | activated | 20, 60 s | 10 s by the highest attribute: cunning +20% attack; dexterity -0.2 critical damage range (a hundredth: nothing); strength +20 attack speed modifier, which the cap turns into attacks 1.5 times slower |
+| Lethality | passive | | +5 critical chance (10 in the game, +5 ranged with Reborn); the weapon's strength bonus from cunning when cunning is higher |
+| Evasion | passive | | 20% of attacks miss outright (displacement), 20% chance to shrug off a stun or knockdown |
+| Shield Bash | activated | 25, 20 s | an attack at +10 with the shield (no damage of its own, the strength bonus); on a hit, knocked down unless resisted |
+
+Tricks of the Trade's dexterity and strength branches look like slips in the
+mod (a speed bonus of 20 where the game's are -0.2 to -0.3); they are ported as
+written and noted here.
+
+- **Debuff durations** (`GetRankAdjustedEffectDuration`): a debuff of a second
+  or more on a creature outside the party lasts a second longer for each
+  missing party member (of four), then x the rank's `fEffectDur` (Normal:
+  critters 1.5, normal 1.0, lieutenants 0.75, bosses 0.6 and 0.25). Dirty
+  Fighting on a rat with the player, Gilmore and the mabari: (4 + 1) x 1.5 =
+  7.5 s.
+- **Knockdown**: Shield Bash's effect lasts `RandomFloat()` seconds, but the
+  creature is out while the engine plays the fall (`mh_c.rct_kbck`, 1.2 or
+  1.37 s), lies down and gets up (`mh_c.rct_kdwn_up_v1`, 2.13 s): about 3.4-4.4
+  s for a human (`KNOCKDOWN_SECONDS`, `KNOCKDOWN_RANDOM`).
+- **Resisting** (`ResistanceCheck`): the defender's resistance (0 for every
+  creature the owner's saves hold) less the attacker's attribute above 10
+  (strength for Shield Bash) and 5 a level the attacker is above it, plus its
+  rank's `fResistanceModifier` (lieutenants 10, bosses 20 and 30), capped at
+  the rank's `fResistanceMaximum`. The Human Noble's Shield Bash (strength 18)
+  is never resisted by normal creatures and 2% of the time by a lieutenant of
+  its level.
+- **Backstabs** (`Combat_CheckBackstab`, a rule of the rogue class): a rogue's
+  plain attack that hits a target it flanks, or (with Coup de Grace) a stunned
+  one, does critical damage.
+- **Starting talents** (`abilities.starting_talents`): character creation
+  skipped spends 2 talent points on the class table's `InitialTalentID` picks:
+  the warrior Shield Bash and Precise Striking, the rogue Stealth and Dual
+  Weapon Training (neither in stage 2).
+
+The area export (`daotools unreal area`) gains `--player-class warrior|rogue`
+and `--talents start|all|<ids>` (all: the class's stage 2 tree, and Shield
+Bash with a shield). It writes `PlayerTalents` (each talent the player can use
+as `abilities.TALENT_FIELDS`: id, use, cost, cooldown, upkeep, fatigue, attack
+bonus, seconds, and what it adds while on: attack, armour penetration, attack
+speed, critical chance), `PlayerPassives` (ids), `PlayerStats` gains fatigue,
+level, displacement, rogue and the shield's damage, and `NpcStatus` gives each
+creature its level, its rank's effect duration scale and how often it resists
+the player's knockdown. Passive talents' numbers are folded into the player's
+stats (`abilities.with_passives`).
+
+The simulator uses them (`simulate.use_talent`; `--no-talents` leaves them
+out): the player spends a turn on the first talent in `PlayerTalents` that is
+off cooldown and affordable, switches sustained ones on, keeps buffs up, stuns
+or knocks down a target that is up, and leaves the threat talents and Feign
+Death alone until stage 4; stunned and knocked down foes lose their turns.
+First numbers (2026-10-25, 4,000 fights each), the night's first fight (the
+player and the mabari against the two soldiers at the bedroom door):
+
+| Player | Time | Health left | Criticals |
+| --- | --- | --- | --- |
+| Warrior, no talents | 16.7 s | 75% | 8% |
+| Warrior, Shield Bash and Precise Striking (the start) | 18.6 s | 75% | 11% |
+| Rogue (two daggers), no talents | 12.6 s | 82% | 41% (backstabs) |
+| Rogue, the whole rogue tree | 12.3 s | 90% | 58% |
+
+The warrior's starting talents slow the fight: Shield Bash trades a sword blow
+for the shield's 2-4 damage and a knockdown, and Precise Striking takes a turn
+to start and slows every swing by a tenth for +5 attack. In the larder the rats
+die to one blow, so talents change nothing there.
 
 ## Balance simulator
 
@@ -459,7 +576,8 @@ Movers still don't push against each other or the player.
 
 ## Not there yet
 
-Abilities, talents, stamina use; real-time with pause and tactics; threat
+Talents and stamina in Unreal (in the simulator: "Talents"); spells; real-time
+with pause and tactics; threat
 (hostiles go for the nearest foe, not the one they hate most); allies outside
 the party (the castle's guards) cannot be struck yet; injuries; switching to a
 party member; proper animations (the attack is a generic punch, the fall and
