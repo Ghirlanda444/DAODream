@@ -382,7 +382,11 @@ the impact at 0.40 s (`.evt`, event type 1; the mabari's at 0.70 of 2.3 s); its 
 swing (`Combat_HandleCommandAttack` returns after it, setting a duration only for humanoids); on completion
 `rules_core` runs the AI round at once (`AI_DetermineCombatRound_Light`: a random enemy, the next
 `CommandAttack`, timeout 5 s, 1 s the first time). What the engine plays between two commands is compiled into
-`DAOrigins.exe`, which names no combat timing setting. A bite and a stance (0.63 + 0.97 = 1.6 s) is the
+`DAOrigins.exe`, which names no combat timing setting; its code section is encrypted by Steam's DRM
+wrapper (a `.bind` section, entropy 8.0 across `.text`), and decrypting it would be circumventing copy
+protection, so it is not analysed. The toolset wiki's engine pages (`SetAttackDuration`, the event editor's
+event types, the blend tree editor) document no default either; a rat's bite carries only an impact event
+(0.40 s) and a sound, no "animation done" or blend marker. A bite and a stance (0.63 + 0.97 = 1.6 s) is the
 reading the files allow, and fits the recordings' 5 bites in 10 s; the export keeps the 2 s round.
 
 **The game's timing in Unreal and the fight's shape** (2026-10-25). `combat_rules.py pace`: every creature
