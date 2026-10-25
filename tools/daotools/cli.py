@@ -472,6 +472,12 @@ def cmd_unreal_area(args) -> int:
         if shield:  # Shield Bash strikes with the shield: no damage of its own, the strength bonus
             player["Offhand"] = stats.stats(tables, package=0, rank=stats.RANK_PLAYER, area_level=args.area_level,
                                             race=3, base_item=shield, player_class=cls, hero=True)["Damage"]
+        if args.talents == "start":  # and the automatic level-ups' picks, those stage 2 and 4 have
+            picks = abilities.levelup_talents(tables, cls, int(player["Level"]), known, player["Attributes"])
+            known += [i for i in picks if i in abilities.STAGE + abilities.ENEMY]
+            if [i for i in picks if i not in known]:
+                print("level-up talents not ported yet:", [abilities.NAMES.get(i, i) for i in picks if i not in known],
+                      file=sys.stderr)
         player = abilities.with_passives(player, known, table, cls)
         player["Rogue"] = cls == stats.CLASS_ROGUE
         player["SeenThreat"] = threat.seen_threat(chest_label(equip))
@@ -680,7 +686,8 @@ def build_parser() -> argparse.ArgumentParser:
                                         "game's for the combat numbers (docs/COMBAT_BALANCE.md)")
     s.add_argument("--player-class", choices=("warrior", "rogue"), default="warrior",
                    help="the hero's class (give the rogue template default_hm_noble_r with --player-template)")
-    s.add_argument("--talents", default="start", help="the player's talents: start (character creation's), all "
+    s.add_argument("--talents", default="start", help="the player's talents: start (character creation's and the "
+                   "automatic level-ups' up to the area level), all "
                    "(the class's stage 2 tree, and Shield Bash with a shield), or ability ids separated by commas")
     s.add_argument("--player-template", help="the player's template (.utc.json, from pull 'default_hm_noble*'): "
                                              "the starting equipment; without it a longsword and nothing worn")

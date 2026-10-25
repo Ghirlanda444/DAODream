@@ -152,6 +152,27 @@ def starting_talents(tables: dict, player_class: int) -> list[int]:
     return [p for p in picks if p][:CHARGEN_TALENT_POINTS]
 
 
+def levelup_talents(tables: dict, player_class: int, level: int, known: list[int],
+                    attributes: dict[str, float]) -> list[int]:
+    """AL_SpendTalentPoints at each level-up from 2 to `level`: one talent point a level (cla_data LevelsPerAbility
+    1 for warriors and rogues), spent on the first talent of the class table's TalentID list the hero can learn
+    (IsAbilityAvailable: can_learn; the class's starting abilities, such as Hidden Warrior, count as known). Returns
+    the new talents, in the order learnt."""
+    table = tables.get(stats.HERO_LEVELUP.get(player_class, ""), {})
+    picks = [int(table[i].get("TalentID") or 0) for i in sorted(table) if i > 0]
+    rows = talents(tables, tuple(p for p in picks if p))
+    cls = tables.get("cla_data", {}).get(player_class, {})  # the class's hidden abilities (Hidden Warrior...)
+    have = set(known) | {int(cls.get(k) or 0) for k in ("StartingAbility1", "StartingAbility2")}
+    new = []
+    for lv in range(2, level + 1):
+        for p in picks:
+            if p and p not in have and p in rows and can_learn(rows[p], have, lv, attributes):
+                have.add(p)
+                new.append(p)
+                break
+    return new
+
+
 def can_learn(talent: dict, known: set[int], level: int, attributes: dict[str, float]) -> bool:
     """Its prerequisite ability known, the level reached and the attribute high enough."""
     attr = stats.ATTRIBUTES[talent["Attribute"] - 1] if 0 < talent["Attribute"] <= len(stats.ATTRIBUTES) else ""

@@ -915,6 +915,25 @@ class AbilityTests(unittest.TestCase):
         self.assertFalse(abilities.can_learn(t[21], {603}, 3, {"Dex": 14.0}))
         self.assertFalse(abilities.can_learn(t[21], set(), 4, {"Dex": 14.0}))
 
+    def test_levelups(self):
+        # 3 points a level towards 14 + level x weight (the warrior's: strength 1.2, dexterity 1.0, willpower 0.75)
+        weights = {1: {"AttWeight": 1.2}, 2: {"AttWeight": 1.0}, 3: {"AttWeight": 0.75}}
+        start = {"Str": 18.0, "Dex": 15.0, "Will": 11.0, "Mag": 11.0, "Int": 11.0, "Con": 13.0}
+        self.assertEqual(stats.hero_levelups(start, 2, weights), dict(start, Dex=16.0, Will=13.0))
+        self.assertEqual(stats.hero_levelups(start, 1, weights), start)
+        # one talent a level: the first of the TalentID list the hero can learn
+        tables = dict(self.TABLES, cla_data={1: {"StartingAbility1": 4022}},
+                      alwarrior_default={0: {}, 1: {"TalentID": 3009}, 2: {"TalentID": 21},
+                                                      3: {"TalentID": 1}, 4: {"TalentID": 14}})
+        tables["abi_base"] = {**self.TABLES["abi_base"],
+                              3009: {"ID": 3009, "label": "FINAL_BLOW", "usetype": 3, "prereqlevel": 12},
+                              1: {"ID": 1, "label": "SHIELD_PUMMEL", "usetype": 4, "prereqability": 617,
+                                  "prereqattribute": 1, "0x7cfe85d1": 15}}
+        self.assertEqual(abilities.levelup_talents(tables, 1, 2, [617, 19], {"Str": 18.0}), [1])
+        self.assertEqual(abilities.levelup_talents(tables, 1, 3, [617, 19], {"Str": 18.0}), [1, 14])
+        self.assertEqual(abilities.levelup_talents(tables, 1, 2, [19], {"Str": 18.0}), [14])  # no Shield Bash yet
+        self.assertEqual(abilities.levelup_talents(dict(tables, cla_data={}), 1, 2, [19], {"Str": 18.0}), [])
+
     def test_costs_and_timing(self):
         self.assertEqual(abilities.ability_cost(25.0, 3.5), 26.0)  # rounded after fatigue
         self.assertEqual(abilities.ability_cost(25.0, -6.5), 23.0)

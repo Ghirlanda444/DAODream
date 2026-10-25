@@ -44,6 +44,24 @@ HERO_LEVELUP = {1: "alwarrior_default", 2: "alwizard_default", 3: "alrogue_defau
 FOLLOWER_LEVELUP = {"gen00fl_dog": "aldog"}
 
 
+def hero_levelups(attrs: dict[str, float], level: int, weights: dict) -> dict[str, float]:
+    """The hero's level-ups with automatic levelling (AL_SpendAttributePoints): 3 points a level, spent attribute by
+    attribute up to 14 + the new level x its table's AttWeight (at least one point while below it); points left over
+    carry to the next level."""
+    attrs, points = dict(attrs), 0
+    for lv in range(2, level + 1):
+        points += int(POINTS_PER_LEVEL)
+        for i, name in enumerate(ATTRIBUTES, 1):
+            if points <= 0:
+                break
+            target = 14.0 + lv * float((weights.get(i) or {}).get("AttWeight") or 0.0)
+            if attrs[name] < target:
+                spend = int(min(points, max(1.0, target - attrs[name])))
+                attrs[name] += spend
+                points -= spend
+    return attrs
+
+
 def follower_attributes(start: dict[str, float], level: int, weights: dict) -> dict[str, float]:
     """AL_DoAutoLevelUp for a follower when hired (EVENT_TYPE_PARTY_MEMBER_HIRED): the creature is rebuilt like a
     hero (`start`: 10 + race + class) and spends 5 points plus 3 a level above 1, attribute by attribute, up to
@@ -81,7 +99,8 @@ _COLUMNS = {
     "as_data.gda": ["ID", "label", "s1", "s2", "s3", "s4", "s5", "s6"],
     "cla_data.gda": ["ID", "label", "BaseHealth", "HealthPerLevel", "BaseAttack", "BaseDefense", "DefensePerLevel",
                      "DamagePerLevel", "BaseManaStamina", "DepletableProgression",
-                     "StrAdjust", "DexAdjust", "WillAdjust", "MagAdjust", "IntAdjust", "ConAdjust"],
+                     "StrAdjust", "DexAdjust", "WillAdjust", "MagAdjust", "IntAdjust", "ConAdjust",
+                     "StartingAbility1", "StartingAbility2"],
     "race_base.gda": ["ID", "label", "StrAdjust", "DexAdjust", "WillAdjust", "MagAdjust", "IntAdjust", "ConAdjust"],
     "itemstats.gda": ["ID", "label", "Damage", "DamageRange", "ArmorPenetration", "CritChanceModifier", "AttributeMod",
                       "Attribute0", "Attribute1", "Armor", "Defense", "MissileDeflection", "dspeed",
@@ -91,9 +110,9 @@ _COLUMNS = {
                           "MissileDeflection", "AbilityCostModifier"],
     "difficulty.gda": ["ID", "label", "DmgScalingThresh"],
     "apr_base.gda": ["ID", "label", "creature_type", "DefaultWeapon", "DefaultArmor", "MovementTree", "OneShotKills"],
-    "alwarrior_default.gda": ["ID", "AttInit", "AttWeight", "InitialTalentID"],
-    "alwizard_default.gda": ["ID", "AttInit", "AttWeight", "InitialTalentID"],
-    "alrogue_default.gda": ["ID", "AttInit", "AttWeight", "InitialTalentID"],
+    "alwarrior_default.gda": ["ID", "AttInit", "AttWeight", "InitialTalentID", "TalentID"],
+    "alwizard_default.gda": ["ID", "AttInit", "AttWeight", "InitialTalentID", "TalentID"],
+    "alrogue_default.gda": ["ID", "AttInit", "AttWeight", "InitialTalentID", "TalentID"],
     "aldog.gda": ["ID", "AttWeight"],
     # abilities.py
     "abi_base.gda": ["ID", "label", "usetype", "cost", "cooldown", "costupkeep", "fatigue", "prereqability",
@@ -267,7 +286,7 @@ def stats(tables: dict, *, package: int, rank: int, area_level: int = 1, race: i
 
     Attributes: the hero (`hero`) as character creation leaves them when skipped: 10, plus race and class
     adjustments, plus the class's default spending of the 5 free points (al<class>_default AttInit,
-    AL_DoAutoLevelUp). Every other creature, party members too, as AS_CommenceAutoScaling sets them:
+    AL_DoAutoLevelUp), and above level 1 its automatic level-ups (hero_levelups). Every other creature, party members too, as AS_CommenceAutoScaling sets them:
     Chargen_InitializeCharacter gives it the same 5 points (CHARGEN_POINTS) and its race; each attribute its
     strategy weighs is then set afresh to 10 + its share of the rank's bonus points, the 5 points, and
     (rank scale x 3 + 5) for each level above 1 (so the race counts only for attributes the strategy does not
@@ -305,6 +324,8 @@ def stats(tables: dict, *, package: int, rank: int, area_level: int = 1, race: i
             value = BASE_ATTRIBUTE + racial
         value += float(cls.get(f"{name}Adjust") or 0)  # Chargen_ApplyClassAttributeModifiers at level 1
         attrs[name] = value
+    if hero and level > 1:
+        attrs = hero_levelups(attrs, level, free)
     if follower:
         start = {name: BASE_ATTRIBUTE + float(cls.get(f"{name}Adjust") or 0)
                  + (float(tables["race_base"].get(race, {}).get(f"{name}Adjust") or 0) if race is not None else 0.0)
