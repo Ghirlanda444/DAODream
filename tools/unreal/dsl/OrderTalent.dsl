@@ -1,0 +1,8 @@
+(fn OrderTalent (Slot)
+  (Funzionedichiamata|FindOrderTarget)
+  (Funzionedichiamata|OrderOnTarget)
+  (Classe|BPDlgNPC|OrderTalent (Variabili|Predefinito|OttieniSelected) :Slot Slot)
+  (Classe|BPDlgNPC|MakeOrderLine (Variabili|Predefinito|OttieniSelected))
+  (Variabili|Predefinito|ImpostaSelLine (Classe|BPDlgNPC|OttieniOrderLine (Variabili|Predefinito|OttieniSelected)))
+  (Funzionedichiamata|ShowTalents)
+  (Funzionedichiamata|ShowMsg :Txt (Utilità|Stringa|Append (Classe|BPDlgNPC|OttieniDisplayName (Variabili|Predefinito|OttieniSelected)) (Classe|BPDlgNPC|OttieniOrderMsg (Variabili|Predefinito|OttieniSelected)))))

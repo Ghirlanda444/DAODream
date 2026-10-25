@@ -43,6 +43,10 @@ Compile success, a read-back graph or a variable value are not enough.
   - `py playtest.py partytalents night`: Play, the Teyrna woken and in the party beside the player and
     the mabari against the panicked servant's three soldiers and war dog: per fighter its foe, stamina,
     talents cooling down and modes on, Growl's debuff and knockdowns; RESULT lists the talents each used.
+  - `py playtest.py pausecheck night`: Play, the Teyrna and the mabari in the party; three hostiles woken
+    and the game paused in the same editor call (each call lets some 10 s of game go by). It checks that game
+    time and places stand still; queues the hero's attack and talent; orders F2's member to use a talent (--slot)
+    and F3's to hold; then resumes and samples what went off.
   - `py playtest.py party day --wipe`: Play, Gilmore and the mabari join against six larder rats; the
     player is dropped, the test wins the fight and checks everyone gets up, then knocks all out (game
     over). Winning starts Gilmore's end-of-fight conversation, as the castle's script does.

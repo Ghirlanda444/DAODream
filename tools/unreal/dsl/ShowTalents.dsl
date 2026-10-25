@@ -4,4 +4,4 @@
     (:LoopBody
       (Funzionedichiamata|AddTalentLine :Slot _index))
     (:Completed
-      (Classe|WBPCombatHUD|SetTalents (Variabili|Predefinito|OttieniHud) :Txt (Variabili|Predefinito|OttieniTalentText)))))
+      (Classe|WBPCombatHUD|SetTalents (Variabili|Predefinito|OttieniHud) :Txt (Utilità|Stringa|Append (Utilità|Stringa|SelectString "PAUSED     " "" (Variabili|Predefinito|OttieniPaused)) (Utilità|Stringa|SelectString (Variabili|Predefinito|OttieniSelLine) (Variabili|Predefinito|OttieniTalentText) (Utilità|IsValid (Variabili|Predefinito|OttieniSelected))))))))

@@ -705,6 +705,59 @@ fights each (the player, the mabari and the Teyrna):
 | The east hall's five | won 60% | won 83% |
 | The panicked servant's four (a war dog among them) | | won 100% |
 
+## Pause and party orders
+
+Real-time with pause (`tools/unreal/pause.py`), with the original's keys
+where they exist:
+
+| Key | What it does |
+| --- | --- |
+| Space | Pause and resume. |
+| F1 | Orders go to the hero. |
+| F2, F3, F4 | Orders go to a party member, in the order the level lists them (at night: the Teyrna, then the mabari). |
+| F or the left mouse button | With a member selected: it attacks the hostile nearest the player within 15 m, and keeps to it while it stands. |
+| 1-6 | With a member selected: it uses that talent at its next attack round, on that hostile. |
+| H | Hold position: the selected member, or with the hero selected the whole party. Again: follow. |
+
+The template's jump loses Space; Dragon Age has none.
+
+- **What pausing freezes**: `SetGamePaused` stops every actor, and game time
+  with them, so cooldowns and effects wait too.
+- **Not while** a conversation or the game over is up.
+- **Keys that work while paused**: the ones above, Q and the mouse look.
+- **The hero while paused**: the attack and a talent are queued, and go off
+  on resuming.
+- **Orders**: an order holds until it is done. An ordered talent that can't
+  be used then says "Not now" and the round goes on by tactics. An ordered
+  target that falls hands the member back to its tactics.
+- **Holding**: a held member neither chases nor follows. In melee it strikes
+  only what reaches it; an archer shoots only what is in its bow's range.
+- **The HUD's talent line**: "PAUSED" first while paused. With a member
+  selected it shows that member: its name, "(holding)", and its talents,
+  "ON" for a mode on and "*" for an order waiting.
+
+The original makes you control the selected member (its portrait, its
+quickbar, clicking a target or a place). Here the hero stays under control
+and the others take orders: there is no clicking on a target or the ground
+yet.
+
+Checked in Play (silent, `py playtest.py pausecheck night`, 2026-10-26),
+against three of the panicked servant's pursuers:
+- **Paused**: game time stood at 164.14 s for 3 s and nobody moved.
+- **Given while paused**:
+  - the hero's attack and Shield Bash were queued;
+  - F2 ordered the Teyrna's Pinning Shot on the nearest soldier;
+  - F3 and H put the mabari on hold.
+- **After resuming**:
+  - the queued attack and Shield Bash went off;
+  - the Teyrna's Pinning Shot went off at her next round;
+  - when her target fell she took another by herself;
+  - the held mabari stayed where it was.
+- No script errors.
+
+Seen on the way: a soldier on the Teyrna keeps her stepping back as she
+shoots (party members' spacing), so the two drift across the room together.
+
 ## Balance simulator
 
 `tools/daotools/simulate.py` fights the party against foes many times over without Unreal, with the same
@@ -913,8 +966,8 @@ Movers still don't push against each other or the player.
 
 ## Not there yet
 
-the dogs' Shred, Howl and Overwhelm in Unreal; the archers' bow model; orders
-to party members and their tactics edited by the player; spells; real-time with pause
+the dogs' Shred, Howl and Overwhelm in Unreal; the archers' bow model; clicking a target
+or a place for an order, and taking control of a party member; tactics edited by the player; spells
 (hostiles go for the nearest foe, not the one they hate most); allies outside
 the party (the castle's guards) cannot be struck yet; injuries; switching to a
 party member; proper animations (the attack is a generic punch, the fall and

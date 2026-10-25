@@ -1,7 +1,6 @@
 (fn CombatRound ()
-  (Funzionedichiamata|ChooseTactic)
-  (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggioreuguale(>=) (Variabili|Predefinito|OttieniTacSlot) 0)
+  (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggiore(>) (Variabili|Predefinito|OttieniPendingSlot) 0)
     (:then
-      (Funzionedichiamata|DoTalent))
+      (Funzionedichiamata|DoOrder))
     (:else
-      (Funzionedichiamata|StrikeFoe))))
+      (Funzionedichiamata|TacticsRound))))

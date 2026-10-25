@@ -1,10 +1,11 @@
 (fn PlayerAttack ()
-  (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ORBoolean (Matematica|Booleano|ORBoolean (Variabili|Predefinito|OttieniTalking) (Utility|Operatori|Maggiore(>) (Variabili|Predefinito|OttieniPStunUntil) (Utilità|Testo|GetGameTimeinSeconds))) (Utility|Operatori|Minore(<) (Utility|Operatori|Sottrai (Utilità|Testo|GetGameTimeinSeconds) (Variabili|Predefinito|OttieniLastAttack)) (Variabili|Predefinito|OttieniPInterval)))
+  (Utilità|ControlloDiFlusso|Ramo (Utilità|IsValid (Variabili|Predefinito|OttieniSelected))
+    (:then
+      (Funzionedichiamata|OrderAttack))
     (:else
-      (Variabili|Predefinito|ImpostaLastAttack (Utilità|Testo|GetGameTimeinSeconds))
-      (Funzionedichiamata|SwingAnim)
-      (Utilità|ControlloDiFlusso|Ramo (Variabili|Predefinito|OttieniBowOn)
+      (Utilità|ControlloDiFlusso|Ramo (Variabili|Predefinito|OttieniPaused)
         (:then
-          (Funzionedichiamata|BowAttack))
+          (Variabili|Predefinito|ImpostaQueuedAttack "true")
+          (Funzionedichiamata|ShowMsg :Txt "Paused: attack queued"))
         (:else
-          (Funzionedichiamata|MeleeAttack))))))
+          (Funzionedichiamata|PlayerAttackNow))))))

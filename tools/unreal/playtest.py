@@ -14,6 +14,7 @@ run are printed at the end.
     python playtest.py enemytalents night                                  Play: soldiers using their talents
     python playtest.py ranged night                                        Play: an archer shoots; the player's bow
     python playtest.py partytalents night                                  Play: the Teyrna and the mabari's talents
+    python playtest.py pausecheck night                                    Play: pause, queued actions, party orders
 
 Characters are named by their tag (NpcTags in extracted/ue/areas/<area>.json). Hidden ones (waiting for a
 plot) are shown for the pictures. The editor must be open with its MCP server running (docs/UNREAL_SETUP.md);
@@ -860,6 +861,83 @@ for tag, name in %r:
         run.finish()
 
 
+def pause_check(args):
+    """Play at night: the Teyrna and the mabari in the party, hostiles (--tags) woken; once they close in the game is
+    paused (TogglePause): game time and everyone's place must stand still. While paused: the hero's attack and
+    first talent are queued, F2's member is ordered to use its talent in --slot on the nearest hostile, F3's to hold
+    position; back to the hero. Resumed: the queue runs (attacks resolved, the talent cooling down), the ordered
+    talent goes off at the member's next round, the held member stays where it was."""
+    run = Run("pausecheck", args.area)
+    run.start(simulate=False)
+    try:
+        g = run.g
+        for _ in range(8):
+            g.converse(seconds=90)
+            if not g.talking().get("bTalking"):
+                break
+        foes = [run.npc(t) for t in args.tags]
+        x, y, z = g.loc(foes[0])
+        g.go(x + 200, y, z, wait=0.5)
+        for k, t in enumerate(("bhn100cr_mother", "gen00fl_dog")):
+            pyrun.run(NPC % run.npc(t) + 'a.call_method("SetPlotActive", (True,))\na.call_method("SetInParty", (True,))\n'
+                      'a.set_actor_location(unreal.Vector(%f, %f, %f), False, True)\n' % (x + 500, y + 150 * (k * 2 - 1), z), 60)
+        # an editor call lets some 10 s of game go by: the foes are woken and the game paused in the same one
+        print("wake and pause", pyrun.run(MGR + """
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+for name in %r:
+    acts[name].call_method("SetPlotActive", (True,))
+m.call_method("TogglePause")
+OUT["paused"] = unreal.GameplayStatics.is_game_paused(w)
+""" % (foes,), 60), flush=True)
+        names = [run.npc(t) for t in ("bhn100cr_mother", "gen00fl_dog")] + foes
+        state = MGR + """
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+sel = m.get_editor_property("Selected")
+OUT.update({"paused": unreal.GameplayStatics.is_game_paused(w), "time": round(unreal.GameplayStatics.get_time_seconds(w), 2),
+            "attacks": m.get_editor_property("Hits") + m.get_editor_property("Misses"),
+            "queued": (m.get_editor_property("bQueuedAttack"), m.get_editor_property("QueuedSlot")),
+            "hero_ready0": round(list(m.get_editor_property("TReady"))[0] - unreal.GameplayStatics.get_time_seconds(w), 1) if list(m.get_editor_property("TReady")) else None,
+            "selected": sel.get_name() if sel else None})
+now = unreal.GameplayStatics.get_time_seconds(w)
+for name in %r:
+    a = acts[name]
+    o = a.get_editor_property("OrderTarget")
+    tal = list(a.get_editor_property("NTalents")); ready = list(a.get_editor_property("NReady"))
+    p = a.get_actor_location()
+    OUT[name[-14:]] = {"at": (round(p.x), round(p.y)), "hp": round(a.get_editor_property("Health")),
+        "order": o.get_name()[-14:] if o else None, "pending": a.get_editor_property("PendingSlot"),
+        "hold": a.get_editor_property("bHold"), "line": a.get_editor_property("OrderLine"),
+        "cool": {int(tal[k * 18]): round(ready[k] - now, 1) for k in range(len(ready)) if tal[k * 18] and ready[k] > now}}
+"""
+        say = lambda label: print(label, json.dumps(pyrun.run(state % (names,), 60), default=str)[:1800], flush=True)
+        say("paused")
+        time.sleep(3.0)
+        say("paused 3 s later")
+        run.shot("paused")
+        orders = MGR + """
+m.call_method("PlayerAttack")
+m.call_method("UseTalent", (0,))
+m.call_method("SelectMember", (1,))
+s1 = m.get_editor_property("Selected")
+m.call_method("UseTalent", (%d,))
+m.call_method("SelectMember", (2,))
+s2 = m.get_editor_property("Selected")
+m.call_method("ToggleHold")
+OUT["ordered"] = (s1.get_name() if s1 else None, s2.get_name() if s2 else None)
+"""
+        print("orders", pyrun.run(orders % args.slot, 60), flush=True)
+        say("orders given")
+        run.shot("orders")
+        pyrun.run(MGR + 'm.call_method("SelectMember", (0,))\nm.call_method("TogglePause")\n', 60)
+        say("resumed")
+        for k in range(3):
+            time.sleep(3.0)
+            say("later %d" % k)
+        run.shot("after")
+    finally:
+        run.finish()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--sound", action="store_true", help="play the game's sound (tests are silent otherwise)")
@@ -922,6 +1000,11 @@ def main():
                                                  "bhn200cr_howe_panicked3", "bhn200cr_howe_panicked4"])
     s.add_argument("--samples", type=int, default=10)
     s.set_defaults(fn=party_talents)
+    s = sub.add_parser("pausecheck", help=pause_check.__doc__)
+    s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
+    s.add_argument("--tags", nargs="+", default=["bhn200cr_howe_panicked1", "bhn200cr_howe_panicked2"])
+    s.add_argument("--slot", type=int, default=1, help="the talent slot F2's member is ordered to use (0-based)")
+    s.set_defaults(fn=pause_check)
     s = sub.add_parser("party", help=party.__doc__)
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("--seconds", type=int, default=120)

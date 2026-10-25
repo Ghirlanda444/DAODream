@@ -10,4 +10,8 @@
         (:then
           (Funzionedichiamata|PartyFight :Dt Dt))
         (:else
-          (Funzionedichiamata|PartyFollow :Dt Dt))))))
+          (Utilità|ControlloDiFlusso|Ramo (Variabili|Predefinito|OttieniHold)
+            (:then
+              (Funzionedichiamata|StopMoving))
+            (:else
+              (Funzionedichiamata|PartyFollow :Dt Dt))))))))

@@ -1,0 +1,5 @@
+(fn AddOrderSlot (K)
+  (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ANDBoolean (Utility|Operatori|Minore(<) (Utility|Operatori|Moltiplica K 18) (Utilità|Array|Length (Variabili|Predefinito|OttieniNTalents))) (Utility|Operatori|Maggiore(>) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTalents) (Utility|Operatori|Moltiplica K 18)) 0.0))
+    (:then
+      (Funzionedichiamata|NameOf :K K)
+      (Variabili|Predefinito|ImpostaOrderLine (Utilità|Stringa|Append (Variabili|Predefinito|OttieniOrderLine) (Utilità|Stringa|Append (Utilità|Stringa|Append "[" (Utilità|Stringa|Append (Utilità|Stringa|ToString(Integer) (Utility|Operatori|Aggiungi K 1)) "] ")) (Utilità|Stringa|Append (Variabili|Predefinito|OttieniTName) (Utilità|Stringa|Append (Utilità|Stringa|SelectString " ON" "" (Utility|Operatori|Maggiore(>) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNOn) K) 0.0)) (Utilità|Stringa|SelectString " *" "  " (Utility|Operatori|Uguale(==) (Variabili|Predefinito|OttieniPendingSlot) (Utility|Operatori|Aggiungi K 1)))))))))))

@@ -1,4 +1,11 @@
 (fn UseTalent (Slot)
-  (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ORBoolean (Matematica|Booleano|ORBoolean (Variabili|Predefinito|OttieniTalking) (Variabili|Predefinito|OttieniGameOver)) (Matematica|Booleano|ORBoolean (Variabili|Predefinito|OttieniPlayerDown) (Matematica|Booleano|ORBoolean (Utility|Operatori|Maggioreuguale(>=) Slot (Utilità|Array|Length (Variabili|Predefinito|OttieniTalentNames))) (Matematica|Booleano|ORBoolean (Utility|Operatori|Maggiore(>) (Variabili|Predefinito|OttieniPStunUntil) (Utilità|Testo|GetGameTimeinSeconds)) (Utility|Operatori|Maggiore(>) (Variabili|Predefinito|OttieniPLockUntil) (Utilità|Testo|GetGameTimeinSeconds))))))
+  (Utilità|ControlloDiFlusso|Ramo (Utilità|IsValid (Variabili|Predefinito|OttieniSelected))
+    (:then
+      (Funzionedichiamata|OrderTalent :Slot Slot))
     (:else
-      (Funzionedichiamata|TalentCheck :Slot Slot))))
+      (Utilità|ControlloDiFlusso|Ramo (Variabili|Predefinito|OttieniPaused)
+        (:then
+          (Variabili|Predefinito|ImpostaQueuedSlot (Utility|Operatori|Aggiungi Slot 1))
+          (Funzionedichiamata|ShowMsg :Txt "Paused: talent queued"))
+        (:else
+          (Funzionedichiamata|UseTalentNow :Slot Slot))))))
