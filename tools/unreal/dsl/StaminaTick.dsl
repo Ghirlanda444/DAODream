@@ -1,6 +1,7 @@
 (fn StaminaTick ()
   (Variabili|Predefinito|ImpostaPStamina (Matematica|Float|Min(Float) (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniPStamina) (Matematica|Float|SelectFloat 0.5 8.75 (Utility|Operatori|Minore(<) (Utility|Operatori|Sottrai (Utilità|Testo|GetGameTimeinSeconds) (Variabili|Predefinito|OttieniLastCombat)) 4.0))) (Variabili|Predefinito|OttieniPPool)))
   (Variabili|Predefinito|ImpostaPlayerHealth (Matematica|Float|Min(Float) (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniPlayerHealth) (Matematica|Float|SelectFloat (Utility|Operatori|Moltiplica (Variabili|Predefinito|OttieniPlayerMaxHealth) (Matematica|Float|SelectFloat 0.02 0.03 (Utility|Operatori|Minore(<) (Utility|Operatori|Sottrai (Utilità|Testo|GetGameTimeinSeconds) (Variabili|Predefinito|OttieniLastCombat)) 4.0))) 0.0 (Matematica|Booleano|ANDBoolean (Variabili|Predefinito|OttieniFeign) (Matematica|Booleano|NOTBoolean (Variabili|Predefinito|OttieniPlayerDown))))) (Variabili|Predefinito|OttieniPlayerMaxHealth)))
+  (Funzionedichiamata|PlayerRecover)
   (Funzionedichiamata|SumOwn)
   (Funzionedichiamata|FeignChange)
   (Funzionedichiamata|ShowHealth)

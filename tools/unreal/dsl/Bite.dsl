@@ -4,4 +4,4 @@
     (:else
       (Variabili|Predefinito|ImpostaAttackTimer (Variabili|Predefinito|OttieniInterval))
       (Funzionedichiamata|PlayAttackAnim)
-      (Funzionedichiamata|StrikeFoe))))
+      (Funzionedichiamata|CombatRound))))

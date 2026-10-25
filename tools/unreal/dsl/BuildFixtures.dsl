@@ -10,6 +10,8 @@
   (Variabili|Predefinito|ImpostaNpcRules (Json|GetField _json "NpcRules"))
   (Variabili|Predefinito|ImpostaNpcInterval (Json|GetField _json "NpcInterval"))
   (Variabili|Predefinito|ImpostaNpcStatus (Json|GetField _json "NpcStatus"))
+  (Variabili|Predefinito|ImpostaNpcTalents (Json|GetField _json "NpcTalents"))
+  (Variabili|Predefinito|ImpostaNpcTactics (Json|GetField _json "NpcTactics"))
   (Variabili|Predefinito|ImpostaPlayerTalents (Json|GetField _json "PlayerTalents"))
   (Variabili|Predefinito|ImpostaPlayerPassives (Json|GetField _json "PlayerPassives"))
   (Variabili|Predefinito|ImpostaPlayerTalentNames (Json|GetField _json "PlayerTalentNames"))

@@ -1,0 +1,3 @@
+(fn HitNpcFoe ()
+  (bind _npc (Utilità|Casting|CastToBP_DlgNPC (Variabili|Predefinito|OttieniFoe)))
+  (Funzionedichiamata|TakeStrike _npc :Attacker (Variabili|Ottieniunriferimentoasestesso) :InAttack (Variabili|Predefinito|OttieniHAtk) :InMin (Variabili|Predefinito|OttieniHMin) :InMax (Variabili|Predefinito|OttieniHMax) :InScale (Variabili|Predefinito|OttieniDmgScale) :InCrit (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniCrit) (Variabili|Predefinito|OttieniNOwnCrit)) :InPen (Variabili|Predefinito|OttieniPen) :InBonus (Variabili|Predefinito|OttieniDmgBonus) :InFlank (Variabili|Predefinito|OttieniFlank)))

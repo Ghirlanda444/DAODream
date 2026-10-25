@@ -11,6 +11,7 @@ run are printed at the end.
     python playtest.py fight day --fall                                    Play: fight the larder rats, then fall
     python playtest.py talents night                                       Play: use six talents on a soldier
     python playtest.py threat night                                        Play: two soldiers' threat tables
+    python playtest.py enemytalents night                                  Play: soldiers using their talents
 
 Characters are named by their tag (NpcTags in extracted/ue/areas/<area>.json). Hidden ones (waiting for a
 plot) are shown for the pictures. The editor must be open with its MCP server running (docs/UNREAL_SETUP.md);
@@ -653,6 +654,69 @@ for n in %r:
         run.finish()
 
 
+def enemy_talents(args):
+    """Play at night: soldiers (--tags: a weapon-and-shield one, a two-handed one, the knight) are woken next to the
+    player and the mabari and fight on while the player and they are topped up; every few seconds it reports each
+    soldier's stamina, its talents' cooldowns (a talent used shows a time) and modes, and the player's stun,
+    disarm and talent lock. RESULT: the talents each soldier used and what reached the player."""
+    run = Run("enemytalents", args.area)
+    run.start(simulate=False)
+    try:
+        g = run.g
+        for _ in range(8):
+            g.converse(seconds=90)
+            if not g.talking().get("bTalking"):
+                break
+        foes = [run.npc(t) for t in args.tags]
+        x, y, z = g.loc(foes[-1])
+        for k, f in enumerate(foes):  # woken and brought together, a metre and a half apart
+            pyrun.run(NPC % f + 'a.call_method("SetPlotActive", (True,))\n'
+                      'a.set_actor_location(unreal.Vector(%f, %f, %f), False, True)\n' % (x, y + 150 * k, z), 60)
+        g.go(x + 150, y + 150, z, wait=0.5)
+        sample = MGR + """
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+pawn = unreal.GameplayStatics.get_player_pawn(w, 0)
+now = unreal.GameplayStatics.get_time_seconds(w)
+if m.get_editor_property("PlayerHealth") < 70.0:
+    m.call_method("HurtPlayer", (m.get_editor_property("PlayerHealth") - m.get_editor_property("PlayerMaxHealth"),))
+OUT["now"] = round(now, 1)
+OUT["player"] = {"health": round(m.get_editor_property("PlayerHealth"), 1),
+                 "stunned": round(max(0.0, m.get_editor_property("PStunUntil") - now), 1),
+                 "disarmed": round(max(0.0, m.get_editor_property("PDisarmUntil") - now), 1),
+                 "locked": round(max(0.0, m.get_editor_property("PLockUntil") - now), 1)}
+for n in %r:
+    a = acts[n]
+    if a.get_editor_property("Health") < 0.5 * a.get_editor_property("MaxHealth"):
+        a.call_method("TakeHit", (-200.0,))
+    t = list(a.get_editor_property("NTalents"))
+    ready = list(a.get_editor_property("NReady"))
+    OUT[n] = {"stamina": round(a.get_editor_property("NStamina"), 1), "pool": a.get_editor_property("NPool"),
+              "talents": {int(t[k * 16]): round(ready[k] - now, 1) if ready[k] else None for k in range(len(ready)) if t[k * 16]},
+              "on": [int(t[k * 16]) for k, o in enumerate(a.get_editor_property("NOn")) if o],
+              "interval": round(a.get_editor_property("Interval"), 2), "foe": (a.get_editor_property("Foe").get_name() if a.get_editor_property("Foe") else None),
+              "foe_m": round(a.get_distance_to(a.get_editor_property("Foe")) / 100.0, 1) if a.get_editor_property("Foe") else None}
+dog = acts[%r]
+OUT["dog"] = {k: dog.get_editor_property(k) for k in ("bDead", "bDown", "Health", "bInParty")}
+"""
+        used, player_hits, samples = {}, {"stunned": 0, "disarmed": 0, "locked": 0}, []
+        for k in range(args.samples):
+            time.sleep(4.0)
+            r = pyrun.run(sample % (foes, run.npc("gen00fl_dog")), 60)
+            samples.append(r)
+            print(json.dumps(r, default=str)[:900], flush=True)
+            for f in foes:
+                for tid, left in (r.get(f, {}).get("talents") or {}).items():
+                    if left is not None:
+                        used.setdefault(f, set()).add(int(tid))
+            for key in player_hits:
+                player_hits[key] += 1 if r.get("player", {}).get(key) else 0
+            if k == 2:
+                run.shot("fight")
+        print("RESULT", json.dumps({"used": {f: sorted(v) for f, v in used.items()}, "player_samples": player_hits}))
+    finally:
+        run.finish()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--sound", action="store_true", help="play the game's sound (tests are silent otherwise)")
@@ -699,6 +763,11 @@ def main():
     s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
     s.add_argument("--tags", nargs=2, default=["bhn200cr_howe_east_hall1", "bhn200cr_howe_east_hall2"])
     s.set_defaults(fn=threat_check)
+    s = sub.add_parser("enemytalents", help=enemy_talents.__doc__)
+    s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
+    s.add_argument("--tags", nargs="+", default=["bhn200cr_howe_mother2", "bhn200cr_howe_mother1", "bhn200cr_howe_knight"])
+    s.add_argument("--samples", type=int, default=15)
+    s.set_defaults(fn=enemy_talents)
     s = sub.add_parser("party", help=party.__doc__)
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("--seconds", type=int, default=120)

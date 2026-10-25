@@ -1,0 +1,7 @@
+(fn KnockFor (Seconds)
+  (Variabili|Predefinito|ImpostaKnockUntil (Utility|Operatori|Aggiungi (Utility|Operatori|Aggiungi (Utilità|Testo|GetGameTimeinSeconds) Seconds) (Matematica|Casuale|RandomFloat)))
+  (Variabili|Predefinito|ImpostaKnocked "true")
+  (Variabili|Predefinito|ImpostaChasing "false")
+  (Funzionedichiamata|StopMoving)
+  (Componenti|Animazione|PlayAnimation (Variabili|Predefinito|OttieniMesh) "/Game/Cousland/Anims/A_Fallen.A_Fallen" "false")
+  (Funzionedichiamata|SayText :Txt "Knocked down"))

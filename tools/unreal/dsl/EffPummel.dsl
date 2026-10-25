@@ -1,0 +1,5 @@
+(fn EffPummel (K)
+  (Funzionedichiamata|HitFoe :Bonus (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTalents) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica K 16) 6)) :Mul (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTalents) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica K 16) 15)) :bOff "false" :bSure "false")
+  (Funzionedichiamata|HitFoe :Bonus 0.0 :Mul (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTalents) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica K 16) 15)) :bOff "true" :bSure "true")
+  (Funzionedichiamata|HitFoe :Bonus 0.0 :Mul (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTalents) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica K 16) 15)) :bOff "true" :bSure "true")
+  (Funzionedichiamata|StunFoe :Seconds (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTalents) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica K 16) 7)) :bFall "false"))

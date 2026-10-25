@@ -455,6 +455,84 @@ player no longer flanks and falls first: the night's first fight still wins
 every time; five soldiers at once beat the level 1 party with or without
 threat (2% against 13% won).
 
+## Enemy talents
+
+Stage 4's second half (`tools/daotools/tactics.py`, `tools/unreal/enemies.py`):
+Howe's men use their talents the way the game's AI does.
+
+- **Which talents** (`AS_AssignAbilities`): a creature's package lists up to 12
+  abilities; it gets the first level / `LevelsPerAbility` + 1 of them, +2 when
+  `LevelsPerAbility` is 1 or more. At level 1 the night's soldiers have three:
+  weapon and shield (package 42): Shield Block, Precise Striking, Shield
+  Pummel; two-handed (43): Sunder Weapon, Powerful, Sunder Armor; the knight
+  (49): Pommel Strike, Powerful, Indomitable; dual-wield rogues (53): Stealth,
+  Dual Weapon Training, Below the Belt; archers (52, 41): Dirty Fighting and
+  bow talents. Passives count (Powerful's +25 health is in the export).
+- **When** (`AI_DetermineCombatRound`, `_AI_ExecuteTactic`): each round the
+  creature goes down its package AI's `aip_*` table (`m2da_base` names it):
+  a row fires when its chance roll passes, its condition holds
+  (`tacticsconditions`) and its command can run (a talent it has, can pay
+  for and has off cooldown; a mode not already on); a jump row goes on from
+  the row it names. No row: it attacks its most hated enemy. The weapon and
+  shield soldier switches Precise Striking on at 75% stamina or more (half the
+  time) and Shield Pummels its target a quarter of the time; the knight
+  switches Indomitable on and Pommel Strikes a quarter of the time; the
+  two-handed soldier Sunders the weapon of a target fighting in melee 30% of
+  the time, and its armour only when it is medium or heavy.
+- **What they do** (Reborn's `talent_singletarget` and `talent_modal`):
+  Shield Pummel strikes with the weapon at +10, then twice with the shield
+  (those blows always land), each x (1 + 1% a point of strength above 10), and
+  stuns 4 s; Sunder Weapon strikes twice at 60% and, on the second, takes the
+  target's whole attack rating away for 6 s (10 in the game); Sunder Armor
+  strikes twice at 70% and, as Reborn wrote it, adds 30% to the target's armour
+  for 10 s (a positive amount given to `EffectDecreaseProperty`; ported as
+  written, left out in Unreal); Critical Strike kills a non-boss target at 25%
+  health or less (20% in the game); Pommel Strike knocks down with no attack
+  roll; Indomitable (sustained, 60 upkeep) gives +30% armour and defense 0.6 a
+  point of strength above 10, for 30% less damage dealt. Reborn renames ability
+  4's label to CRITICAL_STRIKE; the scripts still treat 4 as Sunder Armor and 3
+  as Critical Strike.
+- **On the party**: a debuff on a party member is not lengthened for missing
+  party members, and party members resist nothing (their physical resistance
+  is 0). A stunned or knocked down player cannot move, attack or use talents
+  until it ends; a disarmed one has lost its attack rating; Below the Belt
+  keeps the player from talents for 10 s.
+
+The export writes `NpcTalents` (6 talent rows a creature), `NpcTactics` (12
+tactics rows: target, condition base and parameter, command, ability or jump,
+chance) and `NpcStatus` gains stamina, fatigue and the shield's damage. Talent
+rows (`abilities.TALENT_FIELDS`) gain defense, armour, damage scale and a
+damage multiplier, for the player too.
+
+Conditions handled: any; health or stamina level (of the creature for a self
+row, else of its target); the target using a melee attack; being attacked in
+melee; an enemy at short range. The others (armour type, status effects,
+range bands, surrounded) never hold yet, and nobody shoots: the night's 15
+archers fight in melee, their bow talents and modes wait for ranged combat,
+and the mage's spells for stage 3.
+
+Checked in Play (silent, `py playtest.py enemytalents night --tags
+bhn200cr_howe_hallway2 bhn200cr_howe_hallway1 bhn200cr_howe_knight`,
+2026-10-25): the weapon and shield soldier switched Precise Striking on (its
+45 stamina then leaves a pool of 5, too little for Shield Pummel's 30, as its
+table has it); the two-handed soldier used Sunder Weapon every time it came
+off cooldown; the knight kept Indomitable on and Pommel Struck the player,
+who was knocked down for 3-4 s; stamina came back while they fought. No
+script errors. Not yet seen in Play: Shield Pummel and a landed disarm (the
+simulator's tests cover them).
+
+The simulator runs the same tables (`simulate.foe_turn`). The night's first
+fight and the knight, 2,000 fights each (the player, the mabari and the
+Teyrna):
+
+| Foes | Without their talents | With them |
+| --- | --- | --- |
+| The two at the bedroom door | won 100%, 23 s | won 100%, 25 s (Sunder Weapon once a fight) |
+| The knight | won 70% | won 91% (Indomitable and Pommel Strike four times a fight) |
+
+The knight is easier with its talents: Indomitable costs it 30% of its damage,
+and Pommel Strike spends a turn on a knockdown that does no damage.
+
 ## Balance simulator
 
 `tools/daotools/simulate.py` fights the party against foes many times over without Unreal, with the same
@@ -663,8 +741,9 @@ Movers still don't push against each other or the player.
 
 ## Not there yet
 
-Enemies' talents (next); ranged attacks (the night's 15 archers fight in
-melee); party members' talents (tactics); spells; real-time with pause
+Ranged attacks (the night's 15 archers fight in melee) and the archers' and
+war dogs' talents; party members' talents (tactics); spells; real-time with
+pause
 (hostiles go for the nearest foe, not the one they hate most); allies outside
 the party (the castle's guards) cannot be struck yet; injuries; switching to a
 party member; proper animations (the attack is a generic punch, the fall and

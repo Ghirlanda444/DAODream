@@ -33,6 +33,10 @@ Compile success, a read-back graph or a variable value are not enough.
   - `py playtest.py threat night`: Play, two soldiers woken by the player and the mabari; prints each
     soldier's target and threat table at the start, while fighting, after Threaten, Taunt, Feign Death
     on and off, and Disengage. Player and soldiers are topped up so nobody falls.
+  - `py playtest.py enemytalents night --tags <hostile tags>`: Play, soldiers brought together and woken
+    by the player and the mabari; every few seconds each soldier's stamina, talent cooldowns and modes, and
+    the player's stun, disarm and talent lock. Pick tags hostile from the start (`NpcHostile`): the
+    Teyrna's room soldiers turn hostile only through a plot.
   - `py playtest.py party day --wipe`: Play, Gilmore and the mabari join against six larder rats; the
     player is dropped, the test wins the fight and checks everyone gets up, then knocks all out (game
     over). Winning starts Gilmore's end-of-fight conversation, as the castle's script does.
