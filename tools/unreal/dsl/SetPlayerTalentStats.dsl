@@ -1,6 +1,7 @@
 (fn SetPlayerTalentStats (InStats)
   (Variabili|Predefinito|ImpostaPBaseInterval (Variabili|Predefinito|OttieniPInterval))
   (Funzionedichiamata|SetPlayerSeen :InStats InStats)
+  (Variabili|Predefinito|ImpostaPTMul 1.0)
   (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggiore(>) (Utilità|Array|Length InStats) 18)
     (:then
       (Variabili|Predefinito|ImpostaPStamina (Utilità|Array|Ottieni(unacopia) InStats 11))

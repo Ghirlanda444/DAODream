@@ -533,6 +533,45 @@ Teyrna):
 The knight is easier with its talents: Indomitable costs it 30% of its damage,
 and Pommel Strike spends a turn on a knockdown that does no damage.
 
+## The night's level
+
+Creatures scale to the hero's level, clamped to their area's range
+(`AB_GetAreaTargetLevel`, `areadata.gda` MinLevel and MaxLevel): the day
+castle (`cc_bhn100`) 1-5, the night castle (`cc_bhn200`) 2-5. Then each rank
+moves it (`autoscale` nLevelScale): critters -3, at least 1. Most of Howe's men
+are critters in the night area's own file, so they stay at level 1 until the
+hero reaches 4; the normal-rank ones match the hero.
+
+The hero's level at nightfall, from the experience the day hands out
+(`exptable`: level 2 at 2,001, level 3 at 4,501):
+
+| Source | Experience |
+| --- | --- |
+| The larder cleared (`BHN_COOK_DOG_PLOT_DONE`, reward 249) | 1,000 |
+| The message delivered to Fergus (`BHN_FATHER_PARENTS_JOIN`, reward 252) | 1,500 |
+| The larder's 18 rats (critter `fPointVal` 0.33 x level 1's 285.9 x 0.2875 each, `RewardGetXPValue`) | about 480 |
+| Dairren or Iona (optional, rewards 250, 251) | 100 |
+| Codex entries found (`XP_CODEX`) | 50 each |
+
+About 3,000: level 2, and level 3 would take some 30 more codex entries. So the
+night opens at level 2 (the area's minimum too), and the export does that
+(`--area-level 2` for the night). The Teyrna joining (500), the night's kills
+(a normal soldier at level 2: about 48) and finding the Teyrn (2,500) come
+later; the hero can reach level 3 during the night, but the castle's creatures
+were scaled when it loaded.
+
+The hero levels up the way automatic levelling does (`stats.hero_levelups`,
+`abilities.levelup_talents`): 3 attribute points a level spent towards 14 +
+level x the class table's AttWeight, and one talent a level, the first of the
+class table's TalentID list it can learn (the class's hidden ability, Hidden
+Warrior, counts as known). A level 2 warrior: dexterity 16, willpower 13,
+121 health, 120 stamina, and Shield Pummel (then Shield Block, then Taunt). In
+Play the player's Shield Pummel cost 33 and stunned a soldier 6 s.
+
+The night's fights at level 2 (2,000 each, with the mabari and the Teyrna):
+the two at the bedroom door won every time in 20 s (25 at level 1), the knight
+94% (91%), the east hall's five 29% (13%).
+
 ## Balance simulator
 
 `tools/daotools/simulate.py` fights the party against foes many times over without Unreal, with the same

@@ -1,0 +1,7 @@
+(fn StrikeOnce ()
+  (Variabili|Predefinito|ImpostaTBonus (Variabili|Predefinito|OttieniTAtkBonus))
+  (Variabili|Predefinito|ImpostaTOff (Utility|Operatori|Uguale(==) (Variabili|Predefinito|OttieniTId) 617.0))
+  (Classe|BPDlgNPC|TakeAttack (Variabili|Predefinito|OttieniBestTarget))
+  (Variabili|Predefinito|ImpostaTBonus 0.0)
+  (Variabili|Predefinito|ImpostaTOff "false")
+  (Funzionedichiamata|TalentAfterHit))

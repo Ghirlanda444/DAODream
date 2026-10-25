@@ -18,7 +18,8 @@ the talent's numbers (HitFoe: its attack bonus, damage multiplier, the shield's 
 Pummel's shield). No row: StrikeFoe (HitFoe 0 1). Its modes' defense and armour count when it is struck (TakeStrike,
 TakeAttack). The effects reach a creature foe through its own functions (KnockFor, Stun, Disarm, Slow) and the
 player through BP_PlotManager: StunPlayer (input off until PStunUntil; PlayerRecover gives it back), DisarmPlayer,
-LockPlayer (no talents). BP_PlotManager.AttackerState: a stunned or knocked down attacker strikes nobody
+LockPlayer (no talents). The player's own Shield Pummel (a level-2 warrior's automatic pick): PlayerPummel (its
+blows through TakeAttack with TBonus, TOff and PTMul, the damage multiplier), then PummelStun. AttackerState: a stunned or knocked down attacker strikes nobody
 (StrikeNpc, StrikePlayer), a disarmed one has lost its attack rating. CombatTick lets any creature get up from a
 knockdown (Recover).
 """
@@ -40,7 +41,7 @@ VARIABLES = {
           ("TacNext", F), ("bTacDone", "bool"), ("RB", "int"), ("HAtk", F), ("HMin", F), ("HMax", F),
           ("DisarmUntil", F), ("DisarmAmt", F)],
     PM: [("PStunUntil", F), ("bPStunned", "bool"), ("PDisarmUntil", F), ("PDisarmAmt", F), ("PLockUntil", F),
-         ("bAStunned", "bool"), ("APen", F)],
+         ("bAStunned", "bool"), ("APen", F), ("PTMul", F)],
     AL: [("NpcTalents", F, ARR), ("NpcTactics", F, ARR)],
 }
 S, I, B = ("Seconds", F), ("I", "int"), ("bFall", "bool")
@@ -60,11 +61,13 @@ FUNCTIONS = {
           "EffBelt": [("K", "int")], "TalentEffect": [("K", "int")], "TalentEffect2": [("K", "int")],
           "DoTalent": [], "SayTalent": [], "CombatRound": []},
     PM: {"StunPlayer": [S, B], "DisarmPlayer": [S], "LockPlayer": [S], "PlayerRecover": [],
-         "AttackerState": [("Attacker", ACTOR)], "NpcAttackerState": [("Attacker", ACTOR)], "StrikeNpcGo": STRIKE},
+         "AttackerState": [("Attacker", ACTOR)], "NpcAttackerState": [("Attacker", ACTOR)], "StrikeNpcGo": STRIKE,
+         "StrikeOnce": [], "PlayerPummel": [], "PummelStun": []},
 }
 GRAPHS = [
     (PM, ["StunPlayer", "DisarmPlayer", "LockPlayer", "PlayerRecover", "NpcAttackerState", "AttackerState",
-          "StrikeNpcGo", "StrikeNpc", "StrikePlayer", "UseTalent", "StaminaTick"]),
+          "StrikeNpcGo", "StrikeNpc", "StrikePlayer", "UseTalent", "StaminaTick", "SetPlayerTalentStats",
+          "PlayerStrike", "StrikeOnce", "PummelStun", "PlayerPummel", "StrikeTalent"]),
     (NPC, ["SetStatus", "CopyTalent", "CopyTactic", "ClearSlots", "SetNpcTactics", "SetNpcTalents", "NAddOwn",
            "NSumOwn", "ReadFoe", "TacticCond", "FindOne", "UsableCheck", "TacticUsable", "TacticAct", "TacticRow",
            "ChooseTactic", "HitNpcFoe", "HitFoe", "StrikeFoe", "KnockFor", "Knock", "Recover", "Disarm",

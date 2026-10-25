@@ -508,12 +508,12 @@ def cut(args):
 # talents: the game's install and the rebalance mod's tables, for the test's talent rows (daotools.abilities)
 GAME_DIR = "E:/Steam/steamapps/common/Dragon Age Ultimate Edition"
 MOD_TABLES = os.path.join(game.ROOT, "extracted", "mods", "da_reborn", "erf")
-TEST_TALENTS = (19, 603, 617, 3026, 20, 3041)  # Precise Striking, Dirty Fighting, Shield Bash, Below the Belt...
+TEST_TALENTS = (19, 603, 617, 1, 20, 3041)  # Precise Striking, Dirty Fighting, Shield Bash, Shield Pummel...
 STATE = ("PStamina", "PPool", "PFatigue", "OwnAtk", "OwnPen", "OwnCrit", "PInterval", "PlayerHealth", "TalentText")
 
 
 def talents(args):
-    """Play: the player gets six talents (keys 1-6: Precise Striking, Dirty Fighting, Shield Bash, Below the Belt,
+    """Play: the player gets six talents (keys 1-6: Precise Striking, Dirty Fighting, Shield Bash, Shield Pummel,
     Perfect Strike, Taunt; rows from daotools.abilities for the exported player), stands by a soldier woken at
     night (--tag) and uses them in turn through UseTalent: the stamina pool, costs, upkeep and cooldowns, the stun
     (the soldier's attacks stop until it ends), the knockdown, the buff, a refusal while cooling down. Pictures of
@@ -575,7 +575,7 @@ OUT["target"].update({k: round(OUT["target"][k] - OUT["now"], 2) for k in ("Stun
         step("2 again (cooling down)", 1)
         step("3 Shield Bash", 2)
         run.shot("shield_bash")
-        step("4 Below the Belt", 3)
+        step("4 Shield Pummel", 3)
         step("6 Taunt", 5)
         step("1 Precise Striking off", 0)
         print("RESULT", json.dumps(steps, default=str)[:4000])
