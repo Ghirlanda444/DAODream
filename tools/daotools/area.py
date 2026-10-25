@@ -29,7 +29,7 @@ import hashlib
 import random
 from pathlib import Path
 
-from . import abilities, ambient
+from . import abilities, ambient, tactics
 
 FORMAT = "DAODream.Area 1"
 WALL_HEIGHT = 3.0  # m above the highest neighbouring floor
@@ -230,8 +230,10 @@ def rules(st: dict) -> list[float]:
 
 
 # NpcStatus, per creature: level, effect duration scale, percent it resists the player's knockdown, the threat
-# it draws when seen (threat.seen_threat), 1 for a rogue (less threat from its damage)
-STATUS = ("Level", "DurationScale", "Resist", "SeenThreat", "Rogue")
+# it draws when seen (threat.seen_threat), 1 for a rogue (less threat from its damage), stamina, fatigue
+# (percent more for each talent), its shield's damage min and max (Shield Pummel)
+STATUS = ("Level", "DurationScale", "Resist", "SeenThreat", "Rogue", "Stamina", "Fatigue", "OffhandMin",
+          "OffhandMax")
 
 
 def player_stats(player: dict) -> list[float]:
@@ -793,6 +795,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     npc_outfit, npc_chest, npc_helmet, npc_armour, npc_shield, npc_rules = [], [], [], [], [], []
     npc_interval = []
     npc_status = []
+    npc_talents = []
+    npc_tactics = []
     npc_ambient, npc_ambient_prefix = [], []
     creatures = list(are_root.get("CreatureList") or [])
     waypoints = {w.get("Tag"): w for w in are_root.get("WaypointList") or []}
@@ -854,7 +858,10 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
             npc_shield.append(st.get("ShieldDefense", 0.0))
             npc_rules.extend(rules(st))
             npc_interval.append(st.get("Interval", 2.0))
-            npc_status.extend(st.get("Status") or [1.0, 1.0, 0.0, 15.0, 0.0])
+            npc_status.extend(st.get("Status") or [1.0, 1.0, 0.0, 15.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+            rows = [x for r in st.get("TalentRows", []) for x in r]
+            npc_talents.extend(rows + [0.0] * (len(abilities.TALENT_FIELDS) * tactics.MAX_TALENTS - len(rows)))
+            npc_tactics.extend(tactics.flat_rows(st.get("Tactics")))
         chest = npc_chest[-1] if creature_stats is not None else ""
         coat = mabari_coat(str(c.get("TemplateResRef", "")), key)
         beast = beast_look(str(c.get("TemplateResRef", "")))
@@ -976,6 +983,10 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcInterval": npc_interval,
         # Per creature, STATUS floats (abilities.effect_duration, resist_chance, threat.seen_threat).
         "NpcStatus": npc_status,
+        # Per creature, tactics.MAX_TALENTS talents (abilities.TALENT_FIELDS each, zeros when fewer) and its tactics
+        # table, tactics.MAX_TACTICS rows of tactics.FIELDS (chance 0 when fewer).
+        "NpcTalents": npc_talents,
+        "NpcTactics": npc_tactics,
         # Per creature, VARIETY floats: skin, hair and clothes dye for crowd looks (variety), a mabari's coat.
         "NpcVariety": npc_variety,
         "Player": player or {},

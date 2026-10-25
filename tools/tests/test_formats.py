@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from daotools import abilities, ambient, area, balance, cnv, cutscene, fields as F, fsb, kit, mfdecode, plo, plotlogic, simulate, stats, threat, toolset, unreal
+from daotools import abilities, ambient, area, balance, cnv, cutscene, fields as F, fsb, kit, mfdecode, plo, plotlogic, simulate, stats, tactics, threat, toolset, unreal
 from daotools.cli import main
 from daotools.erf import ERF, ERFError, is_erf
 from daotools.gda import GDA, column_hash
@@ -947,7 +947,7 @@ class AbilityTests(unittest.TestCase):
         # Tricks of the Trade by the highest attribute: dexterity's is too small to export
         self.assertEqual(abilities.tricks({"Str": 11.0, "Dex": 12.0, "Int": 14.0}, 60.0), {"Attack": 12.0})
         self.assertEqual(abilities.tricks({"Str": 18.0, "Dex": 15.0, "Int": 11.0}, 60.0), {"AttackSpeed": 20.0})
-        self.assertEqual(abilities.talent_row(40003, t[40003], st)[8:], [0.0, 0.0, 0.0, 0.0])
+        self.assertEqual(abilities.talent_row(40003, t[40003], st)[8:], [0.0] * 7 + [1.0])
 
 
 class ThreatTests(unittest.TestCase):
@@ -997,6 +997,52 @@ class ThreatTests(unittest.TestCase):
         self.assertAlmostEqual(kept, 0.9, delta=0.02)
         kept = sum(threat.keep_wounded(0.15, rng) for _ in range(4000)) / 4000
         self.assertAlmostEqual(kept, 0.5, delta=0.03)
+
+
+class TacticsTests(unittest.TestCase):
+    TABLES = {"packages": {42: {"LevelsPerAbility": 2.0, "Ability1": 3074, "Ability2": 19, "Ability3": 1,
+                                "Ability4": 14, "Ability5": 0},
+                           53: {"LevelsPerAbility": 1.8, "Ability1": 100075, "Ability2": 6, "Ability3": 3026}}}
+    # aip_two_handed's rows: stamina under 25% jumps past Indomitable; Pommel Strike a quarter of the time
+    KNIGHT = [{"Target": 1, "Base": 14, "Param": -25.0, "Command": 10, "Sub": 3, "Chance": 100.0},
+              {"Target": 1, "Base": 16, "Param": 0.0, "Command": 5, "Sub": 28, "Chance": 25.0},
+              {"Target": 7, "Base": 18, "Param": 2.0, "Command": 4, "Sub": 4, "Chance": 20.0},
+              {"Target": 7, "Base": 16, "Param": 0.0, "Command": 4, "Sub": 3024, "Chance": 25.0}]
+
+    def test_package_talents(self):
+        # level / LevelsPerAbility + 1, +2 at 1 or more: three at level 1, four at level 2
+        self.assertEqual(tactics.package_talents(self.TABLES, 42, 1), [3074, 19, 1])
+        self.assertEqual(tactics.package_talents(self.TABLES, 42, 2), [3074, 19, 1, 14])
+        self.assertEqual(tactics.package_talents(self.TABLES, 42, 9), [3074, 19, 1, 14])  # stops at an empty slot
+        self.assertEqual(tactics.package_talents(self.TABLES, 53, 1), [100075, 6, 3026])
+
+    def test_conditions(self):
+        self.assertTrue(tactics.level_holds(20.0, -25.0))
+        self.assertFalse(tactics.level_holds(30.0, -25.0))
+        self.assertTrue(tactics.level_holds(75.0, 75.0))
+        row = {"Base": 22, "Param": 1.0}
+        self.assertTrue(tactics.condition_holds(row, {"AttackedInMelee": True}, {}))
+        self.assertFalse(tactics.condition_holds({"Base": 22, "Param": 2.0}, {"AttackedInMelee": True}, {}))
+        self.assertFalse(tactics.condition_holds({"Base": 18, "Param": 2.0}, {}, {}))  # armour type: not handled
+
+    def test_choose(self):
+        rng = random.Random(5)
+        full, low = {"Health": 100.0, "Stamina": 100.0}, {"Health": 100.0, "Stamina": 10.0}
+        foe = {"Health": 100.0, "Stamina": 100.0}
+        everything = lambda ability, mode: True
+        picks = [tactics.choose(self.KNIGHT, full, foe, everything, rng) for _ in range(4000)]
+        indomitable = sum(p == (5, 28) for p in picks) / 4000
+        pommel = sum(p == (4, 3024) for p in picks) / 4000
+        self.assertAlmostEqual(indomitable, 0.25, delta=0.03)
+        self.assertAlmostEqual(pommel, 0.75 * 0.25, delta=0.03)
+        # low on stamina: the jump skips Indomitable
+        picks = [tactics.choose(self.KNIGHT, low, foe, everything, rng) for _ in range(2000)]
+        self.assertFalse(any(p == (5, 28) for p in picks))
+        # nothing usable: attack
+        self.assertEqual(tactics.choose(self.KNIGHT, full, foe, lambda a, m: False, rng), (tactics.ATTACK, 0))
+        flat = tactics.flat_rows(self.KNIGHT)
+        self.assertEqual(len(flat), tactics.MAX_TACTICS * len(tactics.FIELDS))
+        self.assertEqual(flat[:6], [1.0, 14.0, -25.0, 10.0, 3.0, 100.0])
 
 
 class SimulateTests(unittest.TestCase):
@@ -1059,9 +1105,9 @@ class SimulateTests(unittest.TestCase):
 
     def test_talents(self):
         # The player with Precise Striking, Dirty Fighting and Shield Bash (TALENT_FIELDS rows) and 105 stamina.
-        rows = [[19, 2, 0, 15, 40, 5, 0, 0, 5, 0, 0.1, 3],
-                [603, 4, 25, 25, 0, 0, 0, 4, 0, 0, 0, 0],
-                [617, 4, 25, 20, 0, 0, 10, 3.43, 0, 0, 0, 0]]
+        rows = [[19, 2, 0, 15, 40, 5, 0, 0, 5, 0, 0.1, 3, 0, 0, 0, 1],
+                [603, 4, 25, 25, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 1],
+                [617, 4, 25, 20, 0, 0, 10, 3.43, 0, 0, 0, 0, 0, 0, 0, 1]]
         area = dict(self.AREA, PlayerStats=self.AREA["PlayerStats"][:11] + [105.0, 1.9, 3.5, 1.0, 0.0, 0.0, 2.0, 4.0],
                     PlayerTalents=[x for r in rows for x in r], NpcStatus=[2.0, 1.0, 0.0] + [1.0, 1.5, 0.0] * 5)
         ours, foes = simulate.fighters(area, [], ["rat_1"])
@@ -1120,7 +1166,7 @@ class SimulateTests(unittest.TestCase):
             f.threat.change(m, m.seen, 0.0, rng)
         self.assertIs(f.threat.target, ours[1])
         # Taunt: the player's row, used because a foe is on someone else
-        taunt = dict(zip(abilities.TALENT_FIELDS, [3041, 4, 40, 20, 0, 0, 0, 0, 0, 0, 0, 0]))
+        taunt = dict(zip(abilities.TALENT_FIELDS, [3041, 4, 40, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]))
         ours[0].talents = [taunt]
         used = simulate.use_talent(rng, ours[0], f, 0.0, 2, 0.0, foes=[f])
         self.assertEqual((used[0], f.threat.target, f.threat.table[ours[0]]), (True, ours[0], 330.0))
@@ -1128,6 +1174,40 @@ class SimulateTests(unittest.TestCase):
         # no threat: the prototype's rule
         r = simulate.simulate(area, ["knight"], ["rat_*"], runs=50, use_threat=False)
         self.assertEqual(r["Won"], 1.0)
+
+
+    def test_foe_talents(self):
+        # a rat that only Shield Pummels (always, 4 s stun): the player is stunned and struck three times
+        rows = [1, 4, 30, 20, 0, 0, 10, 4.0, 0, 0, 0, 0, 0, 0, 0, 1.1]
+        tac = [7, 16, 0, 4, 1, 100] + [0.0] * 66
+        area = dict(self.AREA, NpcStatus=[1.0, 1.0, 0.0, 25.0, 0.0, 0.0, 0.0, 0.0, 0.0] +
+                    [1.0, 1.5, 0.0, 15.0, 0.0, 50.0, 0.0, 3.0, 4.0] * 5,
+                    NpcTalents=[0.0] * 96 + (rows + [0.0] * 80) * 5, NpcTactics=[0.0] * 72 + tac * 5)
+        ours, foes = simulate.fighters(area, [], ["rat_1"])
+        p, rat = ours[0], foes[0]
+        self.assertEqual((rat.stamina, rat.offhand, len(rat.talents), len(rat.tactics)), (50.0, (3.0, 4.0), 1, 1))
+        rng = random.Random(7)
+        used, damage, crit = simulate.foe_turn(rng, rat, p, 1.0, [rat], ours, 0.0)
+        self.assertTrue(used)
+        self.assertEqual((rat.stamina, p.disabled), (20.0, 5.0))  # 30 stamina; a party member's stun is not lengthened
+        self.assertGreater(damage, 0)  # the two shield blows always land
+        # the next round it cannot pay: it attacks
+        self.assertEqual(simulate.foe_turn(rng, rat, p, 2.0, [rat], ours, 0.0)[0], False)
+        # Sunder Weapon disarms, Critical Strike kills at 25% health
+        sunder = dict(zip(abilities.TALENT_FIELDS, [3025, 4, 25, 20, 0, 0, 0, 6.0] + [0.0] * 7 + [0.6]))
+        rat.stamina = 50.0
+        for _ in range(20):
+            simulate.perform(rng, rat, p, sunder, 3.0, 1)
+            if p.disarm[0]:
+                break
+        self.assertEqual(p.disarm, (9.0, p.attack))
+        execute = dict(zip(abilities.TALENT_FIELDS, [3, 4, 0, 45, 0, 0, 0, 0] + [0.0] * 7 + [1.0]))
+        p.health = p.max_health * 0.2
+        for _ in range(20):
+            damage, _ = simulate.perform(rng, rat, p, execute, 4.0, 1)
+            if damage:
+                break
+        self.assertAlmostEqual(damage, p.max_health * 0.2 + 1.0)
 
 
 class AmbientTests(unittest.TestCase):

@@ -26,6 +26,10 @@ WARRIOR = (14, 808, 17, 3021, 19, 3041, 3016, 20)  # Powerful .. Perfect Strike
 ROGUE = (603, 21, 3002, 3023, 3026, 40003, 777, 3069)  # Dirty Fighting .. Evasion
 SHIELD_BASH = 617
 STAGE = WARRIOR + ROGUE + (SHIELD_BASH,)
+# The talents Howe's men have at night (their packages' first abilities; tactics.package_talents) and use in melee:
+# Shield Pummel, Sunder Weapon, Sunder Armor, Critical Strike, Pommel Strike, Indomitable, Shield Block (no numbers
+# of its own).
+ENEMY = (1, 3025, 4, 3, 3024, 28, 3074)
 SUSTAINED, PASSIVE, ACTIVATED = 2, 3, 4  # abi_base usetype
 CHARGEN_TALENT_POINTS = 2  # sys_chargen_h: PROPERTY_SIMPLE_TALENT_POINTS
 # Creature properties (properties.gda) the passive and scripted effects change, by name.
@@ -65,16 +69,35 @@ EFFECTS = {
     40003: {"Tricks": True, "Duration": 10.0},  # Tricks of the Trade (Reborn): by the highest attribute, tricks()
     19: {"Self": {"Attack": 5.0, "AttackSpeed": 0.1, "Crit": 2.5, "RangedCrit": 2.5},
          "CritPerLevel": 0.5},  # Precise Striking: Reborn halves the attack bonus
-    3023: {"DisableTalents": True, "RegenHealth": 0.04},  # Feign Death; foes forgetting its user: stage 4
+    3023: {"DisableTalents": True, "RegenHealth": 0.04},  # Feign Death; foes forget its user (threat.py)
+    # The enemies' (stage 4): Howe's men at night (packages 42, 43, 49, 53; stage 2b for the player)
+    1: {"AttackBonus": 10.0, "Damage": True, "Hits": 3, "Stun": 4.0, "Resist": "Str",
+        "StrengthDamage": 0.01},  # Shield Pummel: the weapon at +10, then two shield blows that always land, each
+    #   x (1 + 1% a point of strength above 10); the third stuns 4 s (SHIELD_PUMMEL_DURATION) unless resisted
+    3025: {"Damage": True, "Hits": 2, "DamageMul": 0.6, "Duration": 6.0, "Resist": "Str",
+           "Disarm": True},  # Sunder Weapon (Reborn): two blows at 60%; the second, unless resisted, takes the
+    #   target's whole attack rating away for 6 s (SUNDER_WEAPON_DURATION, 10 in the game)
+    3: {"Damage": True, "Execute": 0.25},  # Critical Strike (Reborn): a hit kills a non-boss target at 25% health
+    #   or less (CRITICAL_STRIKE_DEATHBLOW_PERCENTAGE, 0.2 in the game), x1.5 damage on a boss there
+    4: {"Damage": True, "Hits": 2, "DamageMul": 0.7, "Duration": 10.0, "Resist": "Str",
+        "ArmourChange": 0.3},  # Sunder Armor (Reborn; its row is relabelled CRITICAL_STRIKE): two blows at 70%; the
+    #   second, unless resisted, changes the target's armour by +30% for 10 s (SUNDER_ARMOR_DURATION): the script
+    #   passes a positive amount to EffectDecreaseProperty, which applies it as given; ported as written
+    3024: {"Knockdown": True, "Resist": "Str"},  # Pommel Strike: no attack roll; knocked down unless resisted
+    28: {"Self": {"DamageScale": -0.3}, "Indomitable": True},  # Indomitable (Reborn): +30% armour, defense +0.6
+    #   a point of strength above 10, -30% damage dealt (and missile shield 10)
 }
 # The talents that take their target out of the fight for a while: a stun lasts its seconds rank-adjusted
 # (effect_duration), a knockdown as long as the engine's animations (no rank adjustment).
-DISABLES = {603: "Stun", 617: "Knockdown"}
+DISABLES = {603: "Stun", 617: "Knockdown", 1: "Stun", 3024: "Knockdown"}
 THREAT = (808, 3041, 3016, 3023)  # Threaten, Taunt, Disengage, Feign Death: their point is threat (stage 4)
 NAMES = {14: "Powerful", 808: "Threaten", 17: "Bravery", 3021: "Death Blow", 19: "Precise Striking", 3041: "Taunt",
          3016: "Disengage", 20: "Perfect Strike", 603: "Dirty Fighting", 21: "Combat Movement",
          3002: "Coup de Grace", 3023: "Feign Death", 3026: "Below the Belt", 40003: "Tricks of the Trade",
-         777: "Lethality", 3069: "Evasion", 617: "Shield Bash"}
+         777: "Lethality", 3069: "Evasion", 617: "Shield Bash", 1: "Shield Pummel", 3025: "Sunder Weapon",
+         3: "Critical Strike", 4: "Sunder Armor", 3024: "Pommel Strike", 28: "Indomitable", 3074: "Shield Block", 500: "Aim",
+         33: "Defensive Fire", 803: "Pinning Shot", 3072: "Shattering Shot", 100075: "Stealth",
+         6: "Dual Weapon Training"}
 BRAVERY, DEATH_BLOW, EVASION = 17, 3021, 3069
 # A human knocked down (Shield Bash) is out of the fight while the engine plays the fall (mh_c.rct_kbck: 1.2 and
 # 1.37 s; which one, or how the engine blends it, is not in the data), lies for the effect's RandomFloat() seconds
@@ -99,7 +122,7 @@ def passive_properties(row: dict) -> dict[str, float]:
     return out
 
 
-def talents(tables: dict, ids: tuple[int, ...] = STAGE) -> dict[int, dict]:
+def talents(tables: dict, ids: tuple[int, ...] = STAGE + ENEMY) -> dict[int, dict]:
     """Each talent's table row, read: Name, Use (SUSTAINED, PASSIVE, ACTIVATED), Cost, Cooldown, Upkeep, Fatigue,
     Prereq (ability), Level, Attribute (1 strength, 2 dexterity...) and Value it needs, Passive {property: value},
     Effect (EFFECTS)."""
@@ -212,15 +235,16 @@ def with_passives(st: dict, known: list[int], table: dict[int, dict], player_cla
 # Per talent the player can use, flat for Blueprint (area export PlayerTalents, TALENT_FIELDS floats each):
 # its id, use, stamina cost and upkeep, cooldown, fatigue while sustained, the attack bonus of its attack roll,
 # its seconds (stun, knockdown, or how long the debuff or buff lasts), and what it adds to its user while it
-# lasts: attack, armour penetration, attack speed modifier, critical chance.
+# lasts: attack, armour penetration, attack speed modifier, critical chance, defense, armour, damage scale; and
+# its damage multiplier (Shield Pummel's strength bonus, Sunder Weapon's 60%).
 TALENT_FIELDS = ("Id", "Use", "Cost", "Cooldown", "Upkeep", "Fatigue", "AttackBonus", "Seconds", "Attack",
-                 "Penetration", "Speed", "Crit")
+                 "Penetration", "Speed", "Crit", "Defense", "Armour", "DamageScale", "DamageMul")
 
 
 def talent_row(i: int, talent: dict, player: dict) -> list[float]:
-    """A talent as TALENT_FIELDS for `player` (stats.stats): its level sets Precise Striking's critical bonus,
-    its attributes pick Tricks of the Trade's (tricks: the dexterity one, a fiftieth of a percent of critical
-    damage, is left out)."""
+    """A talent as TALENT_FIELDS for `player` (stats.stats; a creature's too): its level sets Precise Striking's
+    critical bonus, its attributes pick Tricks of the Trade's (tricks: the dexterity one, a fiftieth of a percent
+    of critical damage, is left out), its strength and armour Indomitable's and Shield Pummel's."""
     e = talent["Effect"]
     own = dict(e.get("Self") or {})
     if e.get("Tricks"):
@@ -228,9 +252,15 @@ def talent_row(i: int, talent: dict, player: dict) -> list[float]:
                if k != "CritDamage"}
     crit = own.get("Crit", 0.0) + e.get("CritPerLevel", 0.0) * float(player.get("Level") or 1)
     seconds = e.get("Stun") or (KNOCKDOWN_SECONDS if e.get("Knockdown") else 0.0) or e.get("Duration", 0.0)
+    strength = float((player.get("Attributes") or {}).get("Str", stats.BASE_ATTRIBUTE))
+    if e.get("Indomitable"):  # from the user's strength and armour
+        own["Defense"] = round((strength - stats.BASE_ATTRIBUTE) * 0.6, 3)
+        own["Armour"] = round(float(player.get("Armour") or 0.0) * 0.3, 3)
+    mul = e.get("DamageMul", 1.0) * (1.0 + e.get("StrengthDamage", 0.0) * (strength - stats.BASE_ATTRIBUTE))
     return [float(i), float(talent["Use"]), talent["Cost"], talent["Cooldown"], talent["Upkeep"], talent["Fatigue"],
             float(e.get("AttackBonus", 0.0)), float(seconds), own.get("Attack", 0.0), own.get("Penetration", 0.0),
-            own.get("Speed", own.get("AttackSpeed", 0.0)), round(crit, 3)]
+            own.get("Speed", own.get("AttackSpeed", 0.0)), round(crit, 3), own.get("Defense", 0.0),
+            own.get("Armour", 0.0), own.get("DamageScale", 0.0), round(mul, 3)]
 
 
 def known_talents(tables: dict, player_class: int, choice: str, shield: bool) -> list[int]:

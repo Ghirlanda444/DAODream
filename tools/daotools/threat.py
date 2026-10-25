@@ -40,7 +40,7 @@ DISENGAGE = -100.0  # DISENGAGE_THREAT_DECREASE
 AREA = 10.0  # m: Taunt's and Disengage's aoe_param1, the radius around the user
 # Reborn's ability_core adds each talent's abi_base threat_impact to its target (to all in the area for Taunt and
 # Disengage); talents aimed at their user (Perfect Strike, Threaten...) add none.
-IMPACT = {3041: 10.0, 3016: 1.0, 603: 2.0, 617: 2.0, 3026: 1.0, 1: 2.0, 4: 3.0, 3024: 2.0, 3025: 2.0}
+IMPACT = {3041: 10.0, 3016: 1.0, 603: 2.0, 617: 2.0, 3026: 1.0, 1: 2.0, 3: 8.0, 4: 3.0, 3024: 2.0, 3025: 2.0}
 # What a talent adds besides: Taunt also clears the switch timer.
 SCRIPTED = {3041: TAUNT, 3016: DISENGAGE}
 

@@ -30,7 +30,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import abilities, ambient, area, balance, cnv, cutscene, fsb, gda, kit, mfdecode, origin, plo, plotlogic, simulate, stats, threat, toolset, unreal
+from . import abilities, ambient, area, balance, cnv, cutscene, fsb, gda, kit, mfdecode, origin, plo, plotlogic, simulate, stats, tactics, threat, toolset, unreal
 from .erf import ERF, ERFError, is_erf
 from .gda import GDA
 from .fields import NAMES
@@ -416,6 +416,8 @@ def cmd_unreal_area(args) -> int:
         templates = area.creature_templates(args.pull)
         appearance = lambda utc: int((utc.get("Appearance Data") or {}).get("Appearance_Type") or 0)
         anims = stats.attack_anims(args.game, tables, {appearance(u) for u in templates.values()})
+        ai_tables = tactics.load_tables(args.game)
+        table = abilities.talents(tables)
 
         def chest_label(equip):
             """The itemstats label of the chest piece worn ("Armor - Light"...), for the threat it draws."""
@@ -439,7 +441,19 @@ def cmd_unreal_area(args) -> int:
                                                     level_difference=player["Level"] - st["Level"]),
                             threat.seen_threat(chest_label(worn)), 1.0 if st.get("Class") == "Rogue" else 0.0]
             numbers = stats.equipment(equip, items, tables)
-            return {**st, **numbers, "Outfit": stats.equipment(worn, items, tables)["Outfit"]}
+            st = {**st, **numbers, "Outfit": stats.equipment(worn, items, tables)["Outfit"]}
+            # its package's talents at its level (passives folded in) and its tactics table (stage 4)
+            known = tactics.package_talents(ai_tables, int(utc.get("Package") or 0), int(st["Level"]))
+            st = abilities.with_passives(st, known, table, stats.CLASS_ROGUE if st.get("Class") == "Rogue" else 1)
+            st["TalentRows"] = [abilities.talent_row(i, table[i], st) for i in known
+                                if i in table and table[i]["Use"] != abilities.PASSIVE][:tactics.MAX_TALENTS]
+            st["Tactics"] = ai_tables["tactics"].get(int(utc.get("PackageAI") or 0), [])
+            shield = int((items.get(st["Outfit"].get("shield", "")) or {}).get("BaseItem") or 0)
+            offhand = stats.stats(tables, package=int(utc.get("Package") or 0), rank=rank, area_level=args.area_level,
+                                  race=int(utc.get("Race") or 0) or None, base_item=shield)["Damage"] if shield \
+                else (0.0, 0.0)
+            st["Status"] += [st.get("Stamina", 0.0), st.get("Fatigue", 0.0), *offhand]
+            return st
 
         # The Human Noble starts as a level 1 human warrior (background_defaults row 3105: its template's
         # equipment), with a longsword (base item 2) when the template is not given.
@@ -447,7 +461,6 @@ def cmd_unreal_area(args) -> int:
                  if args.player_template else [])
         cls = stats.CLASS_ROGUE if args.player_class == "rogue" else 1
         gear = stats.equipment(equip, items, tables)
-        table = abilities.talents(tables)
         known = abilities.known_talents(tables, cls, args.talents, "shield" in gear["Outfit"])
         player = stats.stats(tables, package=0, rank=stats.RANK_PLAYER, area_level=args.area_level, race=3,
                              base_item=stats.weapon_base_item(equip, items, tables["itemstats"]) or 2, player_class=cls,
