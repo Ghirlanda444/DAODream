@@ -5,5 +5,5 @@
       (Funzionedichiamata|FoeStep :Dt Dt))
     (:else
       (Variabili|Predefinito|ImpostaFoeTimer 0.5)
-      (Classe|BPPlotManager|PickFoe (Variabili|Predefinito|OttieniMgr) :Hostile (Variabili|Ottieniunriferimentoasestesso))
+      (Funzionedichiamata|ThreatPick)
       (Funzionedichiamata|FoeStep :Dt Dt))))

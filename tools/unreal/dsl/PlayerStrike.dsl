@@ -1,4 +1,5 @@
 (fn PlayerStrike (Target Def Armour)
+  (Funzionedichiamata|EndFeign)
   (Funzionedichiamata|Bravery)
   (Variabili|Predefinito|ImpostaBackstab (Matematica|Booleano|ANDBoolean (Variabili|Predefinito|OttieniRogue) (Utility|Operatori|Uguale(==) (Variabili|Predefinito|OttieniTBonus) 0.0)))
   (Variabili|Predefinito|ImpostaStunStab (Matematica|Booleano|ANDBoolean (Matematica|Booleano|ANDBoolean (Variabili|Predefinito|OttieniRogue) (Utility|Operatori|Uguale(==) (Variabili|Predefinito|OttieniTBonus) 0.0)) (Matematica|Booleano|ANDBoolean (Utilità|Array|ContainsItem (Variabili|Predefinito|OttieniPassives) 3002.0) (Utility|Operatori|Maggiore(>) (Classe|BPDlgNPC|OttieniStunUntil Target) (Utilità|Testo|GetGameTimeinSeconds)))))

@@ -2,7 +2,8 @@
   (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ORBoolean (Utility|Operatori|Uguale(==) (Variabili|Predefinito|OttieniTId) 3041.0) (Utility|Operatori|Uguale(==) (Variabili|Predefinito|OttieniTId) 3016.0))
     (:then
       (Funzionedichiamata|PayTalent)
-      (Funzionedichiamata|AfterTalent :Txt (Utilità|Stringa|Append (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniTalentNames) (Variabili|Predefinito|OttieniTSlot)) ": its threat comes with stage 4")))
+      (Funzionedichiamata|AreaThreat :Amount (Matematica|Float|SelectFloat 310.0 -99.0 (Utility|Operatori|Uguale(==) (Variabili|Predefinito|OttieniTId) 3041.0)) :bTaunt (Utility|Operatori|Uguale(==) (Variabili|Predefinito|OttieniTId) 3041.0))
+      (Funzionedichiamata|AfterTalent :Txt (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniTalentNames) (Variabili|Predefinito|OttieniTSlot))))
     (:else
       (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ANDBoolean (Utility|Operatori|Uguale(==) (Variabili|Predefinito|OttieniTAtkBonus) 0.0) (Matematica|Booleano|NOTBoolean (Utility|Operatori|Uguale(==) (Variabili|Predefinito|OttieniTId) 603.0)))
         (:then

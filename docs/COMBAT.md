@@ -397,6 +397,64 @@ for the shield's 2-4 damage and a knockdown, and Precise Striking takes a turn
 to start and slows every swing by a tenth for +5 attack. In the larder the rats
 die to one blow, so talents change nothing there.
 
+## Threat
+
+Stage 4 (`tools/daotools/threat.py`, `tools/unreal/threat.py`): hostiles
+pick whom to fight as the game's `ai_threat_h` does, with Dragon Age Reborn's
+changes. Every hostile keeps a threat value per enemy it knows and fights the
+one it hates most:
+
+- **Seen** (`AI_Threat_UpdateEnemyAppeared`): 10, +5 for light armour or +10
+  for medium, heavy or massive, +5 for a melee weapon (the script tests the
+  chest piece against the bows, so everyone gets it below nightmare). The
+  Human Noble warrior draws 20, the mabari and the Teyrna 15, a soldier in
+  heavy armour 25. The export writes it (`NpcStatus` 4th field,
+  `PlayerStats[19]`).
+- **Damage** (`AI_Threat_UpdateDamage`): the damage as a percentage of the
+  hostile's own max health; x0.8 from a rogue, x2 while the attacker sustains
+  Threaten (x3 with Frightening, Reborn). Being attacked at all gives at least 1.
+- **Talents**: Reborn adds each talent's `threat_impact` to its target (Dirty
+  Fighting and Shield Bash 2, Below the Belt 1); Taunt +300 more and lets the
+  hostile switch at once, Disengage -100, both on every hostile within 10 m.
+  Feign Death turns stealth on, so hostiles stop perceiving the user and forget
+  it (`AI_Threat_UpdateEnemyDisappeared`).
+- **Clamps** (`AI_Threat_UpdateCreatureThreat`): a gain is at least 1, no
+  change takes threat to 0 or below (1 is the floor), and 1000 is the most.
+- **Switching**: the first target is the most hated; later the most hated takes
+  over only once the switch timer allows (seconds since the last switch at
+  least the timer, which grows by 5 a switch and goes back to 0 past 25;
+  ranged attackers may always switch) or the target is down, unless the enemy
+  whose threat just changed is at 20% health or less (kept half the time) or
+  10% or less (9 times in 10).
+
+The engine keeps the tables; a threat decay (`AI_THREAT_DISSOLVE`, -0.5 a
+second) is declared in the script but used nowhere in it, so it is left out.
+
+In Unreal each hostile `BP_DlgNPC` holds `ThreatWho` and `ThreatVal`; every
+0.5 s `ThreatPick` takes the place of `BP_PlotManager.PickFoe`, and
+`BP_PlotManager.StrikeNpc` reports every strike to the struck creature
+(`ThreatFromStrike`). Taunt, Disengage, Threaten and Feign Death now do what
+they do in the game: Feign Death hides the player, refuses other talents,
+brings back 4% of health a second in combat, and ends with the player's next
+attack or a second press (a sustained talent can now be switched off while its
+cooldown runs). Party members do not keep threat: in the game only hostiles do.
+
+Checked in Play (silent, `py playtest.py threat night`, 2026-10-25), two of
+Howe's soldiers against the player and the mabari: they saw the player at 20
+and the mabari at 15; the mabari's bites raised its threat and both soldiers
+switched to it after their 5 s wait; Taunt took the player to 330 and both came
+back; Feign Death took the player off both tables and they went for the mabari;
+after it ended they saw the player again (20), and Disengage brought that down
+to the floor of 1. No script errors.
+
+The simulator follows the same rules (`--no-threat` brings back the old random
+pick): a foe coming into the fight sees the standing party, and the simulated
+player uses Taunt when a foe is on someone else and Disengage when two are on
+it. With threat every soldier goes for the player first (20 against 15), so the
+player no longer flanks and falls first: the night's first fight still wins
+every time; five soldiers at once beat the level 1 party with or without
+threat (2% against 13% won).
+
 ## Balance simulator
 
 `tools/daotools/simulate.py` fights the party against foes many times over without Unreal, with the same
@@ -605,9 +663,8 @@ Movers still don't push against each other or the player.
 
 ## Not there yet
 
-Party members' talents (tactics); spells; real-time with pause and tactics;
-threat (Taunt, Threaten, Disengage and Feign Death cost stamina but do nothing
-else yet)
+Enemies' talents (next); ranged attacks (the night's 15 archers fight in
+melee); party members' talents (tactics); spells; real-time with pause
 (hostiles go for the nearest foe, not the one they hate most); allies outside
 the party (the castle's guards) cannot be struck yet; injuries; switching to a
 party member; proper animations (the attack is a generic punch, the fall and

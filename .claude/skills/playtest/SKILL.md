@@ -30,6 +30,9 @@ Compile success, a read-back graph or a variable value are not enough.
     editor call (a call takes seconds of game time): stamina spent, upkeep, buffs, stun, knockdown, slow,
     refusals on cooldown or without stamina. The soldier is topped up with `TakeHit(-600)` so the mabari
     does not finish it first.
+  - `py playtest.py threat night`: Play, two soldiers woken by the player and the mabari; prints each
+    soldier's target and threat table at the start, while fighting, after Threaten, Taunt, Feign Death
+    on and off, and Disengage. Player and soldiers are topped up so nobody falls.
   - `py playtest.py party day --wipe`: Play, Gilmore and the mabari join against six larder rats; the
     player is dropped, the test wins the fight and checks everyone gets up, then knocks all out (game
     over). Winning starts Gilmore's end-of-fight conversation, as the castle's script does.

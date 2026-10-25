@@ -1,0 +1,2 @@
+(fn ImpactThreat ()
+  (Classe|BPDlgNPC|AddThreat (Variabili|Predefinito|OttieniBestTarget) :Who (Gioco|GetPlayerPawn 0) :Amount (Matematica|Float|SelectFloat 2.0 (Matematica|Float|SelectFloat 1.0 0.0 (Utility|Operatori|Uguale(==) (Variabili|Predefinito|OttieniTId) 3026.0)) (Matematica|Booleano|ORBoolean (Utility|Operatori|Uguale(==) (Variabili|Predefinito|OttieniTId) 603.0) (Utility|Operatori|Uguale(==) (Variabili|Predefinito|OttieniTId) 617.0)))))

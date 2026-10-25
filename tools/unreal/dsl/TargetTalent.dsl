@@ -5,6 +5,7 @@
     (:then
       (Funzionedichiamata|PayTalent)
       (Funzionedichiamata|SwingAnim)
-      (Funzionedichiamata|HitTalent))
+      (Funzionedichiamata|HitTalent)
+      (Funzionedichiamata|ImpactThreat))
     (:else
       (Funzionedichiamata|ShowMsg :Txt "No target in reach"))))

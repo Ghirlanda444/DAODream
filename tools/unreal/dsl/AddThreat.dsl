@@ -1,0 +1,10 @@
+(fn AddThreat (Who Amount)
+  (Funzionedichiamata|WhoUp :Who Who)
+  (Utilità|ControlloDiFlusso|Ramo (Variabili|Predefinito|OttieniWhoOk)
+    (:then
+      (Funzionedichiamata|ThreatSlot :Who Who)
+      (Variabili|Predefinito|ImpostaTCur (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniThreatVal) (Variabili|Predefinito|OttieniTIdx)))
+      (Variabili|Predefinito|ImpostaTAmt Amount)
+      (Funzionedichiamata|ClampThreat)
+      (Utilità|Array|SetArrayElem (Variabili|Predefinito|OttieniThreatVal) (Variabili|Predefinito|OttieniTIdx) (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniTCur) (Variabili|Predefinito|OttieniTAmt)))
+      (Funzionedichiamata|Retarget :Changed Who))))

@@ -229,18 +229,21 @@ def rules(st: dict) -> list[float]:
     return [float(st.get(k, 0.0)) for k in RULES]
 
 
-STATUS = ("Level", "DurationScale", "Resist")  # NpcStatus, per creature
+# NpcStatus, per creature: level, effect duration scale, percent it resists the player's knockdown, the threat
+# it draws when seen (threat.seen_threat), 1 for a rogue (less threat from its damage)
+STATUS = ("Level", "DurationScale", "Resist", "SeenThreat", "Rogue")
 
 
 def player_stats(player: dict) -> list[float]:
     """PlayerStats, flat for Blueprint: health, attack, defense, damage min and max, the damage scaling
     threshold, then RULES, then stamina, seconds between attacks, fatigue (percent), level, displacement (percent
     of attacks that miss it outright: Evasion), 1 for a rogue (backstabs), and the shield's damage min and max
-    (Shield Bash)."""
+    (Shield Bash), and the threat it draws when seen (threat.seen_threat)."""
     return [player["Health"], player["Attack"], player["Defense"] + player.get("ShieldDefense", 0.0),
             *player["Damage"], player["DamageThreshold"], *rules(player), player.get("Stamina", 0.0),
             player.get("Interval", 2.0), player.get("Fatigue", 0.0), float(player.get("Level", 1)),
-            player.get("Displacement", 0.0), 1.0 if player.get("Rogue") else 0.0, *player.get("Offhand", (0.0, 0.0))]
+            player.get("Displacement", 0.0), 1.0 if player.get("Rogue") else 0.0, *player.get("Offhand", (0.0, 0.0)),
+            player.get("SeenThreat", 15.0)]
 
 
 def variety(key: str, chest: str) -> list[float]:
@@ -851,7 +854,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
             npc_shield.append(st.get("ShieldDefense", 0.0))
             npc_rules.extend(rules(st))
             npc_interval.append(st.get("Interval", 2.0))
-            npc_status.extend(st.get("Status") or [1.0, 1.0, 0.0])
+            npc_status.extend(st.get("Status") or [1.0, 1.0, 0.0, 15.0, 0.0])
         chest = npc_chest[-1] if creature_stats is not None else ""
         coat = mabari_coat(str(c.get("TemplateResRef", "")), key)
         beast = beast_look(str(c.get("TemplateResRef", "")))
@@ -971,8 +974,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcRules": npc_rules,
         # Per creature, seconds between attacks (stats.attack_interval: wield style and weapon, or animations).
         "NpcInterval": npc_interval,
-        # Per creature, STATUS floats: level, its rank's effect duration scale, percent it resists the player's
-        # knockdown (abilities.effect_duration, resist_chance).
+        # Per creature, STATUS floats (abilities.effect_duration, resist_chance, threat.seen_threat).
         "NpcStatus": npc_status,
         # Per creature, VARIETY floats: skin, hair and clothes dye for crowd looks (variety), a mabari's coat.
         "NpcVariety": npc_variety,

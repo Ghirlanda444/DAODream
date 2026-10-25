@@ -150,8 +150,10 @@ def setup(variables=None, functions=None, compile_all_after=True):
                 args["container_type"] = v[2]
             try:
                 if v[1].startswith("/"):
-                    call("add_object_variable", {"blueprint": {"refPath": bp}, "name": v[0],
-                                                 "object_class": {"refPath": v[1]}})
+                    obj = {"blueprint": {"refPath": bp}, "name": v[0], "object_class": {"refPath": v[1]}}
+                    if len(v) > 2:
+                        obj["container_type"] = v[2]
+                    call("add_object_variable", obj)
                 else:
                     call("add_variable", args)
             except RuntimeError as e:  # already there from an earlier run

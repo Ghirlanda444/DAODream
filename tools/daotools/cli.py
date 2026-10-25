@@ -30,7 +30,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import abilities, ambient, area, balance, cnv, cutscene, fsb, gda, kit, mfdecode, origin, plo, plotlogic, simulate, stats, toolset, unreal
+from . import abilities, ambient, area, balance, cnv, cutscene, fsb, gda, kit, mfdecode, origin, plo, plotlogic, simulate, stats, threat, toolset, unreal
 from .erf import ERF, ERFError, is_erf
 from .gda import GDA
 from .fields import NAMES
@@ -417,6 +417,11 @@ def cmd_unreal_area(args) -> int:
         appearance = lambda utc: int((utc.get("Appearance Data") or {}).get("Appearance_Type") or 0)
         anims = stats.attack_anims(args.game, tables, {appearance(u) for u in templates.values()})
 
+        def chest_label(equip):
+            """The itemstats label of the chest piece worn ("Armor - Light"...), for the threat it draws."""
+            ref = stats.equipment(equip, items, tables)["Outfit"].get("chest", "")
+            return str(tables["itemstats"].get(int((items.get(ref) or {}).get("BaseItem") or -1), {}).get("label") or "")
+
         def creature_stats(utc):
             # what it wears (the look) from its template; its natural bite and hide count for the numbers
             worn = utc.get("Equip_ItemList") or []
@@ -431,7 +436,8 @@ def cmd_unreal_area(args) -> int:
             rank = int(utc.get("Rank") or 0)
             st["Status"] = [float(st["Level"]), abilities.effect_duration(1.0, rank, tables, abilities.PARTY_SLOTS),
                             abilities.resist_chance(rank, tables, attribute=player["Attributes"]["Str"],
-                                                    level_difference=player["Level"] - st["Level"])]
+                                                    level_difference=player["Level"] - st["Level"]),
+                            threat.seen_threat(chest_label(worn)), 1.0 if st.get("Class") == "Rogue" else 0.0]
             numbers = stats.equipment(equip, items, tables)
             return {**st, **numbers, "Outfit": stats.equipment(worn, items, tables)["Outfit"]}
 
@@ -455,6 +461,7 @@ def cmd_unreal_area(args) -> int:
                                             race=3, base_item=shield, player_class=cls, hero=True)["Damage"]
         player = abilities.with_passives(player, known, table, cls)
         player["Rogue"] = cls == stats.CLASS_ROGUE
+        player["SeenThreat"] = threat.seen_threat(chest_label(equip))
         player["TalentRows"] = [abilities.talent_row(i, table[i], player) for i in known
                                 if i in table and table[i]["Use"] != abilities.PASSIVE]
         player["Passives"] = [i for i in known if i in table and table[i]["Use"] == abilities.PASSIVE]
@@ -520,7 +527,8 @@ def cmd_unreal_simulate(args) -> int:
     for path in args.area:
         a = json.loads(Path(path).read_text(encoding="utf-8"))
         sim = simulate.simulate(a, args.party, args.foes, runs=args.runs, seed=args.seed, wave=args.wave,
-                                flank=not args.no_flanking, slots=args.slots, talents=not args.no_talents)
+                                flank=not args.no_flanking, slots=args.slots, talents=not args.no_talents,
+                                use_threat=not args.no_threat)
         sim["File"] = Path(path).name
         print(simulate.report(sim, Path(path).name))
         out.append(sim)
@@ -705,6 +713,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--seed", type=int, default=1)
     s.add_argument("--no-flanking", action="store_true", help="never count an attacker as behind its target")
     s.add_argument("--no-talents", action="store_true", help="the player uses no talents (PlayerTalents ignored)")
+    s.add_argument("--no-threat", action="store_true", help="foes keep a random party member instead of threat")
     s.add_argument("--slots", type=int, default=simulate.SLOTS,
                    help="foes attacking the same party member at once (provisional default %d; 0: no limit)" % simulate.SLOTS)
     s.add_argument("--out", help="write the results (JSON) here")

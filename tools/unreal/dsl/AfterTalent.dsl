@@ -1,5 +1,6 @@
 (fn AfterTalent (Txt)
   (Funzionedichiamata|SumOwn)
+  (Funzionedichiamata|FeignChange)
   (Funzionedichiamata|ShowStamina)
   (Funzionedichiamata|ShowTalents)
   (Funzionedichiamata|ShowMsg :Txt Txt))

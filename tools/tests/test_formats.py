@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from daotools import abilities, ambient, area, balance, cnv, cutscene, fields as F, fsb, kit, mfdecode, plo, plotlogic, simulate, stats, toolset, unreal
+from daotools import abilities, ambient, area, balance, cnv, cutscene, fields as F, fsb, kit, mfdecode, plo, plotlogic, simulate, stats, threat, toolset, unreal
 from daotools.cli import main
 from daotools.erf import ERF, ERFError, is_erf
 from daotools.gda import GDA, column_hash
@@ -950,6 +950,55 @@ class AbilityTests(unittest.TestCase):
         self.assertEqual(abilities.talent_row(40003, t[40003], st)[8:], [0.0, 0.0, 0.0, 0.0])
 
 
+class ThreatTests(unittest.TestCase):
+    def test_values(self):
+        self.assertEqual(threat.seen_threat("Armor - Light"), 20.0)
+        self.assertEqual(threat.seen_threat("Armor - Heavy"), 25.0)
+        self.assertEqual(threat.seen_threat(""), 15.0)
+        self.assertEqual(threat.seen_threat("Armor - Heavy", nightmare=True), 10.0)
+        self.assertEqual(threat.damage_threat(12.0, 120.0), 10.0)  # a tenth of its health
+        self.assertAlmostEqual(threat.damage_threat(12.0, 120.0, rogue=True), 8.0)
+        self.assertEqual(threat.damage_threat(12.0, 120.0, threaten=True), 20.0)
+        self.assertEqual(threat.talent_threat(3041), 310.0)
+        self.assertEqual(threat.talent_threat(3016), -99.0)
+
+    def test_switching(self):
+        rng = random.Random(1)
+        t = threat.Threat()
+        t.change("warrior", 25.0, 0.0, rng)
+        t.change("dog", 15.0, 0.0, rng)
+        self.assertEqual(t.target, "warrior")  # the first target: the most hated
+        t.change("dog", 20.0, 1.0, rng)  # the dog now leads; the switch timer starts at 0
+        self.assertEqual((t.target, t.wait), ("dog", 5))
+        t.change("warrior", 30.0, 2.0, rng)  # 1 s after a switch, with 5 s to wait: kept
+        self.assertEqual(t.target, "dog")
+        t.change(None, 0.0, 6.0, rng)  # 5 s on: may switch
+        self.assertEqual((t.target, t.wait), ("warrior", 10))
+        t.change("dog", 500.0, 7.0, rng)
+        t.taunted()  # Taunt clears the timer
+        t.change(None, 0.0, 7.5, rng)
+        self.assertEqual(t.target, "dog")
+        # a change is at least 1, never brings threat to 0 or below, and stops at 1000
+        t.change("dog", 0.2, 8.0, rng)
+        self.assertEqual(t.table["dog"], 536.0)
+        t.change("dog", -900.0, 8.0, rng)
+        self.assertEqual(t.table["dog"], 1.0)
+        t.change("warrior", 5000.0, 8.0, rng)
+        self.assertEqual(t.table["warrior"], 1000.0)
+        t.forget("warrior")
+        self.assertEqual(t.target, "dog")
+        t.attacked("mother", 9.0, rng)
+        self.assertEqual(t.table["mother"], 1.0)
+
+    def test_keep_wounded(self):
+        rng = random.Random(3)
+        self.assertFalse(threat.keep_wounded(0.5, rng))
+        kept = sum(threat.keep_wounded(0.05, rng) for _ in range(4000)) / 4000
+        self.assertAlmostEqual(kept, 0.9, delta=0.02)
+        kept = sum(threat.keep_wounded(0.15, rng) for _ in range(4000)) / 4000
+        self.assertAlmostEqual(kept, 0.5, delta=0.03)
+
+
 class SimulateTests(unittest.TestCase):
     # An area export's combat fields: a knight and five rats; the player from PlayerStats.
     AREA = {
@@ -995,7 +1044,7 @@ class SimulateTests(unittest.TestCase):
         # One foe per target: with only the player standing, never more than one rat attacks; the rest wait.
         rng = random.Random(2)
         ours, foes = simulate.fighters(self.AREA, [], ["rat_*"])
-        out = simulate.fight(ours, foes, rng, slots=1)
+        out = simulate.fight(ours, foes, rng, slots=1, use_threat=False)
         self.assertLessEqual(sum(1 for f in foes if f.target is not None and not f.down), 1)
         self.assertIn(out["Won"] or out["Lost"], (True,))
 
@@ -1049,6 +1098,36 @@ class SimulateTests(unittest.TestCase):
         misses = sum(simulate.strike(rng, rat, p)[0] is None for _ in range(5000)) / 5000
         # the rat hits 63.5 + 54 - 50.5 = 67% of the time, 20% of it lost to Evasion
         self.assertAlmostEqual(misses, 1 - 0.67 * 0.8, delta=0.02)
+
+
+    def test_threat(self):
+        # every foe sees the knight (25: heavy armour) above the player (20) and goes for it first
+        area = dict(self.AREA, PlayerStats=self.AREA["PlayerStats"][:11] + [100.0, 1.9, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 20.0],
+                    NpcStatus=[1.0, 1.0, 0.0, 25.0, 0.0] + [1.0, 1.5, 0.0, 15.0, 0.0] * 5)
+        ours, foes = simulate.fighters(area, ["knight"], ["rat_1", "rat_2"])
+        self.assertEqual((ours[0].seen, ours[1].seen, foes[0].seen), (20.0, 25.0, 15.0))
+        rng = random.Random(2)
+        first = []
+        for _ in range(50):
+            ours, foes = simulate.fighters(area, ["knight"], ["rat_1", "rat_2"])
+            simulate.fight(ours, foes, rng)
+            first.append(all(f.threat is not None for f in foes))
+        self.assertTrue(all(first))
+        ours, foes = simulate.fighters(area, ["knight"], ["rat_1"])
+        f = foes[0]
+        f.threat = threat.Threat()
+        for m in ours:
+            f.threat.change(m, m.seen, 0.0, rng)
+        self.assertIs(f.threat.target, ours[1])
+        # Taunt: the player's row, used because a foe is on someone else
+        taunt = dict(zip(abilities.TALENT_FIELDS, [3041, 4, 40, 20, 0, 0, 0, 0, 0, 0, 0, 0]))
+        ours[0].talents = [taunt]
+        used = simulate.use_talent(rng, ours[0], f, 0.0, 2, 0.0, foes=[f])
+        self.assertEqual((used[0], f.threat.target, f.threat.table[ours[0]]), (True, ours[0], 330.0))
+        self.assertEqual(ours[0].stamina, 60.0)
+        # no threat: the prototype's rule
+        r = simulate.simulate(area, ["knight"], ["rat_*"], runs=50, use_threat=False)
+        self.assertEqual(r["Won"], 1.0)
 
 
 class AmbientTests(unittest.TestCase):

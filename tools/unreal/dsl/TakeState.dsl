@@ -1,0 +1,6 @@
+(fn TakeState (bOk Hp SeenAmt Mul bParty)
+  (Variabili|Predefinito|ImpostaWhoOk bOk)
+  (Variabili|Predefinito|ImpostaWhoHp Hp)
+  (Variabili|Predefinito|ImpostaInspSeen SeenAmt)
+  (Variabili|Predefinito|ImpostaTMul Mul)
+  (Variabili|Predefinito|ImpostaInspParty bParty))

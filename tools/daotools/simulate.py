@@ -25,6 +25,13 @@ resisted), an attack talent rolls with its attack bonus. A stunned or knocked do
 threat talents and Feign Death are not used (stage 4). Passives: Bravery's critical chance per foe on the player
 past two, Death Blow's stamina from kills, Evasion's misses; a rogue backstabs (critical damage) when flanking, or
 a stunned target with Coup de Grace.
+
+Threat (stage 4, threat.py): a foe coming into the fight sees every standing party member (their seen threat:
+NpcStatus, PlayerStats[19]) and fights the one it hates most, switching by its switch timer; every attack on it
+adds threat for the attacker (damage as a percentage of its health, x0.8 from a rogue, x2 with Threaten on), a
+fallen party member is forgotten. The player uses Taunt when a foe is on someone else (+310 on every foe, which
+may switch at once) and Disengage when two or more are on it (-99 on every foe). `use_threat` False brings back
+the prototype's rule (a foe keeps a random standing party member).
 """
 
 from __future__ import annotations
@@ -34,7 +41,7 @@ import random
 import statistics
 from dataclasses import dataclass, field
 
-from . import abilities, stats
+from . import abilities, stats, threat as th
 
 FORMAT = "DAODream.Simulation 1"
 PLAYER = "player"
@@ -46,7 +53,7 @@ RULES = ("Armour", "Penetration", "Crit", "Flanking", "DamageBonus")  # area.RUL
 SLOTS = 0  # foes attacking the same party member at once (0: no limit; BP_PlotManager.Slots in Unreal)
 
 
-@dataclass
+@dataclass(eq=False)  # by identity: fighters key threat tables
 class Fighter:
     tag: str
     side: str  # "party" or "foe"
@@ -72,6 +79,8 @@ class Fighter:
     passives: tuple = ()
     duration_scale: float = 1.0  # NpcStatus: the rank's effect duration scale
     resist: float = 0.0  # NpcStatus: percent it resists the player's knockdown
+    seen: float = 15.0  # the threat it draws when seen (NpcStatus, PlayerStats[19]; threat.seen_threat)
+    threat: "th.Threat | None" = None  # a foe's threat table
     max_health: float = field(init=False)
     pool: float = field(init=False)  # the stamina pool's maximum, less upkeep
     down: bool = False
@@ -102,12 +111,13 @@ def player_fighter(area: dict, talents: bool = True) -> Fighter:
     """PlayerStats (area.player_stats): health, attack, defense, damage min and max, threshold, RULES, stamina,
     seconds between attacks (INTERVAL["player"] when the export has none), fatigue, level, displacement, rogue,
     the shield's damage; PlayerTalents and PlayerPassives unless `talents` is False."""
-    p = list(area["PlayerStats"]) + [0.0] * 8
+    p = list(area["PlayerStats"]) + [0.0] * 9
     r = dict(zip(RULES, p[6:11]))
     f = Fighter(PLAYER, "party", p[0], p[1], p[2], (p[3], p[4]), 1.0, p[5], r["Armour"], r["Penetration"], r["Crit"],
                 r["Flanking"], r["DamageBonus"],
                 p[12] if p[12] and INTERVAL.get("export", True) else INTERVAL["player"], stamina=p[11], fatigue=p[13],
-                level=p[14] or 1.0, displacement=p[15], rogue=bool(p[16]), offhand=(p[17], p[18]))
+                level=p[14] or 1.0, displacement=p[15], rogue=bool(p[16]), offhand=(p[17], p[18]),
+                seen=p[19] or 15.0)
     if talents:
         n = len(abilities.TALENT_FIELDS)
         rows = area.get("PlayerTalents") or []
@@ -119,12 +129,13 @@ def player_fighter(area: dict, talents: bool = True) -> Fighter:
 def npc_fighter(area: dict, i: int, side: str) -> Fighter:
     r = _rules(area.get("NpcRules") or [], i)
     threshold = area["PlayerStats"][5] if area.get("PlayerStats") else 0.0
-    status = (area.get("NpcStatus") or [])[3 * i:3 * i + 3] or [1.0, 1.0, 0.0]
+    n = 5 if len(area.get("NpcStatus") or []) >= 5 * len(area["NpcTags"]) else 3  # older exports: 3
+    status = ((area.get("NpcStatus") or [])[n * i:n * i + n] or [1.0, 1.0, 0.0]) + [15.0, 0.0]
     return Fighter(area["NpcTags"][i], side, area["NpcHealth"][i], area["NpcAttack"][i], area["NpcDefense"][i],
                    (area["NpcDamage"][2 * i], area["NpcDamage"][2 * i + 1]), area["NpcDamageScale"][i], threshold,
                    r.get("Armour", 0.0), r.get("Penetration", 0.0), r.get("Crit", 0.0), r.get("Flanking", 0.0),
                    r.get("DamageBonus", 0.0), _interval(area, i, side), level=status[0], duration_scale=status[1],
-                   resist=status[2])
+                   resist=status[2], seen=status[3], rogue=bool(status[4]))
 
 
 def _interval(area: dict, i: int, side: str) -> float:
@@ -172,14 +183,31 @@ def regen(f: Fighter, now: float) -> None:
 
 
 def use_talent(rng: random.Random, a: Fighter, d: Fighter, now: float, party_size: int, flanking: float,
-               extra_crit: float = 0.0) -> tuple[bool, float | None, bool]:
+               extra_crit: float = 0.0, foes: list | None = None) -> tuple[bool, float | None, bool]:
     """The first of `a`'s talents it can use now (in PlayerTalents' order), used on `d`: (used, damage, critical),
-    damage None when nothing struck."""
+    damage None when nothing struck. `foes`: the live foes with threat tables (Taunt, Disengage; none: the threat
+    talents are not used)."""
     regen(a, now)
     for r in a.talents:
         i = int(r["Id"])
-        if i in abilities.THREAT or a.ready.get(i, 0.0) > now:
+        if i == 3023 or a.ready.get(i, 0.0) > now:  # Feign Death: not used here
             continue
+        if i in abilities.THREAT:
+            if not foes or not _wants(i, a, foes):
+                continue
+            cost = abilities.ability_cost(r["Cost"], a.fatigue)
+            if int(r["Use"]) != abilities.SUSTAINED:
+                if a.stamina < cost:
+                    continue
+                a.stamina -= cost
+                a.ready[i] = now + r["Cooldown"]
+                a.used[i] = a.used.get(i, 0) + 1
+                for f in foes:
+                    f.threat.change(a, th.talent_threat(i), now, rng, _alive, _health)
+                    if i == 3041:
+                        f.threat.taunted()
+                        f.threat.change(None, 0.0, now, rng, _alive, _health)
+                return True, None, False
         sustained = int(r["Use"]) == abilities.SUSTAINED
         disable = abilities.DISABLES.get(i)
         buff = not sustained and not r["AttackBonus"] and not disable
@@ -211,19 +239,53 @@ def use_talent(rng: random.Random, a: Fighter, d: Fighter, now: float, party_siz
                               extra_crit=extra_crit, talent=True)
         if damage is not None and disable == "Knockdown" and rng.random() * 100.0 >= d.resist:
             d.disabled = max(d.disabled, now + r["Seconds"] + rng.random() * abilities.KNOCKDOWN_RANDOM)
+        if d.threat is not None:
+            d.threat.change(a, th.talent_threat(i), now, rng, _alive, _health)
         return True, damage, crit
     return False, None, False
 
 
+def _alive(f: Fighter) -> bool:
+    return not f.down
+
+
+def _health(f: Fighter) -> float:
+    return max(0.0, f.health) / f.max_health if f.max_health else 0.0
+
+
+def _wants(ability: int, a: Fighter, foes: list) -> bool:
+    """When the simulated player uses a threat talent: Taunt when a foe is on someone else, Disengage when two or
+    more are on it, Threaten (sustained) whenever it can."""
+    if ability == 3041:
+        return any(f.threat.target is not a for f in foes)
+    if ability == 3016:
+        return sum(1 for f in foes if f.threat.target is a) >= 2
+    return True
+
+
+def threatens(a: Fighter) -> bool:
+    return any(int(r["Id"]) == 808 for r in a.sustained)
+
+
 def fight(party: list[Fighter], foes: list[Fighter], rng: random.Random, wave: int = 0,
-          flank: bool = True, slots: int = 0) -> dict:
+          flank: bool = True, slots: int = 0, use_threat: bool = True) -> dict:
     """One fight to the end. The fighters are changed (health, down): pass fresh ones. `slots` (provisional,
-    docs/COMBAT.md): at most that many foes attack the same party member at once; a foe finding every
-    standing party member taken waits for its next turn (0: no limit)."""
+    docs/COMBAT.md; without threat only): at most that many foes attack the same party member at once; a foe
+    finding every standing party member taken waits for its next turn (0: no limit)."""
     wave = wave or len(foes)
     active, reserve = list(foes[:wave]), list(foes[wave:])
+
+    def comes_in(f, now):
+        if use_threat:
+            f.threat = th.Threat()
+            for m in party:
+                if not m.down:
+                    f.threat.change(m, m.seen, now, rng, _alive, _health)
+
     for f in party + active:
         f.next_attack = rng.uniform(0.0, f.interval)
+    for f in active:
+        comes_in(f, 0.0)
     tally = {"party": [0, 0, 0], "foe": [0, 0, 0]}  # hits, misses, criticals
     taken: list[float] = []
     now = 0.0
@@ -238,7 +300,12 @@ def fight(party: list[Fighter], foes: list[Fighter], rng: random.Random, wave: i
             a.next_attack = a.disabled
             continue
         a.next_attack += abilities.attack_interval(a.interval, 1.0 + a.own("Speed", now))
-        if a.target is None or a.target.down:
+        if a.side == "foe" and use_threat:
+            a.threat.change(None, 0.0, now, rng, _alive, _health)  # AI_Threat_GetThreatTarget
+            a.target = a.threat.target
+            if a.target is None or a.target.down:
+                continue
+        elif a.target is None or a.target.down:
             if a.side == "foe":
                 taken_by = {id(f): sum(1 for x in live if x is not a and x.target is f) for f in standing}
                 free = [f for f in standing if not slots or taken_by[id(f)] < slots]
@@ -257,13 +324,16 @@ def fight(party: list[Fighter], foes: list[Fighter], rng: random.Random, wave: i
         flanking = a.flanking if flank and (d.target is not a or d.disabled > now) else 0.0
         bravery = abilities.BRAVERY_CRIT * max(0, sum(1 for x in live if x.target is a) - 2) \
             if abilities.BRAVERY in a.passives else 0.0
-        used, damage, crit = use_talent(rng, a, d, now, len(party), flanking, bravery) if a.talents \
+        used, damage, crit = use_talent(rng, a, d, now, len(party), flanking, bravery,
+                                        [f for f in live if f.threat] if use_threat else None) if a.talents \
             else (False, None, False)
         if used and damage is None:
             continue
         if not used:
             damage, crit = strike(rng, a, d, flanking, now, extra_crit=bravery)
         t = tally[a.side]
+        if d.threat is not None:
+            d.threat.attacked(a, now, rng, alive=_alive, health=_health)
         if damage is None:
             t[1] += 1
             continue
@@ -271,10 +341,16 @@ def fight(party: list[Fighter], foes: list[Fighter], rng: random.Random, wave: i
         t[2] += crit
         d.health -= damage
         a.dealt += damage
+        if d.threat is not None and d.health > 0:
+            d.threat.change(a, th.damage_threat(damage, d.max_health, a.rogue, threatens(a)), now, rng, _alive, _health)
         if a.side == "foe":
             taken.append(damage)
         if d.health <= 0:
             d.down = True
+            if d.side == "party":
+                for f in live:
+                    if f.threat:
+                        f.threat.forget(d, _alive)
             if abilities.DEATH_BLOW in a.passives:
                 regen(a, now)
                 a.stamina = min(a.pool, a.stamina + abilities.DEATH_BLOW_STAMINA * d.max_health)
@@ -282,6 +358,7 @@ def fight(party: list[Fighter], foes: list[Fighter], rng: random.Random, wave: i
                 n = reserve.pop(0)
                 n.next_attack = now + rng.uniform(0.0, n.interval)
                 active.append(n)
+                comes_in(n, now)
     won = all(f.down for f in foes)
     return {"Won": won, "Lost": all(f.down for f in party), "Time": round(now, 2),
             "Party": {f.tag: {"Health": round(max(0.0, f.health), 1), "Max": f.max_health, "Down": f.down,
@@ -291,14 +368,14 @@ def fight(party: list[Fighter], foes: list[Fighter], rng: random.Random, wave: i
 
 
 def simulate(area: dict, party: list[str], foes: list[str], runs: int = 1000, seed: int = 1, wave: int = 0,
-             flank: bool = True, slots: int = 0, talents: bool = True) -> dict:
+             flank: bool = True, slots: int = 0, talents: bool = True, use_threat: bool = True) -> dict:
     """`runs` fights; the share won and lost, fight time, and per party member how often they fell, the health
     they had left and their share of the damage dealt; hit, miss and critical rates per side."""
     rng = random.Random(seed)
     results = []
     for _ in range(runs):
         ours, theirs = fighters(area, party, foes, talents)
-        results.append(fight(ours, theirs, rng, wave, flank, slots))
+        results.append(fight(ours, theirs, rng, wave, flank, slots, use_threat))
     tags = list(results[0]["Party"])
     totals = {s: [sum(r["Tally"][s][k] for r in results) for k in range(3)] for s in ("party", "foe")}
     dealt = {t: sum(r["Party"][t]["Dealt"] for r in results) for t in tags}

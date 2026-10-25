@@ -3,6 +3,8 @@
   (Variabili|Predefinito|ImpostaOwnPen 0.0)
   (Variabili|Predefinito|ImpostaOwnSpeed 0.0)
   (Variabili|Predefinito|ImpostaOwnCrit 0.0)
+  (Variabili|Predefinito|ImpostaThreatenOn "false")
+  (Variabili|Predefinito|ImpostaFeign "false")
   (Utilities|FlowControl|ForLoop :FirstIndex 0 :LastIndex (Utility|Operatori|Sottrai (Utilità|Array|Length (Variabili|Predefinito|OttieniTalentNames)) 1)
     (:LoopBody
       (Funzionedichiamata|AddOwn :Slot _index))

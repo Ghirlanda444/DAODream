@@ -10,6 +10,7 @@ run are printed at the end.
     python playtest.py kill night bhn200cr_howe_east_hall1                 Simulate: wake, kill, watch it fall
     python playtest.py fight day --fall                                    Play: fight the larder rats, then fall
     python playtest.py talents night                                       Play: use six talents on a soldier
+    python playtest.py threat night                                        Play: two soldiers' threat tables
 
 Characters are named by their tag (NpcTags in extracted/ue/areas/<area>.json). Hidden ones (waiting for a
 plot) are shown for the pictures. The editor must be open with its MCP server running (docs/UNREAL_SETUP.md);
@@ -581,6 +582,77 @@ OUT["target"].update({k: round(OUT["target"][k] - OUT["now"], 2) for k in ("Stun
         run.finish()
 
 
+THREAT_TALENTS = (3041, 3023, 3016, 808)  # Taunt, Feign Death, Disengage, Threaten
+
+
+def threat_check(args):
+    """Play at night: two soldiers (--tags) are woken next to the player and the mabari; the player gets Taunt, Feign
+    Death, Disengage and Threaten (keys 1-4). It reports each soldier's target and threat table: at first, after a
+    few seconds of fighting, after Taunt, while feigning death, after it ends, after Disengage. The soldiers and
+    the player are topped up so the fight lasts."""
+    import sys
+    sys.path.insert(0, os.path.join(game.ROOT, "tools"))
+    from daotools import abilities
+    run = Run("threat", args.area)
+    tables = abilities.load_tables(GAME_DIR, MOD_TABLES)
+    table = abilities.talents(tables)
+    run.start(simulate=False)
+    try:
+        g = run.g
+        for _ in range(8):
+            g.converse(seconds=90)
+            if not g.talking().get("bTalking"):
+                break
+        rows = [x for i in THREAT_TALENTS for x in abilities.talent_row(i, table[i], g.a["Player"])]
+        names = [abilities.NAMES[i] for i in THREAT_TALENTS]
+        pyrun.run(MGR + "m.call_method('SetPlayerTalents', (%r, [], %r))" % (rows, names), 60)
+        foes = [run.npc(t) for t in args.tags]
+        dog = run.npc("gen00fl_dog")
+        for f in foes:
+            pyrun.run(NPC % f + 'a.call_method("SetPlotActive", (True,))\n', 60)
+        x, y, z = g.loc(foes[0])
+        g.go(x + 150, y, z, wait=0.5)
+        pyrun.run(NPC % dog + 'a.set_actor_location(unreal.Vector(%f, %f, %f), False, True)\n' % (x + 150, y + 150, z), 60)
+        sample = MGR + """
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+pawn = unreal.GameplayStatics.get_player_pawn(w, 0)
+label = lambda a: "player" if a == pawn else ("dog" if a and a.get_name() == %r else (a.get_name() if a else None))
+if m.get_editor_property("PlayerHealth") < 70.0:  # kept up: the run is about who the soldiers go for
+    m.call_method("HurtPlayer", (m.get_editor_property("PlayerHealth") - m.get_editor_property("PlayerMaxHealth"),))
+if %r >= 0:
+    m.call_method("UseTalent", (%r,))
+OUT["now"] = round(unreal.GameplayStatics.get_time_seconds(w), 1)
+OUT["player"] = {k: round(m.get_editor_property(k), 1) if isinstance(m.get_editor_property(k), float) else m.get_editor_property(k) for k in ("PlayerHealth", "PStamina", "bFeign", "bThreatenOn")}
+for n in %r:
+    a = acts[n]
+    if a.get_editor_property("Health") < 400.0:
+        a.call_method("TakeHit", (-600.0,))
+    OUT[n] = {"foe": label(a.get_editor_property("Foe")), "wait": a.get_editor_property("TWait"),
+              "table": {label(w2): round(v, 1) for w2, v in zip(a.get_editor_property("ThreatWho"), a.get_editor_property("ThreatVal"))}}
+"""
+        steps = []
+
+        def step(label, slot=-1, wait=0.0):
+            time.sleep(wait)
+            s = pyrun.run(sample % (dog, slot, slot, foes), 60)
+            steps.append({"step": label, **s})
+            print(label, json.dumps(s, default=str)[:900], flush=True)
+
+        step("start", wait=2.0)
+        step("fighting", wait=8.0)
+        run.shot("fighting")
+        step("Threaten on", 3)
+        step("Taunt", 0)
+        step("Feign Death on", 1)
+        run.shot("feigning")
+        step("feigning", wait=4.0)
+        step("Feign Death off", 1)
+        step("Disengage", 2, wait=2.0)
+        print("RESULT", json.dumps(steps, default=str)[:6000])
+    finally:
+        run.finish()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--sound", action="store_true", help="play the game's sound (tests are silent otherwise)")
@@ -623,6 +695,10 @@ def main():
     s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
     s.add_argument("--tag", default="bhn200cr_howe_east_hall1", help="the soldier to wake and fight")
     s.set_defaults(fn=talents)
+    s = sub.add_parser("threat", help=threat_check.__doc__)
+    s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
+    s.add_argument("--tags", nargs=2, default=["bhn200cr_howe_east_hall1", "bhn200cr_howe_east_hall2"])
+    s.set_defaults(fn=threat_check)
     s = sub.add_parser("party", help=party.__doc__)
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("--seconds", type=int, default=120)
