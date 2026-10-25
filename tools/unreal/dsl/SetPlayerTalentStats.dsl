@@ -1,0 +1,12 @@
+(fn SetPlayerTalentStats (InStats)
+  (Variabili|Predefinito|ImpostaPBaseInterval (Variabili|Predefinito|OttieniPInterval))
+  (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggiore(>) (Utilità|Array|Length InStats) 18)
+    (:then
+      (Variabili|Predefinito|ImpostaPStamina (Utilità|Array|Ottieni(unacopia) InStats 11))
+      (Variabili|Predefinito|ImpostaPPool (Utilità|Array|Ottieni(unacopia) InStats 11))
+      (Variabili|Predefinito|ImpostaPFatigue (Utilità|Array|Ottieni(unacopia) InStats 13))
+      (Variabili|Predefinito|ImpostaPLevel (Utilità|Array|Ottieni(unacopia) InStats 14))
+      (Variabili|Predefinito|ImpostaPDisplace (Utilità|Array|Ottieni(unacopia) InStats 15))
+      (Variabili|Predefinito|ImpostaRogue (Utility|Operatori|Maggiore(>) (Utilità|Array|Ottieni(unacopia) InStats 16) 0.5))
+      (Variabili|Predefinito|ImpostaPOffMin (Utilità|Array|Ottieni(unacopia) InStats 17))
+      (Variabili|Predefinito|ImpostaPOffMax (Utilità|Array|Ottieni(unacopia) InStats 18)))))

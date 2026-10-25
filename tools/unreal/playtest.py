@@ -9,6 +9,7 @@ run are printed at the end.
     python playtest.py dialogue night --lines 6                            Play: each line, option 1
     python playtest.py kill night bhn200cr_howe_east_hall1                 Simulate: wake, kill, watch it fall
     python playtest.py fight day --fall                                    Play: fight the larder rats, then fall
+    python playtest.py talents night                                       Play: use six talents on a soldier
 
 Characters are named by their tag (NpcTags in extracted/ue/areas/<area>.json). Hidden ones (waiting for a
 plot) are shown for the pictures. The editor must be open with its MCP server running (docs/UNREAL_SETUP.md);
@@ -502,6 +503,84 @@ def cut(args):
         run.finish()
 
 
+# talents: the game's install and the rebalance mod's tables, for the test's talent rows (daotools.abilities)
+GAME_DIR = "E:/Steam/steamapps/common/Dragon Age Ultimate Edition"
+MOD_TABLES = os.path.join(game.ROOT, "extracted", "mods", "da_reborn", "erf")
+TEST_TALENTS = (19, 603, 617, 3026, 20, 3041)  # Precise Striking, Dirty Fighting, Shield Bash, Below the Belt...
+STATE = ("PStamina", "PPool", "PFatigue", "OwnAtk", "OwnPen", "OwnCrit", "PInterval", "PlayerHealth", "TalentText")
+
+
+def talents(args):
+    """Play: the player gets six talents (keys 1-6: Precise Striking, Dirty Fighting, Shield Bash, Below the Belt,
+    Perfect Strike, Taunt; rows from daotools.abilities for the exported player), stands by a soldier woken at
+    night (--tag) and uses them in turn through UseTalent: the stamina pool, costs, upkeep and cooldowns, the stun
+    (the soldier's attacks stop until it ends), the knockdown, the buff, a refusal while cooling down. Pictures of
+    the HUD and the target."""
+    import sys
+    sys.path.insert(0, os.path.join(game.ROOT, "tools"))
+    from daotools import abilities
+    run = Run("talents", args.area)
+    tables = abilities.load_tables(GAME_DIR, MOD_TABLES)
+    table = abilities.talents(tables)
+    run.start(simulate=False)
+    try:
+        g = run.g
+        for _ in range(8):
+            g.converse(seconds=90)
+            if not g.talking().get("bTalking"):
+                break
+        rows = [x for i in TEST_TALENTS for x in abilities.talent_row(i, table[i], g.a["Player"])]
+        names = [abilities.NAMES[i] for i in TEST_TALENTS]
+        state = lambda: pyrun.run(MGR + "OUT.update({k: m.get_editor_property(k) for k in %r})\n"
+                                  "OUT['now'] = unreal.GameplayStatics.get_time_seconds(w)" % (STATE,), 60)
+        print("set", pyrun.run(MGR + "m.call_method('SetPlayerTalents', (%r, [], %r))\n"
+                                     "OUT['names'] = list(m.get_editor_property('TalentNames'))" % (rows, names), 60))
+        print("start", state())
+        foe = run.npc(args.tag)
+        target = lambda: g.npc_state(g.npc(args.tag), ("bDead", "Health", "StunUntil", "KnockUntil", "SlowUntil",
+                                                       "DurScale", "Resist"))
+        pyrun.run(NPC % foe + 'a.call_method("SetPlotActive", (True,))\n', 60)
+        x, y, z = g.loc(foe)
+        g.go(x + 140, y, z, wait=1.0)
+        steps = []
+        # one editor call uses the talent and reads the result: a call takes seconds of game time
+        use = MGR + """t = [a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor) if a.get_name() == %r][0]
+pawn = unreal.GameplayStatics.get_player_pawn(w, 0)
+pawn.set_actor_location(t.get_actor_location() + unreal.Vector(110.0, 0.0, 0.0), False, True)
+pawn.set_actor_rotation(unreal.Rotator(roll=0.0, pitch=0.0, yaw=180.0), True)
+if t.get_editor_property("Health") < 400.0:  # topped up, so the mabari does not finish it first
+    t.call_method("TakeHit", (-600.0,))  # instance variables cannot be set from Python
+before = m.get_editor_property("PStamina")
+m.call_method("UseTalent", (%d,))
+OUT.update({k: m.get_editor_property(k) for k in %r})
+OUT["spent"] = before - OUT["PStamina"]
+OUT["now"] = unreal.GameplayStatics.get_time_seconds(w)
+OUT["target"] = {k: t.get_editor_property(k) for k in ("bDead", "Health", "StunUntil", "KnockUntil", "SlowUntil", "DurScale")}
+OUT["target"].update({k: round(OUT["target"][k] - OUT["now"], 2) for k in ("StunUntil", "KnockUntil", "SlowUntil") if OUT["target"][k]})
+"""
+
+        def step(label, k):
+            s = pyrun.run(use % (foe, k, STATE), 60)
+            steps.append({"step": label, **{k2: (round(v, 2) if isinstance(v, float) else v) for k2, v in s.items()}})
+            print(label, json.dumps(steps[-1], default=str)[:700], flush=True)
+            return s, s.get("target", {})
+
+        step("1 Precise Striking on", 0)
+        step("5 Perfect Strike", 4)
+        run.shot("buffs")
+        step("2 Dirty Fighting", 1)
+        run.shot("stunned")
+        step("2 again (cooling down)", 1)
+        step("3 Shield Bash", 2)
+        run.shot("shield_bash")
+        step("4 Below the Belt", 3)
+        step("6 Taunt", 5)
+        step("1 Precise Striking off", 0)
+        print("RESULT", json.dumps(steps, default=str)[:4000])
+    finally:
+        run.finish()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--sound", action="store_true", help="play the game's sound (tests are silent otherwise)")
@@ -540,6 +619,10 @@ def main():
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("--seconds", type=int, default=180)
     s.set_defaults(fn=larder)
+    s = sub.add_parser("talents", help=talents.__doc__)
+    s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
+    s.add_argument("--tag", default="bhn200cr_howe_east_hall1", help="the soldier to wake and fight")
+    s.set_defaults(fn=talents)
     s = sub.add_parser("party", help=party.__doc__)
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("--seconds", type=int, default=120)

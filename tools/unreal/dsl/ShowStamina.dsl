@@ -1,0 +1,2 @@
+(fn ShowStamina ()
+  (Classe|WBPCombatHUD|SetStamina (Variabili|Predefinito|OttieniHud) :Pct (Utility|Operatori|Dividi (Variabili|Predefinito|OttieniPStamina) (Matematica|Float|Max(Float) (Variabili|Predefinito|OttieniPPool) 1.0)) :Txt (Utilità|Stringa|Append "Stamina " (Utilità|Stringa|Append (Utilità|Stringa|ToString(Integer) (Matematica|Float|Truncate (Variabili|Predefinito|OttieniPStamina))) (Utilità|Stringa|Append "/" (Utilità|Stringa|ToString(Integer) (Matematica|Float|Truncate (Variabili|Predefinito|OttieniPPool))))))))

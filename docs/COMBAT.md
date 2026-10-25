@@ -6,9 +6,8 @@ giant rats, and what the castle does once they are dead. It is a prototype of
 the loop (hostiles chase and bite, the player strikes, deaths drive the plot).
 Health, attack, defense, damage, armour, criticals and flanking come from the
 game's data tables with Dragon Age Reborn's overrides, computed the way its
-scripts and engine do (see "Stats" and "Rules" below). Stamina and the
-warrior's and rogue's talents (stage 2, "Talents") are in the balance
-simulator; Unreal gets them next.
+scripts and engine do (see "Stats" and "Rules" below), and so are stamina
+and the warrior's and rogue's talents (stage 2, "Talents"), on keys 1-6.
 
 ## How the fight is put together
 
@@ -348,6 +347,36 @@ creature its level, its rank's effect duration scale and how often it resists
 the player's knockdown. Passive talents' numbers are folded into the player's
 stats (`abilities.with_passives`).
 
+In Unreal (`tools/unreal/talents.py`, graph code in `tools/unreal/dsl`): keys
+1-6 (`IA_Talent1`-`6` in `IMC_Dialogue`) use the player's talents in
+`PlayerTalents` order through `BP_PlotManager.UseTalent`; the HUD
+(`WBP_CombatHUD`) shows stamina under health and a line of talents with their
+keys, "ON" for a sustained one, "active" for a buff and the seconds left on a
+cooldown; refusals ("is not ready", "Not enough stamina", "No target in reach")
+show as messages. A sustained talent toggles, an activated one costs stamina
+and starts its cooldown; Dirty Fighting, Shield Bash and Below the Belt go to
+the nearest visible live hostile within 2.3 m (unlike the plain attack, they
+also pick a foe a party member is fighting). A stunned or knocked down hostile
+does nothing until it ends (a knockdown plays `A_Fallen`), a slowed one chases
+at half speed, and floating words say "Stunned", "Knocked down", "Slowed" or
+"Resisted". Stamina comes back 1 a second within 4 s of the last blow, 17.5
+otherwise. Bravery, Death Blow, Evasion's displacement and a rogue's backstabs
+are in the strike rules. The talents of party members wait for tactics (stage
+6).
+
+Checked in Play (silent, `py playtest.py talents night`, 2026-10-25), the
+player with Precise Striking, Dirty Fighting, Shield Bash, Below the Belt,
+Perfect Strike and Taunt against one of Howe's soldiers, with the mabari in the
+party: Precise Striking took 40 off the pool's maximum (105 to 65), added 5
+fatigue, +5 attack, +3 critical chance and made swings 2.09 s apart; Perfect
+Strike cost 33 (30 + 8.5% fatigue) for +100 attack and +10 armour penetration;
+Dirty Fighting cost 27 and stunned the soldier 6.0 s (4 + 2 missing party
+members, normal rank), and the player's health held while it was down; a second
+Dirty Fighting was refused on cooldown; Shield Bash hit and knocked it down
+3.8 s; Below the Belt slowed it 12 s; Taunt was refused for lack of stamina;
+switching Precise Striking off gave the pool back its 105; stamina came back 1
+a second. No script errors.
+
 The simulator uses them (`simulate.use_talent`; `--no-talents` leaves them
 out): the player spends a turn on the first talent in `PlayerTalents` that is
 off cooldown and affordable, switches sustained ones on, keeps buffs up, stuns
@@ -576,8 +605,9 @@ Movers still don't push against each other or the player.
 
 ## Not there yet
 
-Talents and stamina in Unreal (in the simulator: "Talents"); spells; real-time
-with pause and tactics; threat
+Party members' talents (tactics); spells; real-time with pause and tactics;
+threat (Taunt, Threaten, Disengage and Feign Death cost stamina but do nothing
+else yet)
 (hostiles go for the nearest foe, not the one they hate most); allies outside
 the party (the castle's guards) cannot be struck yet; injuries; switching to a
 party member; proper animations (the attack is a generic punch, the fall and

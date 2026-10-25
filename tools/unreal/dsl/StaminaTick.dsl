@@ -1,0 +1,5 @@
+(fn StaminaTick ()
+  (Variabili|Predefinito|ImpostaPStamina (Matematica|Float|Min(Float) (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniPStamina) (Matematica|Float|SelectFloat 0.5 8.75 (Utility|Operatori|Minore(<) (Utility|Operatori|Sottrai (Utilità|Testo|GetGameTimeinSeconds) (Variabili|Predefinito|OttieniLastCombat)) 4.0))) (Variabili|Predefinito|OttieniPPool)))
+  (Funzionedichiamata|SumOwn)
+  (Funzionedichiamata|ShowStamina)
+  (Funzionedichiamata|ShowTalents))

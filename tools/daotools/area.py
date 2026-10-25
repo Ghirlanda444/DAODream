@@ -29,7 +29,7 @@ import hashlib
 import random
 from pathlib import Path
 
-from . import ambient
+from . import abilities, ambient
 
 FORMAT = "DAODream.Area 1"
 WALL_HEIGHT = 3.0  # m above the highest neighbouring floor
@@ -978,9 +978,12 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcVariety": npc_variety,
         "Player": player or {},
         "PlayerStats": player_stats(player) if player else [],
-        # The player's talents to use, abilities.TALENT_FIELDS floats each, and its passive talents' ids.
+        # The player's talents to use, abilities.TALENT_FIELDS floats each (hotkeys 1-6 in this order), its
+        # passive talents' ids, and the names of the ones to use.
         "PlayerTalents": [x for row in (player or {}).get("TalentRows", []) for x in row],
         "PlayerPassives": (player or {}).get("Passives", []),
+        "PlayerTalentNames": [abilities.NAMES.get(int(row[0]), str(int(row[0])))
+                              for row in (player or {}).get("TalentRows", [])],
         # Per creature: ambient state flags, move pattern, animation pattern, animation frequency.
         "NpcAmbient": npc_ambient if ambient_tables else [],
         "NpcAmbientDest": npc_amb_dest if ambient_tables else [],

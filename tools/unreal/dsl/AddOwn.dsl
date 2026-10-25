@@ -1,0 +1,7 @@
+(fn AddOwn (Slot)
+  (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggiore(>) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniTUntil) Slot) (Utilità|Testo|GetGameTimeinSeconds))
+    (:then
+      (Variabili|Predefinito|ImpostaOwnAtk (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniOwnAtk) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniTalents) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica Slot 12) 8))))
+      (Variabili|Predefinito|ImpostaOwnPen (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniOwnPen) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniTalents) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica Slot 12) 9))))
+      (Variabili|Predefinito|ImpostaOwnSpeed (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniOwnSpeed) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniTalents) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica Slot 12) 10))))
+      (Variabili|Predefinito|ImpostaOwnCrit (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniOwnCrit) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniTalents) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica Slot 12) 11)))))))

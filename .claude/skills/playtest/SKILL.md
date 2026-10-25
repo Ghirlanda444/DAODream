@@ -25,6 +25,11 @@ Compile success, a read-back graph or a variable value are not enough.
   - `py playtest.py larder day`: Play, the whole larder fight as the game stages it (all 18 rats in their
     waves) with the game's attack timing; samples rats biting, health and who is down, then a RESULT line.
     Measured in game time (it may run slower than real time when the PC is busy).
+  - `py playtest.py talents night`: Play, the player gets six talents (rows from `daotools.abilities`)
+    and uses them in turn on a soldier woken at night (`--tag`), each use and its result read in one
+    editor call (a call takes seconds of game time): stamina spent, upkeep, buffs, stun, knockdown, slow,
+    refusals on cooldown or without stamina. The soldier is topped up with `TakeHit(-600)` so the mabari
+    does not finish it first.
   - `py playtest.py party day --wipe`: Play, Gilmore and the mabari join against six larder rats; the
     player is dropped, the test wins the fight and checks everyone gets up, then knocks all out (game
     over). Winning starts Gilmore's end-of-fight conversation, as the castle's script does.

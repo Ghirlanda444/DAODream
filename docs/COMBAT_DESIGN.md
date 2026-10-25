@@ -45,8 +45,8 @@ From the game's own scripts (`extracted/scripts/src`, BioWare's source):
 
 Stage 1 is built (`docs/COMBAT.md`, "Stats" and "Rules"): the attributes' derived stats, to-hit,
 criticals, flanking, armour and penetration, the damage bonus and rank scaling, with Dragon Age Reborn's
-tables, and a game over. Stage 2 is under way: stamina, costs, cooldowns, upkeep and the warrior's and
-rogue's basic talents in `daotools` and the simulator (`docs/COMBAT.md`, "Talents"); Unreal next. Still to
+tables, and a game over. Stage 2 is built: stamina, costs, cooldowns, upkeep and the warrior's and
+rogue's basic talents, in `daotools`, the simulator and Unreal (`docs/COMBAT.md`, "Talents"). Still to
 come: spells and effects, threat, pause and tactics.
 
 ## 2. Dragon Age Reborn as the balance base

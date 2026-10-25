@@ -140,8 +140,10 @@ def compile_all():
         call("compile_blueprint", {"blueprint": {"refPath": bp}})
 
 
-def setup():
-    for bp, variables in VARIABLES.items():
+def setup(variables=None, functions=None, compile_all_after=True):
+    """Adds variables and functions (and their parameters, only to functions it creates); talents.py passes its
+    own."""
+    for bp, variables in (variables or VARIABLES).items():
         for v in variables:
             args = {"blueprint": {"refPath": bp}, "name": v[0], "type_name": v[1]}
             if len(v) > 2:
@@ -154,7 +156,7 @@ def setup():
                     call("add_variable", args)
             except RuntimeError as e:  # already there from an earlier run
                 print("variable", v[0], str(e)[:160])
-    for bp, functions in FUNCTIONS.items():
+    for bp, functions in (functions or FUNCTIONS).items():
         have = {g["refPath"].split(":")[-1] for g in call("list_graphs", {"blueprint": {"refPath": bp}})}
         for fn, params in functions.items():
             if fn in have:
@@ -170,7 +172,8 @@ def setup():
                 else:
                     call("add_function_param", {"graph": g, "param_name": name, "param_type": kind, "input_param": True})
             print("function", fn)
-    compile_all()
+    if compile_all_after:
+        compile_all()
 
 
 def graphs():
