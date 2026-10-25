@@ -572,6 +572,53 @@ The night's fights at level 2 (2,000 each, with the mabari and the Teyrna):
 the two at the bedroom door won every time in 20 s (25 at level 1), the knight
 94% (91%), the east hall's five 29% (13%).
 
+## Ranged combat
+
+Stage 4b (`stats.py`, `simulate.py`, `tools/unreal/ranged.py`).
+
+- **Which weapon is in hand**: `Equip_ItemList`'s `SetNumber` (0: in hand, 1:
+  the other set). The night's archers hold a shortbow, with a dagger in set 1
+  (the export used to give them the dagger); the Human Noble holds sword and
+  shield, with a shortbow in set 1.
+- **A shot** (`Combat_GetAttackResult`): -1 attack a metre past max(8 m,
+  `POINT_BLANK_RANGE`; the bow's `OptimumRange`: shortbow 20, longbow 35,
+  crossbow 40); the target's missile shield is added to its defense (a
+  shield's `MissileDeflection`: a small wooden shield 1.5); no flanking, no
+  backstab; the ranged critical chance.
+- **How often**: the bow animations (`mh_c.bw_fire` 0.43 s, `bw_rld` 1.53 s)
+  plus the aim held for the draw time (`GetCreatureRangedDrawSpeed`: the
+  creature's ranged aim speed, 0 unless a talent changes it, + the bow's
+  `BaseAimDelay`: shortbow 0.2): a shot every 2.16 s. The order the engine
+  plays them in is an assumption; the data holds the pieces.
+- **Archers' talents** (Reborn): Aim (sustained: +10 attack, +10 ranged
+  critical, +3 penetration, +2 damage, 1.5 s more aiming a shot), Defensive Fire
+  (sustained: +15 defense), Pinning Shot (a hit roots for 6 s, 8.5 in the game;
+  a lieutenant or boss is slowed), Shattering Shot (+10; a hit takes 10 armour
+  for 20 s and knocks a non-special target down). Talent rows gain damage bonus
+  and aiming time (18 fields).
+- **AI**: tactics conditions now know range bands (short within 3.5 m, medium
+  to 12, long to 80), being shot at, and targets that shoot; a ranged creature
+  may switch target at any time (threat).
+
+In Unreal an archer stops and shoots once its foe is within its bow's range
+(and 15 m) with a clear shot (a Visibility trace to 60 cm short of the foe hits
+nothing); else it closes in. Arrows are `/Game/Cousland/Combat/BP_Arrow`, a thin
+shaft flying 0.3 s. The player switches between sword and shield and the
+shortbow with Q; F or the mouse then shoots the nearest hostile within the
+bow's range (and 15 m).
+
+Checked in Play (silent, `py playtest.py ranged night`, 2026-10-25): an archer
+woken 8 m off held its ground and shot (a resolved attack every couple of
+seconds), used Pinning Shot and Dirty Fighting, and stood its ground at point
+blank; the player switched to the shortbow (a shot every 2.16 s, 6.75-11
+damage) and all six shots at the archer 8 m off resolved, two hitting for 6-7.
+No script errors. Not seen landing in Play yet: the pin and Shattering Shot on
+the player.
+
+The simulator's archers shoot from 10 m. With them, the east hall's five (the
+player, the mabari and the Teyrna at level 2) is won 60% of the time, against
+29% when they fought in melee with their daggers' numbers.
+
 ## Balance simulator
 
 `tools/daotools/simulate.py` fights the party against foes many times over without Unreal, with the same
@@ -780,9 +827,8 @@ Movers still don't push against each other or the player.
 
 ## Not there yet
 
-Ranged attacks (the night's 15 archers fight in melee) and the archers' and
-war dogs' talents; party members' talents (tactics); spells; real-time with
-pause
+Howe's war dogs' talents; party members' talents and ranged attacks (tactics);
+spells; real-time with pause
 (hostiles go for the nearest foe, not the one they hate most); allies outside
 the party (the castle's guards) cannot be struck yet; injuries; switching to a
 party member; proper animations (the attack is a generic punch, the fall and

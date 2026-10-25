@@ -1,0 +1,7 @@
+(fn Launch (From To)
+  (Variabili|Predefinito|ImpostaAFrom From)
+  (Variabili|Predefinito|ImpostaATo To)
+  (Variabili|Predefinito|ImpostaAT 0.0)
+  (Trasformazione|SetActorLocation (Variabili|Ottieniunriferimentoasestesso) From)
+  (Trasformazione|SetActorRotation (Variabili|Ottieniunriferimentoasestesso) (Matematica|Rotatore|FindLookatRotation From To))
+  (Utilità|Testo|SetTimerbyFunctionName :Object (Variabili|Ottieniunriferimentoasestesso) :FunctionName "Fly" :Time 0.02 :bLooping "true"))

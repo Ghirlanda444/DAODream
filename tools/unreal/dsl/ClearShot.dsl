@@ -1,0 +1,3 @@
+(fn ClearShot ()
+  (bind (_hit _blocked) (Collisione|LineTraceByChannel :Start (Utility|Operatori|Aggiungi (Trasformazione|GetActorLocation (Variabili|Ottieniunriferimentoasestesso)) (Matematica|Vettore|MakeVector 0.0 0.0 140.0)) :End (Utility|Operatori|Sottrai (Utility|Operatori|Aggiungi (Trasformazione|GetActorLocation (Variabili|Predefinito|OttieniFoe)) (Matematica|Vettore|MakeVector 0.0 0.0 120.0)) (Utility|Operatori|Moltiplica (Matematica|Vettore|Normalize (Utility|Operatori|Sottrai (Trasformazione|GetActorLocation (Variabili|Predefinito|OttieniFoe)) (Trasformazione|GetActorLocation (Variabili|Ottieniunriferimentoasestesso)))) 60.0)) :TraceChannel "Visibility"))
+  (Variabili|Predefinito|ImpostaShotClear (Matematica|Booleano|NOTBoolean _blocked)))

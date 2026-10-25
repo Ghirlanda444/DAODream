@@ -1,5 +1,5 @@
 (fn PlayerPummel ()
-  (Variabili|Predefinito|ImpostaPTMul (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniTalents) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica (Variabili|Predefinito|OttieniTSlot) 16) 15)))
+  (Variabili|Predefinito|ImpostaPTMul (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniTalents) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica (Variabili|Predefinito|OttieniTSlot) 18) 15)))
   (Variabili|Predefinito|ImpostaTBonus (Variabili|Predefinito|OttieniTAtkBonus))
   (Classe|BPDlgNPC|TakeAttack (Variabili|Predefinito|OttieniBestTarget))
   (Variabili|Predefinito|ImpostaTBonus 1000.0)

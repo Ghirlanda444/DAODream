@@ -1,0 +1,5 @@
+(fn RootPlayer (Seconds)
+  (Variabili|Predefinito|ImpostaPRootUntil (Matematica|Float|Max(Float) (Variabili|Predefinito|OttieniPRootUntil) (Utility|Operatori|Aggiungi (Utilità|Testo|GetGameTimeinSeconds) Seconds)))
+  (Variabili|Predefinito|ImpostaPStunned "true")
+  (Input|DisableInput (Gioco|GetPlayerPawn 0) (Gioco|GetPlayerController 0))
+  (Funzionedichiamata|ShowMsg :Txt "Pinned"))

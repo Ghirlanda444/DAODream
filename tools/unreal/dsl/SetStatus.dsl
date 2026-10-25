@@ -1,5 +1,5 @@
 (fn SetStatus (InStatus K)
-  (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggiore(>) (Utilità|Array|Length InStatus) (Utility|Operatori|Aggiungi K 8))
+  (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggiore(>) (Utilità|Array|Length InStatus) (Utility|Operatori|Aggiungi K 10))
     (:then
       (Variabili|Predefinito|ImpostaNLevel (Utilità|Array|Ottieni(unacopia) InStatus K))
       (Variabili|Predefinito|ImpostaDurScale (Utilità|Array|Ottieni(unacopia) InStatus (Utility|Operatori|Aggiungi K 1)))
@@ -10,4 +10,6 @@
       (Variabili|Predefinito|ImpostaNPool (Utilità|Array|Ottieni(unacopia) InStatus (Utility|Operatori|Aggiungi K 5)))
       (Variabili|Predefinito|ImpostaNFatigue (Utilità|Array|Ottieni(unacopia) InStatus (Utility|Operatori|Aggiungi K 6)))
       (Variabili|Predefinito|ImpostaNOffMin (Utilità|Array|Ottieni(unacopia) InStatus (Utility|Operatori|Aggiungi K 7)))
-      (Variabili|Predefinito|ImpostaNOffMax (Utilità|Array|Ottieni(unacopia) InStatus (Utility|Operatori|Aggiungi K 8))))))
+      (Variabili|Predefinito|ImpostaNOffMax (Utilità|Array|Ottieni(unacopia) InStatus (Utility|Operatori|Aggiungi K 8)))
+      (Variabili|Predefinito|ImpostaNRange (Utilità|Array|Ottieni(unacopia) InStatus (Utility|Operatori|Aggiungi K 9)))
+      (Variabili|Predefinito|ImpostaNMissile (Utilità|Array|Ottieni(unacopia) InStatus (Utility|Operatori|Aggiungi K 10))))))

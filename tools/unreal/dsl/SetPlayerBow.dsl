@@ -1,0 +1,11 @@
+(fn SetPlayerBow (InStats)
+  (Variabili|Predefinito|ImpostaPMeleeInterval (Variabili|Predefinito|OttieniPInterval))
+  (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggiore(>) (Utilità|Array|Length InStats) 26)
+    (:then
+      (Variabili|Predefinito|ImpostaPMissile (Utilità|Array|Ottieni(unacopia) InStats 20))
+      (Variabili|Predefinito|ImpostaBowMin (Utilità|Array|Ottieni(unacopia) InStats 21))
+      (Variabili|Predefinito|ImpostaBowMax (Utilità|Array|Ottieni(unacopia) InStats 22))
+      (Variabili|Predefinito|ImpostaBowPen (Utilità|Array|Ottieni(unacopia) InStats 23))
+      (Variabili|Predefinito|ImpostaBowCrit (Utilità|Array|Ottieni(unacopia) InStats 24))
+      (Variabili|Predefinito|ImpostaBowInterval (Utilità|Array|Ottieni(unacopia) InStats 25))
+      (Variabili|Predefinito|ImpostaBowRange (Utilità|Array|Ottieni(unacopia) InStats 26)))))

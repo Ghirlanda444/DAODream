@@ -11,6 +11,7 @@
       (Funzionedichiamata|SetPlayerRules :InStats InStats)
       (Funzionedichiamata|SetPlayerPace :InStats InStats)
       (Funzionedichiamata|SetPlayerTalentStats :InStats InStats)
+      (Funzionedichiamata|SetPlayerBow :InStats InStats)
       (Utilità|Testo|SetTimerbyFunctionName :Object (Variabili|Ottieniunriferimentoasestesso) :FunctionName "RegenTick" :Time 0.5 :bLooping "true")
       (Utilità|Testo|SetTimerbyFunctionName :Object (Variabili|Ottieniunriferimentoasestesso) :FunctionName "StaminaTick" :Time 0.5 :bLooping "true")
       (Funzionedichiamata|ShowHealth)

@@ -37,6 +37,9 @@ Compile success, a read-back graph or a variable value are not enough.
     by the player and the mabari; every few seconds each soldier's stamina, talent cooldowns and modes, and
     the player's stun, disarm and talent lock. Pick tags hostile from the start (`NpcHostile`): the
     Teyrna's room soldiers turn hostile only through a plot.
+  - `py playtest.py ranged night`: Play, the mabari knocked out and an archer woken 8 m off: whether it
+    stands and shoots, its talents, the player's pin and armour; then the player switches to the shortbow
+    and shoots it six times from 8 m (each shot read in one editor call).
   - `py playtest.py party day --wipe`: Play, Gilmore and the mabari join against six larder rats; the
     player is dropped, the test wins the fight and checks everyone gets up, then knocks all out (game
     over). Winning starts Gilmore's end-of-fight conversation, as the castle's script does.

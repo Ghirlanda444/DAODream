@@ -12,6 +12,7 @@ run are printed at the end.
     python playtest.py talents night                                       Play: use six talents on a soldier
     python playtest.py threat night                                        Play: two soldiers' threat tables
     python playtest.py enemytalents night                                  Play: soldiers using their talents
+    python playtest.py ranged night                                        Play: an archer shoots; the player's bow
 
 Characters are named by their tag (NpcTags in extracted/ue/areas/<area>.json). Hidden ones (waiting for a
 plot) are shown for the pictures. The editor must be open with its MCP server running (docs/UNREAL_SETUP.md);
@@ -717,6 +718,87 @@ OUT["dog"] = {k: dog.get_editor_property(k) for k in ("bDead", "bDown", "Health"
         run.finish()
 
 
+def ranged(args):
+    """Play at night: the mabari is knocked out and an archer (--tag) woken 8 m from the player; every few seconds it
+    reports whether it stands
+    and shoots (its distance to its foe, chasing or not, a clear shot), the arrows in flight, its talents, and the
+    player's health, pin and armour. Then the player switches to the shortbow (SwitchWeapon) and shoots it
+    (PlayerAttack) a few times: the rules' tally and the archer's health."""
+    run = Run("ranged", args.area)
+    run.start(simulate=False)
+    try:
+        g = run.g
+        for _ in range(8):
+            g.converse(seconds=90)
+            if not g.talking().get("bTalking"):
+                break
+        archer = run.npc(args.tag)
+        pyrun.run(NPC % run.npc("gen00fl_dog") + 'a.call_method("KnockOut")\n', 60)  # out of it: a duel
+        x, y, z = g.loc(archer)
+        g.go(x + 800, y, z, wait=0.5)
+        pyrun.run(NPC % archer + 'a.call_method("SetPlotActive", (True,))\n', 60)
+        sample = MGR + """
+acts = [a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)]
+t = [a for a in acts if a.get_name() == %r][0]
+pawn = unreal.GameplayStatics.get_player_pawn(w, 0)
+now = unreal.GameplayStatics.get_time_seconds(w)
+if m.get_editor_property("PlayerHealth") < 60.0:
+    m.call_method("HurtPlayer", (m.get_editor_property("PlayerHealth") - m.get_editor_property("PlayerMaxHealth"),))
+if t.get_editor_property("Health") < 40.0:  # kept up, so it keeps shooting
+    t.call_method("TakeHit", (-200.0,))
+foe = t.get_editor_property("Foe")
+ready = list(t.get_editor_property("NReady"))
+tal = list(t.get_editor_property("NTalents"))
+OUT.update({"now": round(now, 1), "arrows": sum(1 for a in acts if a.get_class().get_name() == "BP_Arrow_C"),
+            "foe": foe.get_name() if foe else None, "foe_m": round(t.get_distance_to(foe) / 100.0, 1) if foe else None,
+            "chasing": t.get_editor_property("bChasing"), "clear": t.get_editor_property("bShotClear"),
+            "range": t.get_editor_property("NRange"), "archer_health": round(t.get_editor_property("Health"), 1),
+            "talents": {int(tal[k * 18]): round(ready[k] - now, 1) for k in range(len(ready)) if tal[k * 18] and ready[k]},
+            "attacks": m.get_editor_property("Hits") + m.get_editor_property("Misses"),
+            "player": round(m.get_editor_property("PlayerHealth"), 1),
+            "pinned": round(max(0.0, m.get_editor_property("PRootUntil") - now), 1),
+            "armour_broken": round(max(0.0, m.get_editor_property("PArmourUntil") - now), 1)})
+"""
+        for k in range(args.samples):
+            time.sleep(3.0)
+            r = pyrun.run(sample % archer, 60)
+            print(json.dumps(r, default=str)[:600], flush=True)
+            if k == 2:
+                run.shot("archer")
+        tally = lambda: pyrun.run(MGR + "OUT.update({k: m.get_editor_property(k) for k in ('Hits', 'Misses', 'bBowOn', 'PInterval', 'BowRange')})", 60)
+        print("switch", pyrun.run(MGR + "m.call_method('SwitchWeapon')\nOUT.update({k: m.get_editor_property(k) for k in ('bBowOn', 'PInterval', 'BowMin', 'BowMax')})", 60))
+        # each shot in one editor call: the player 8 m from the archer, facing it; the shot resolves at once
+        shoot = MGR + """
+t = [a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor) if a.get_name() == %r][0]
+pawn = unreal.GameplayStatics.get_player_pawn(w, 0)
+dog = [a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor) if a.get_name() == %r][0]
+if not dog.get_editor_property("bDead"):
+    dog.call_method("KnockOut")  # it gets up 4 s after a lull: kept out of the duel
+if t.get_editor_property("Health") < 40.0:
+    t.call_method("TakeHit", (-200.0,))
+OUT["archer_dead"] = t.get_editor_property("bDead")
+pawn.set_actor_location(t.get_actor_location() + unreal.Vector(800.0, 0.0, 0.0), False, True)
+pawn.set_actor_rotation(unreal.Rotator(roll=0.0, pitch=0.0, yaw=180.0), True)
+before = (m.get_editor_property("Hits"), m.get_editor_property("Misses"), t.get_editor_property("Health"))
+m.call_method("PlayerAttack")
+OUT.update({"hits": m.get_editor_property("Hits") - before[0], "misses": m.get_editor_property("Misses") - before[1],
+            "damage": round(m.get_editor_property("LastDamage"), 1), "archer_lost": round(before[2] - t.get_editor_property("Health"), 1),
+            "metres": round(t.get_distance_to(pawn) / 100.0, 1)})
+"""
+        shots = []
+        for k in range(6):
+            r = pyrun.run(shoot % (archer, run.npc("gen00fl_dog")), 60)
+            shots.append(r)
+            print("  shot", r, flush=True)
+            time.sleep(2.5)
+            if k == 1:
+                run.shot("player_shoots")
+        print("RESULT", json.dumps({"shots": len(shots), "landed": sum(1 for r in shots if r.get("archer_lost", 0) > 0),
+                                    "resolved": sum(r.get("hits", 0) + r.get("misses", 0) for r in shots)}))
+    finally:
+        run.finish()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--sound", action="store_true", help="play the game's sound (tests are silent otherwise)")
@@ -768,6 +850,11 @@ def main():
     s.add_argument("--tags", nargs="+", default=["bhn200cr_howe_mother2", "bhn200cr_howe_mother1", "bhn200cr_howe_knight"])
     s.add_argument("--samples", type=int, default=15)
     s.set_defaults(fn=enemy_talents)
+    s = sub.add_parser("ranged", help=ranged.__doc__)
+    s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
+    s.add_argument("--tag", default="bhn200cr_howe_main_hall1", help="a hostile archer")
+    s.add_argument("--samples", type=int, default=8)
+    s.set_defaults(fn=ranged)
     s = sub.add_parser("party", help=party.__doc__)
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("--seconds", type=int, default=120)

@@ -48,8 +48,8 @@ criticals, flanking, armour and penetration, the damage bonus and rank scaling, 
 tables, and a game over. Stage 2 is built: stamina, costs, cooldowns, upkeep and the warrior's and
 rogue's basic talents, in `daotools`, the simulator and Unreal (`docs/COMBAT.md`, "Talents"). Stage 4
 comes before stage 3, since the Human Noble is a warrior or a rogue and Howe's men are mostly warriors: threat
-and the enemies' talents are built (`docs/COMBAT.md`, "Threat", "Enemy talents"). Still to come: ranged
-combat, spells and effects, pause and tactics.
+and the enemies' talents are built (`docs/COMBAT.md`, "Threat", "Enemy talents"), and ranged combat ("Ranged
+combat"). Still to come: spells and effects, pause and tactics.
 
 ## 2. Dragon Age Reborn as the balance base
 
