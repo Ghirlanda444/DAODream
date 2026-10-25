@@ -40,8 +40,13 @@ POINTS_PER_LEVEL = 3.0  # AS_POINTS_PER_LEVEL
 CHARGEN_POINTS = 5.0  # PROPERTY_SIMPLE_ATTRIBUTE_POINTS from Chargen_InitializeCharacter
 # The class's auto level-up table: how character creation spends the hero's 5 points when it is skipped.
 HERO_LEVELUP = {1: "alwarrior_default", 2: "alwizard_default", 3: "alrogue_default"}
-# _GetTableToUseForAL: a follower's auto level-up table by tag, before its class's default.
-FOLLOWER_LEVELUP = {"gen00fl_dog": "aldog"}
+# _GetTableToUseForAL: a follower's auto level-up table: its package's LevelupTable (the Teyrna's package 88,
+# Generic - Archer: 266, ALArcher_Default), else its class's (the dog's: aldog), else the warrior's.
+FOLLOWER_LEVELUP = {"gen00fl_dog": "aldog", "bhn100cr_mother": "alarcher_default"}
+# A follower's weapon when its template has none: the Teyrna joins at night as an archer (her package, her
+# tactics table's Rapid Shot and Pinning Shot) but her template carries no bow, and no script in the data gives
+# her one; she gets the longbow bhn_constants_h names beside her dagger (GEN_IM_LONGBOW_LB01_A). An inference.
+FOLLOWER_WEAPONS = {"bhn100cr_mother": "gen_im_wep_rng_lbw_lbw"}
 
 
 def hero_levelups(attrs: dict[str, float], level: int, weights: dict) -> dict[str, float]:
@@ -84,6 +89,7 @@ ATTACK_ROLL = 50.0
 RANK_PLAYER = 100
 NORMAL = 1  # difficulty row
 CLASS_ROGUE = 3
+CLASS_DOG = 17
 CRIT_CHANCE = 3.0  # sys_autoscale_h: melee and ranged critical chance, x the rank's fscale
 FLANKING_MAX = 15.0  # Combat_GetFlankingBonus (20 with Combat Movement); rogues get all of it, others half
 # The engine's derived stats, per attribute point above 10 (the game's character sheet): melee attack
@@ -113,7 +119,8 @@ _COLUMNS = {
     "alwarrior_default.gda": ["ID", "AttInit", "AttWeight", "InitialTalentID", "TalentID"],
     "alwizard_default.gda": ["ID", "AttInit", "AttWeight", "InitialTalentID", "TalentID"],
     "alrogue_default.gda": ["ID", "AttInit", "AttWeight", "InitialTalentID", "TalentID"],
-    "aldog.gda": ["ID", "AttWeight"],
+    "aldog.gda": ["ID", "AttInit", "AttWeight", "InitialTalentID", "TalentID"],
+    "alarcher_default.gda": ["ID", "AttInit", "AttWeight", "InitialTalentID", "TalentID"],
     # abilities.py
     "abi_base.gda": ["ID", "label", "usetype", "cost", "cooldown", "costupkeep", "fatigue", "prereqability",
                      "prereqlevel", "prereqattribute", "passive_id", "resistance"],

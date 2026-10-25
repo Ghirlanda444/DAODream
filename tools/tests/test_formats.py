@@ -934,6 +934,24 @@ class AbilityTests(unittest.TestCase):
         self.assertEqual(abilities.levelup_talents(tables, 1, 2, [19], {"Str": 18.0}), [14])  # no Shield Bash yet
         self.assertEqual(abilities.levelup_talents(dict(tables, cla_data={}), 1, 2, [19], {"Str": 18.0}), [])
 
+    def test_follower_talents(self):
+        # on hire: the InitialTalentID list (row 0: its length) in order, whatever the prerequisites, with 2 points,
+        # 1 a level above 1 and 1 more unless a dog or rogue; later levels: the TalentID list, learnable ones only
+        tables = dict(self.TABLES, cla_data={17: {"StartingAbility1": 4034}},
+                      alarcher_default={0: {"InitialTalentID": 6}, 1: {"InitialTalentID": 3071},
+                                        2: {"InitialTalentID": 803}, 3: {"InitialTalentID": 19},
+                                        4: {"InitialTalentID": 3072}, 5: {"InitialTalentID": 805}},
+                      aldog={0: {"InitialTalentID": 4}, 1: {"InitialTalentID": 90017, "TalentID": 90015},
+                             2: {"InitialTalentID": 90050, "TalentID": 90016}, 3: {"InitialTalentID": 90016}})
+        tables["abi_base"] = {**self.TABLES["abi_base"],
+                              90015: {"ID": 90015, "label": "DOG_OVERWHELM", "usetype": 4, "prereqability": 90049},
+                              90016: {"ID": 90016, "label": "DOG_CHARGE", "usetype": 4, "prereqability": 90050}}
+        self.assertEqual(abilities.follower_talents(tables, "alarcher_default", 2, {}), [3071, 803, 19, 3072])
+        self.assertEqual(abilities.follower_talents(tables, "alarcher_default", 1, {}), [3071, 803, 19])
+        # the dog joins at level 1 (2 points), then levels to 2: Overwhelm needs Combat Training, Charge is next
+        self.assertEqual(abilities.follower_talents(tables, "aldog", 2, {}, 17, hired_at=1), [90017, 90050, 90016])
+        self.assertEqual(abilities.follower_talents(tables, "aldog", 1, {}, 17, hired_at=1), [90017, 90050])
+
     def test_costs_and_timing(self):
         self.assertEqual(abilities.ability_cost(25.0, 3.5), 26.0)  # rounded after fatigue
         self.assertEqual(abilities.ability_cost(25.0, -6.5), 23.0)
@@ -1195,6 +1213,30 @@ class SimulateTests(unittest.TestCase):
         self.assertEqual(r["Won"], 1.0)
 
 
+    def test_party_talents(self):
+        # the dog: Growl (-15 defense 30 s, no roll), Charge (a knockdown), Overwhelm (pinned 2 s, two bites that
+        # land), Mabari Howl (every foe not a boss stunned 5 s); Rapid Shot's row by dexterity
+        table = {i: {"Name": str(i), "Use": 2 if i == 3071 else 4, "Cost": 10.0, "Cooldown": 30.0, "Upkeep": 0.0,
+                     "Fatigue": 0.0, "Effect": abilities.EFFECTS.get(i, {})} for i in abilities.PARTY}
+        dog = {"Level": 2.0, "Attributes": {"Str": 14.0, "Dex": 16.0}}
+        rows = {i: dict(zip(abilities.TALENT_FIELDS, abilities.talent_row(i, table[i], dog)))
+                for i in (90017, 90016, 90015, 90048, 3071)}
+        self.assertEqual((rows[90017]["Defense"], rows[90017]["Seconds"]), (-15.0, 30.0))
+        self.assertAlmostEqual(rows[3071]["AimDelay"], -0.3)
+        self.assertEqual(rows[3071]["Crit"], -100.0)
+        ours, foes = simulate.fighters(self.AREA, [], ["rat_*"])
+        p, rat, other = ours[0], foes[0], foes[1]
+        p.stamina = p.pool = 100.0
+        rng = random.Random(3)
+        simulate.perform(rng, p, rat, rows[90017], 0.0, 1)
+        self.assertEqual(rat.own("Defense", 10.0), -15.0)
+        self.assertEqual(rat.own("Defense", 31.0), 0.0)
+        damage, crit = simulate.perform(rng, p, rat, rows[90015], 0.0, 1)
+        self.assertEqual((rat.disabled, crit), (2.0, False))
+        self.assertGreater(damage, 0)
+        simulate.perform(rng, p, rat, rows[90048], 0.0, 1, enemies=[rat, other])
+        self.assertEqual((rat.disabled, other.disabled), (5.0, 5.0))
+
     def test_foe_talents(self):
         # a rat that only Shield Pummels (always, 4 s stun): the player is stunned and struck three times
         rows = [1, 4, 30, 20, 0, 0, 10, 4.0, 0, 0, 0, 0, 0, 0, 0, 1.1, 0, 0]
@@ -1206,12 +1248,12 @@ class SimulateTests(unittest.TestCase):
         p, rat = ours[0], foes[0]
         self.assertEqual((rat.stamina, rat.offhand, len(rat.talents), len(rat.tactics)), (50.0, (3.0, 4.0), 1, 1))
         rng = random.Random(7)
-        used, damage, crit = simulate.foe_turn(rng, rat, p, 1.0, [rat], ours, 0.0)
+        used, damage, crit = simulate.foe_turn(rng, rat, p, 1.0, ours, len(ours), 0.0)
         self.assertTrue(used)
         self.assertEqual((rat.stamina, p.disabled), (20.0, 5.0))  # 30 stamina; a party member's stun is not lengthened
         self.assertGreater(damage, 0)  # the two shield blows always land
         # the next round it cannot pay: it attacks
-        self.assertEqual(simulate.foe_turn(rng, rat, p, 2.0, [rat], ours, 0.0)[0], False)
+        self.assertEqual(simulate.foe_turn(rng, rat, p, 2.0, ours, len(ours), 0.0)[0], False)
         # Sunder Weapon disarms, Critical Strike kills at 25% health
         sunder = dict(zip(abilities.TALENT_FIELDS, [3025, 4, 25, 20, 0, 0, 0, 6.0] + [0.0] * 7 + [0.6]))
         rat.stamina = 50.0

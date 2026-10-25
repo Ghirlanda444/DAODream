@@ -424,10 +424,17 @@ def cmd_unreal_area(args) -> int:
             ref = stats.equipment(equip, items, tables)["Outfit"].get("chest", "")
             return str(tables["itemstats"].get(int((items.get(ref) or {}).get("BaseItem") or -1), {}).get("label") or "")
 
+        area_name = Path(args.file).name.split(".")[0]
+
         def creature_stats(utc):
-            # what it wears (the look) from its template; its natural bite and hide count for the numbers
+            # what it wears (the look) from its template; its natural bite and hide count for the numbers, and so
+            # do what the area's script puts on it and a follower's weapon (area.AREA_EQUIP, stats.FOLLOWER_WEAPONS)
+            tag = str(utc.get("Tag") or "")
             worn = utc.get("Equip_ItemList") or []
-            equip = worn + stats.natural_equipment(appearance(utc), worn, items, tables)
+            extra = [{"TemplateResRef": r} for r in area.AREA_EQUIP.get(area_name, {}).get(tag, [])
+                     + ([stats.FOLLOWER_WEAPONS[tag]] if tag in stats.FOLLOWER_WEAPONS else [])]
+            fighting = extra + worn
+            equip = fighting + stats.natural_equipment(appearance(utc), fighting, items, tables)
             st = stats.stats(tables, package=int(utc.get("Package") or 0), rank=int(utc.get("Rank") or 0),
                              area_level=args.area_level, race=int(utc.get("Race") or 0) or None,
                              base_item=stats.weapon_base_item(equip, items, tables["itemstats"]),
@@ -439,11 +446,19 @@ def cmd_unreal_area(args) -> int:
             st["Status"] = [float(st["Level"]), abilities.effect_duration(1.0, rank, tables, abilities.PARTY_SLOTS),
                             abilities.resist_chance(rank, tables, attribute=player["Attributes"]["Str"],
                                                     level_difference=player["Level"] - st["Level"]),
-                            threat.seen_threat(chest_label(worn)), 1.0 if st.get("Class") == "Rogue" else 0.0]
+                            threat.seen_threat(chest_label(fighting)), 1.0 if st.get("Class") == "Rogue" else 0.0]
             numbers = stats.equipment(equip, items, tables)
             st = {**st, **numbers, "Outfit": stats.equipment(worn, items, tables)["Outfit"]}
-            # its package's talents at its level (passives folded in) and its tactics table (stage 4)
-            known = tactics.package_talents(ai_tables, int(utc.get("Package") or 0), int(st["Level"]))
+            # its package's talents at its level, or a follower's (passives folded in), and its tactics table
+            # (stage 4; a follower's package's FollowerTacticsTable is its template's PackageAI here)
+            package = int(utc.get("Package") or 0)
+            cls_id = int(tables["packages_base"].get(package, {}).get("StartingClass") or 1)
+            if tag in area.FOLLOWERS:
+                known = abilities.follower_talents(
+                    tables, stats.FOLLOWER_LEVELUP.get(tag) or stats.HERO_LEVELUP.get(cls_id, ""), int(st["Level"]),
+                    st.get("Attributes") or {}, cls_id, area.HIRED_AT.get(tag, 0))
+            else:
+                known = tactics.package_talents(ai_tables, package, int(st["Level"]))
             st = abilities.with_passives(st, known, table, stats.CLASS_ROGUE if st.get("Class") == "Rogue" else 1)
             st["TalentRows"] = [abilities.talent_row(i, table[i], st) for i in known
                                 if i in table and table[i]["Use"] != abilities.PASSIVE][:tactics.MAX_TALENTS]

@@ -30,6 +30,11 @@ STAGE = WARRIOR + ROGUE + (SHIELD_BASH,)
 # Shield Pummel, Sunder Weapon, Sunder Armor, Critical Strike, Pommel Strike, Indomitable, Shield Block (no numbers
 # of its own).
 ENEMY = (1, 3025, 4, 3, 3024, 28, 3074, 803, 3072, 500, 33)
+# The party's (stage 6): the dogs' talents (the hero's mabari, aldog; Howe's war dogs, package 8) and the Teyrna's
+# Rapid Shot (ALArcher_Default): Growl, Fortitude, Charge, Mabari Howl, Combat Training, Overwhelm, Shred.
+DOG = (90017, 90050, 90016, 90048, 90049, 90015, 90047)
+RAPID_SHOT = 3071
+PARTY = DOG + (RAPID_SHOT,)
 SUSTAINED, PASSIVE, ACTIVATED = 2, 3, 4  # abi_base usetype
 CHARGEN_TALENT_POINTS = 2  # sys_chargen_h: PROPERTY_SIMPLE_TALENT_POINTS
 # Creature properties (properties.gda) the passive and scripted effects change, by name.
@@ -92,12 +97,27 @@ EFFECTS = {
     #   target down for the engine's moment (an instant knockdown)
     500: {"Self": {"Attack": 10.0, "Crit": 10.0, "Penetration": 3.0, "DamageBonus": 2.0, "AimDelay": 1.5}},  # Aim
     33: {"Self": {"Defense": 15.0}},  # Defensive Fire (Reborn: the defense only)
+    # The party's (stage 6)
+    3071: {"RapidShot": True},  # Rapid Shot (talent_modal): aims faster by a twentieth of a second a point of
+    #   dexterity above 10 (RAPIDSHOT_AIM_SPEED_FACTOR, at most RAPIDSHOT_AIM_SPEED_MAX 2 s); no critical hits while
+    #   on (combat_h; Crit -100 here); RAPIDSHOT_ATTACK_PENALTY is defined but never used
+    90017: {"Defense": -15.0, "Duration": 30.0, "Resist": "Str"},  # Growl: no attack roll; unless resisted (a
+    #   mental check: here the same chance as the physical one) -15 defense for 30 s (DOG_GROWL_*), not rank-adjusted
+    90016: {"Damage": True, "Knockdown": True, "Resist": "Str"},  # Charge: a hit knocks down unless resisted
+    90047: {"Damage": True, "AutoCrit": True, "Bleed": 1.0, "Duration": 10.0},  # Shred: a hit is critical, and a
+    #   target that can bleed loses that damage again over 10 s (DOG_SHRED_BLEED_*)
+    90048: {"Stun": 5.0, "Radius": 10.0, "Fixed": True},  # Mabari Howl: every hostile of a non-special rank within
+    #   10 m (abi_base aoe_param1) stunned 5 s (DOG_MABARI_HOWL_DURATION): no resistance, no rank adjustment
+    90015: {"Damage": True, "Sure": True, "Hits": 2, "Pin": 2.0},  # Overwhelm (monster_talent_overwhelm): a
+    #   humanoid not already pinned is held for OVERWHELM_DURATION 2 s while the dog bites (each a hit at its
+    #   normal damage, no roll); the bites are its animation's hit events, not in the data: 2 here
     28: {"Self": {"DamageScale": -0.3}, "Indomitable": True},  # Indomitable (Reborn): +30% armour, defense +0.6
     #   a point of strength above 10, -30% damage dealt (and missile shield 10)
 }
 # The talents that take their target out of the fight for a while: a stun lasts its seconds rank-adjusted
 # (effect_duration), a knockdown as long as the engine's animations (no rank adjustment).
-DISABLES = {603: "Stun", 617: "Knockdown", 1: "Stun", 3024: "Knockdown"}
+DISABLES = {603: "Stun", 617: "Knockdown", 1: "Stun", 3024: "Knockdown", 90016: "Knockdown", 90015: "Pin",
+            90048: "Stun"}
 THREAT = (808, 3041, 3016, 3023)  # Threaten, Taunt, Disengage, Feign Death: their point is threat (stage 4)
 NAMES = {14: "Powerful", 808: "Threaten", 17: "Bravery", 3021: "Death Blow", 19: "Precise Striking", 3041: "Taunt",
          3016: "Disengage", 20: "Perfect Strike", 603: "Dirty Fighting", 21: "Combat Movement",
@@ -105,13 +125,16 @@ NAMES = {14: "Powerful", 808: "Threaten", 17: "Bravery", 3021: "Death Blow", 19:
          777: "Lethality", 3069: "Evasion", 617: "Shield Bash", 1: "Shield Pummel", 3025: "Sunder Weapon",
          3: "Critical Strike", 4: "Sunder Armor", 3024: "Pommel Strike", 28: "Indomitable", 3074: "Shield Block", 500: "Aim",
          33: "Defensive Fire", 803: "Pinning Shot", 3072: "Shattering Shot", 100075: "Stealth",
-         6: "Dual Weapon Training"}
+         6: "Dual Weapon Training", 3071: "Rapid Shot", 90017: "Growl", 90050: "Fortitude", 90016: "Charge",
+         90048: "Mabari Howl", 90049: "Combat Training", 90015: "Overwhelm", 90047: "Shred"}
 BRAVERY, DEATH_BLOW, EVASION = 17, 3021, 3069
 # A human knocked down (Shield Bash) is out of the fight while the engine plays the fall (mh_c.rct_kbck: 1.2 and
 # 1.37 s; which one, or how the engine blends it, is not in the data), lies for the effect's RandomFloat() seconds
 # (KNOCKDOWN_RANDOM, rolled at use) and gets up (mh_c.rct_kdwn_up_v1: 2.13 s).
 KNOCKDOWN_SECONDS = 1.3 + 2.13
 KNOCKDOWN_RANDOM = 1.0
+RAPIDSHOT_AIM_SPEED_FACTOR = 0.05
+RAPIDSHOT_AIM_SPEED_MAX = 2.0
 
 
 def load_tables(game_dir: str | Path, overrides: str | Path | None = None) -> dict[str, dict[int, dict]]:
@@ -130,7 +153,7 @@ def passive_properties(row: dict) -> dict[str, float]:
     return out
 
 
-def talents(tables: dict, ids: tuple[int, ...] = STAGE + ENEMY) -> dict[int, dict]:
+def talents(tables: dict, ids: tuple[int, ...] = STAGE + ENEMY + PARTY) -> dict[int, dict]:
     """Each talent's table row, read: Name, Use (SUSTAINED, PASSIVE, ACTIVATED), Cost, Cooldown, Upkeep, Fatigue,
     Prereq (ability), Level, Attribute (1 strength, 2 dexterity...) and Value it needs, Passive {property: value},
     Effect (EFFECTS)."""
@@ -161,24 +184,41 @@ def starting_talents(tables: dict, player_class: int) -> list[int]:
 
 
 def levelup_talents(tables: dict, player_class: int, level: int, known: list[int],
-                    attributes: dict[str, float]) -> list[int]:
-    """AL_SpendTalentPoints at each level-up from 2 to `level`: one talent point a level (cla_data LevelsPerAbility
-    1 for warriors and rogues), spent on the first talent of the class table's TalentID list the hero can learn
-    (IsAbilityAvailable: can_learn; the class's starting abilities, such as Hidden Warrior, count as known). Returns
-    the new talents, in the order learnt."""
-    table = tables.get(stats.HERO_LEVELUP.get(player_class, ""), {})
+                    attributes: dict[str, float], table_name: str = "", start: int = 2) -> list[int]:
+    """AL_SpendTalentPoints at each level-up from `start` to `level`: one talent point a level (cla_data
+    LevelsPerAbility 1 for warriors and rogues), spent on the first talent of the table's TalentID list (the
+    class's, or `table_name`) the creature can learn (IsAbilityAvailable: can_learn; the class's starting
+    abilities, such as Hidden Warrior, count as known). Returns the new talents, in the order learnt."""
+    table = tables.get(table_name or stats.HERO_LEVELUP.get(player_class, ""), {})
     picks = [int(table[i].get("TalentID") or 0) for i in sorted(table) if i > 0]
     rows = talents(tables, tuple(p for p in picks if p))
     cls = tables.get("cla_data", {}).get(player_class, {})  # the class's hidden abilities (Hidden Warrior...)
     have = set(known) | {int(cls.get(k) or 0) for k in ("StartingAbility1", "StartingAbility2")}
     new = []
-    for lv in range(2, level + 1):
+    for lv in range(max(2, start), level + 1):
         for p in picks:
             if p and p not in have and p in rows and can_learn(rows[p], have, lv, attributes):
                 have.add(p)
                 new.append(p)
                 break
     return new
+
+
+def follower_talents(tables: dict, table_name: str, level: int, attributes: dict[str, float],
+                     player_class: int = 1, hired_at: int = 0) -> list[int]:
+    """A follower's talents (EVENT_TYPE_PARTY_MEMBER_HIRED): when it joins it is rebuilt (its template's talents
+    wiped, Chargen_InitializeCharacter) at the hero's level then (`hired_at`; 0: `level`), and
+    AL_SpendTalentSpellPoints takes its table's InitialTalentID list in order, whatever their prerequisites, with
+    2 points (sys_chargen_h), 1 a level above 1, and 1 more for a follower neither dog nor rogue; each later
+    level-up up to `level` spends its point as the hero's do (levelup_talents)."""
+    rows = tables.get(table_name, {})
+    hired_at = hired_at or level
+    count = int((rows.get(0) or {}).get("InitialTalentID") or 0)  # row 0 holds the list's length
+    picks = [int((rows.get(i) or {}).get("InitialTalentID") or 0) for i in range(1, count)]
+    points = CHARGEN_TALENT_POINTS + (hired_at - 1) + \
+        (0 if player_class in (stats.CLASS_DOG, stats.CLASS_ROGUE) else 1)
+    known = [p for p in picks if p][:points]
+    return known + levelup_talents(tables, player_class, level, known, attributes, table_name, hired_at + 1)
 
 
 def can_learn(talent: dict, known: set[int], level: int, attributes: dict[str, float]) -> bool:
@@ -281,8 +321,13 @@ def talent_row(i: int, talent: dict, player: dict) -> list[float]:
     if e.get("Tricks"):
         own = {k: v for k, v in tricks(player.get("Attributes") or {}, float(player.get("Attack") or 0)).items()
                if k != "CritDamage"}
+    if e.get("RapidShot"):  # by dexterity; no critical hits while on
+        dex = float((player.get("Attributes") or {}).get("Dex", stats.BASE_ATTRIBUTE))
+        own = {"AimDelay": -min(max(0.0, dex - stats.BASE_ATTRIBUTE) * RAPIDSHOT_AIM_SPEED_FACTOR,
+                                RAPIDSHOT_AIM_SPEED_MAX), "Crit": -100.0}
     crit = own.get("Crit", 0.0) + e.get("CritPerLevel", 0.0) * float(player.get("Level") or 1)
-    seconds = e.get("Stun") or e.get("Root") or e.get("Duration", 0.0) or (KNOCKDOWN_SECONDS if e.get("Knockdown") else 0.0)
+    seconds = e.get("Stun") or e.get("Root") or e.get("Pin") or e.get("Duration", 0.0) or \
+        (KNOCKDOWN_SECONDS if e.get("Knockdown") else 0.0)
     strength = float((player.get("Attributes") or {}).get("Str", stats.BASE_ATTRIBUTE))
     if e.get("Indomitable"):  # from the user's strength and armour
         own["Defense"] = round((strength - stats.BASE_ATTRIBUTE) * 0.6, 3)
@@ -290,7 +335,7 @@ def talent_row(i: int, talent: dict, player: dict) -> list[float]:
     mul = e.get("DamageMul", 1.0) * (1.0 + e.get("StrengthDamage", 0.0) * (strength - stats.BASE_ATTRIBUTE))
     return [float(i), float(talent["Use"]), talent["Cost"], talent["Cooldown"], talent["Upkeep"], talent["Fatigue"],
             float(e.get("AttackBonus", 0.0)), float(seconds), own.get("Attack", 0.0), own.get("Penetration", 0.0),
-            own.get("Speed", own.get("AttackSpeed", 0.0)), round(crit, 3), own.get("Defense", 0.0),
+            own.get("Speed", own.get("AttackSpeed", 0.0)), round(crit, 3), own.get("Defense", e.get("Defense", 0.0)),
             own.get("Armour", e.get("ArmourFlat", 0.0)), own.get("DamageScale", 0.0), round(mul, 3),
             own.get("DamageBonus", 0.0), own.get("AimDelay", 0.0)]
 

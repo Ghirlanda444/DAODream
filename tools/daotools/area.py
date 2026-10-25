@@ -217,9 +217,17 @@ DYES = [(0.33, 0.28, 0.20), (0.25, 0.22, 0.17), (0.08, 0.055, 0.035), (0.17, 0.0
 UNDER = [2, 9, 10]  # the second layer (hose, apron, sleeves): brown, grey, dark (linen there read white)
 DYED_CLOTHES = ("cth_com_",)  # servants' common clothes; uniforms and nobles' colours stay as made
 VARIETY = 11  # floats per creature
-# Creatures the area's plots hire into the party (UT_HireFollower in bhn100pt_gilmore; GEN_DOG_RECRUITED): their
-# numbers are those the game rebuilds when they join (stats.follower_attributes).
-FOLLOWERS = {"bhn100cr_gilmore", "gen00fl_dog"}
+# Creatures the area's plots hire into the party (UT_HireFollower in bhn100pt_gilmore and bhn100pt_mother;
+# GEN_DOG_RECRUITED): their numbers and talents are those the game rebuilds when they join
+# (stats.follower_attributes, abilities.follower_talents).
+FOLLOWERS = {"bhn100cr_gilmore", "gen00fl_dog", "bhn100cr_mother"}
+# The hero's level when a follower joins, where it is below the level it fights at: the dog and Gilmore join in
+# the day, at level 1; the Teyrna at night, at the night's level.
+HIRED_AT = {"gen00fl_dog": 1, "bhn100cr_gilmore": 1}
+# What an area's script puts on a creature when the area loads, for its numbers (the look stays the template's):
+# at night (bhn200ar_castle_after_siege, AREALOAD_PRELOADEXIT) the Teyrna's gown off, her light leather on.
+AREA_EQUIP = {"bhn200ar_castle_after_siege": {
+    "bhn100cr_mother": ["gen_im_arm_cht_lgt_rlr", "gen_im_arm_bot_lgt_rlr", "gen_im_arm_glv_lgt_rlr"]}}
 # Per creature, the numbers a hit needs beyond attack and damage (stats.py, docs/COMBAT.md): armour,
 # armour penetration, critical chance (percent), the most flanking adds, the damage bonus after armour.
 RULES = ("Armour", "Penetration", "Crit", "Flanking", "DamageBonus")

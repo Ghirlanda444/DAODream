@@ -46,6 +46,12 @@ Ranged (stage 4b): a foe with a bow (NpcStatus' optimum range) shoots from RANGE
 past its bow's optimum range (none at 10 m), the target's missile shield added to its defense, no flanking or
 backstab; its talents' aiming time adds to its shots' interval; it may switch target any time (threat). Pinning
 Shot's root changes nothing here (nobody moves); Shattering Shot takes 10 armour for 20 s and knocks down.
+
+The party (stage 6): a party member other than the player with talents and a tactics table (the Teyrna, the dog)
+takes its combat rounds as a foe does (tactics.choose), against its own target; the Teyrna shoots from
+RANGED_DISTANCE like an archer. The dogs' talents (abilities.EFFECTS): Growl takes 15 defense for 30 s unless
+resisted, Charge knocks down, Shred is a critical whose bleed is dealt at once here, Overwhelm pins for 2 s with
+two bites that land, Mabari Howl stuns every foe not a boss for 5 s (nobody is out of its 10 m here).
 """
 
 from __future__ import annotations
@@ -191,12 +197,14 @@ def fighters(area: dict, party: list[str], foes: list[str],
 
 def strike(rng: random.Random, a: Fighter, d: Fighter, flanking: float = 0.0, now: float = 0.0,
            bonus: float = 0.0, offhand: bool = False, extra_crit: float = 0.0,
-           talent: bool = False, mul: float = 1.0, sure: bool = False) -> tuple[float | None, bool]:
+           talent: bool = False, mul: float = 1.0, sure: bool = False,
+           force_crit: bool | None = None) -> tuple[float | None, bool]:
     """One attack: (damage, critical), damage None for a miss. ResolveHit, RollHit and Mitigate in Unreal.
     `bonus`: a talent's attack bonus; `offhand`: with the shield's damage; `extra_crit`: Bravery's. The target's
     displacement (Evasion) makes it miss outright first. A rogue's plain attack on a flanked (or, with Coup de
     Grace, stunned) target that hits is a backstab: critical damage. `mul`: the talent's damage multiplier; `sure`:
-    a blow that lands whatever the roll (Shield Pummel's shield blows). Indomitable's defense and armour count for
+    a blow that lands whatever the roll (Shield Pummel's shield blows); `force_crit`: True or False decides the
+    critical (Shred's, Overwhelm's bites) instead of the roll. Indomitable's defense and armour count for
     the defender, its damage scale for the attacker; a disarmed attacker (Sunder Weapon) lost its attack rating."""
     if d.displacement and rng.random() * 100.0 < d.displacement and not sure:
         return None, False
@@ -213,6 +221,8 @@ def strike(rng: random.Random, a: Fighter, d: Fighter, flanking: float = 0.0, no
         return None, False
     if a.rogue and not talent and not ranged and (flanking > 0 or abilities.COUP_DE_GRACE in a.passives and d.disabled > now):
         crit = True  # Combat_CheckBackstab: COMBAT_RESULT_BACKSTAB, critical damage
+    if force_crit is not None:
+        crit = force_crit
     rolled = rng.uniform(*(a.offhand if offhand else a.damage)) * mul * (1.0 + a.own("DamageScale", now))
     return stats.hit_damage(rolled, crit=crit, armour=d.armour + d.own("Armour", now), armour_roll=rng.random(),
                             penetration=a.penetration + a.own("Penetration", now),
@@ -278,13 +288,13 @@ def affordable(a: Fighter, d: Fighter | None, r: dict, now: float) -> bool:
     return not (buff and any(b is r and until > now for until, b in a.buffs))
 
 
-_STRIKES = (3, 4, 3025, 3026, 617, 1, 803, 3072)  # talents that strike their target (the rest of the non-sustained: buffs, 603)
+_STRIKES = (3, 4, 3025, 3026, 617, 1, 803, 3072, 90016, 90047, 90015)  # talents that strike their target (the rest of the non-sustained: buffs, 603)
 
 
 def perform(rng: random.Random, a: Fighter, d: Fighter, r: dict, now: float, party_size: int, flanking: float = 0.0,
-            extra_crit: float = 0.0) -> tuple[float | None, bool]:
+            extra_crit: float = 0.0, enemies: list | None = None) -> tuple[float | None, bool]:
     """Pay for talent row `r` and apply it (abilities.EFFECTS): (damage dealt, critical), damage None when nothing
-    was struck."""
+    was struck. `enemies`: `a`'s standing enemies (Mabari Howl's)."""
     i = int(r["Id"])
     e = abilities.EFFECTS.get(i, {})
     a.ready[i] = now + r["Cooldown"]
@@ -313,6 +323,15 @@ def perform(rng: random.Random, a: Fighter, d: Fighter, r: dict, now: float, par
         if not resisted():
             d.disabled = max(d.disabled, now + r["Seconds"] + rng.random() * abilities.KNOCKDOWN_RANDOM)
         result = (None, False)
+    elif i == 90017:  # Growl: no attack roll; -15 defense for 30 s unless resisted
+        if not resisted():
+            d.buffs.append((now + r["Seconds"], {"Defense": r["Defense"]}))
+        result = (None, False)
+    elif i == 90048:  # Mabari Howl: every enemy not a boss stunned, no resistance, no rank adjustment
+        for f in enemies or [d]:
+            if not f.down and not f.boss:
+                f.disabled = max(f.disabled, now + r["Seconds"])
+        result = (None, False)
     elif i not in _STRIKES:  # a buff on itself
         a.buffs.append((now + r["Seconds"], r))
         return None, False
@@ -324,6 +343,12 @@ def perform(rng: random.Random, a: Fighter, d: Fighter, r: dict, now: float, par
             if i == 1 and h > 1:  # Shield Pummel's shield blows always land
                 damage, c = strike(rng, a, d, flanking, now, offhand=True, extra_crit=extra_crit, talent=True,
                                    mul=mul, sure=True)
+            elif i == 90015:  # Overwhelm's bites: hits, never critical
+                damage, c = strike(rng, a, d, flanking, now, talent=True, sure=True, force_crit=False)
+            elif i == 90047:  # Shred: a hit is critical
+                damage, c = strike(rng, a, d, flanking, now, r["AttackBonus"], talent=True, force_crit=True)
+                if damage is not None:
+                    damage *= 1.0 + e["Bleed"]  # its bleed, dealt at once here
             else:
                 damage, c = strike(rng, a, d, flanking, now, r["AttackBonus"], offhand=i == 617,
                                    extra_crit=extra_crit, talent=True, mul=mul)
@@ -333,7 +358,9 @@ def perform(rng: random.Random, a: Fighter, d: Fighter, r: dict, now: float, par
                     damage = max(0.0, d.health - total) + 1.0  # Critical Strike: a death blow
                 total += damage
                 crit = crit or c
-        if i == 617 and landed and not resisted():
+        if i == 90015:
+            d.disabled = max(d.disabled, now + r["Seconds"])
+        if i in (617, 90016) and landed and not resisted():
             d.disabled = max(d.disabled, now + r["Seconds"] + rng.random() * abilities.KNOCKDOWN_RANDOM)
         if i == 1 and not resisted():
             d.disabled = max(d.disabled, now + seconds(r["Seconds"]))
@@ -353,15 +380,16 @@ def perform(rng: random.Random, a: Fighter, d: Fighter, r: dict, now: float, par
     return result
 
 
-def foe_turn(rng: random.Random, a: Fighter, d: Fighter, now: float, live: list, party: list,
+def foe_turn(rng: random.Random, a: Fighter, d: Fighter, now: float, enemies: list, party_size: int,
              flanking: float) -> tuple[bool, float | None, bool]:
-    """A foe's combat round (tactics.choose): (used a talent, damage, critical)."""
+    """A combat round by tactics (tactics.choose), a foe's or a party member's: (used a talent, damage,
+    critical). `enemies`: the other side's fighters."""
     regen(a, now)
     me = {"Health": _health(a) * 100.0, "Stamina": a.stamina / a.pool * 100.0 if a.pool else 0.0,
-          "AttackedInMelee": any(f.target is a and not f.range for f in party if not f.down),
-          "AttackedAtRange": any(f.target is a and f.range for f in party if not f.down),
+          "AttackedInMelee": any(f.target is a and not f.range for f in enemies if not f.down),
+          "AttackedAtRange": any(f.target is a and f.range for f in enemies if not f.down),
           "Distance": RANGED_DISTANCE if a.range else 1.0,
-          "Surrounding": sum(1 for f in party if not f.down and f.target is a)}
+          "Surrounding": sum(1 for f in enemies if not f.down and f.target is a)}
     them = {"Health": _health(d) * 100.0, "Ranged": d.range > 0,
             "Stamina": d.stamina / d.pool * 100.0 if d.pool else 0.0}
     rows = {int(r["Id"]): r for r in a.talents}
@@ -373,7 +401,8 @@ def foe_turn(rng: random.Random, a: Fighter, d: Fighter, now: float, live: list,
     command, ability = ai.choose(a.tactics, me, them, can_use, rng)
     if command == ai.ATTACK:
         return False, None, False
-    damage, crit = perform(rng, a, d, rows[ability], now, len(party), flanking)
+    damage, crit = perform(rng, a, d, rows[ability], now, party_size, flanking,
+                           enemies=[f for f in enemies if not f.down])
     return True, damage, crit
 
 
@@ -456,9 +485,9 @@ def fight(party: list[Fighter], foes: list[Fighter], rng: random.Random, wave: i
         flanking = a.flanking if flank and (d.target is not a or d.disabled > now) else 0.0
         bravery = abilities.BRAVERY_CRIT * max(0, sum(1 for x in live if x.target is a) - 2) \
             if abilities.BRAVERY in a.passives else 0.0
-        if a.side == "foe":
-            used, damage, crit = foe_turn(rng, a, d, now, live, party, flanking) if a.tactics and a.talents \
-                else (False, None, False)
+        if a.side == "foe" or a.tag != PLAYER and a.tactics and a.talents:
+            used, damage, crit = foe_turn(rng, a, d, now, party if a.side == "foe" else live, len(party),
+                                          flanking) if a.tactics and a.talents else (False, None, False)
         else:
             used, damage, crit = use_talent(rng, a, d, now, len(party), flanking, bravery,
                                             [f for f in live if f.threat] if use_threat else None) if a.talents \
@@ -500,6 +529,7 @@ def fight(party: list[Fighter], foes: list[Fighter], rng: random.Random, wave: i
             "Party": {f.tag: {"Health": round(max(0.0, f.health), 1), "Max": f.max_health, "Down": f.down,
                               "Dealt": round(f.dealt, 1)} for f in party},
             "Talents": dict(party[0].used) if party else {},
+            "PartyTalents": {k: sum(f.used.get(k, 0) for f in party[1:]) for k in {k for f in party[1:] for k in f.used}},
             "FoeTalents": {k: sum(f.used.get(k, 0) for f in foes) for k in {k for f in foes for k in f.used}},
             "Tally": tally, "Taken": taken}
 
@@ -534,6 +564,8 @@ def simulate(area: dict, party: list[str], foes: list[str], runs: int = 1000, se
         "DamagePerHitTaken": round(statistics.mean(taken), 2) if taken else 0.0,
         "FoeTalents": {abilities.NAMES.get(i, str(i)): round(sum(r["FoeTalents"].get(i, 0) for r in results) / runs, 2)
                        for i in sorted({i for r in results for i in r["FoeTalents"]})},
+        "PartyTalents": {abilities.NAMES.get(i, str(i)): round(sum(r["PartyTalents"].get(i, 0) for r in results) / runs, 2)
+                         for i in sorted({i for r in results for i in r["PartyTalents"]})},
         # the player's talent uses a fight, by name
         "Talents": {abilities.NAMES.get(i, str(i)): round(sum(r["Talents"].get(i, 0) for r in results) / runs, 2)
                     for i in sorted({i for r in results for i in r["Talents"]})},
@@ -551,6 +583,8 @@ def report(sim: dict, label: str = "") -> str:
         lines.append("  the foes' talents a fight: " + ", ".join(f"{k} {v}" for k, v in sim["FoeTalents"].items()))
     if sim.get("Talents"):
         lines.append("  the player's talents a fight: " + ", ".join(f"{k} {v}" for k, v in sim["Talents"].items()))
+    if sim.get("PartyTalents"):
+        lines.append("  the party's talents a fight: " + ", ".join(f"{k} {v}" for k, v in sim["PartyTalents"].items()))
     for t, p in sim["Party"].items():
         lines.append(f"  {t}: fell {p['Fell']:.0%}, health left {p['HealthLeft']:.0%}, damage dealt {p['DamageShare']:.0%}")
     return "\n".join(lines)
