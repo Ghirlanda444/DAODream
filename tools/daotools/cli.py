@@ -424,6 +424,7 @@ def cmd_unreal_area(args) -> int:
             st = stats.stats(tables, package=int(utc.get("Package") or 0), rank=int(utc.get("Rank") or 0),
                              area_level=args.area_level, race=int(utc.get("Race") or 0) or None,
                              base_item=stats.weapon_base_item(equip, items, tables["itemstats"]),
+                             weapon_material=int((stats.weapon_item(equip, items, tables["itemstats"]) or {}).get("Material") or 0),
                              follower=utc.get("Tag") if utc.get("Tag") in area.FOLLOWERS else "")
             st["Interval"] = stats.attack_interval(equip, items, tables, anims.get(appearance(utc)))
             numbers = stats.equipment(equip, items, tables)
@@ -435,7 +436,8 @@ def cmd_unreal_area(args) -> int:
                  if args.player_template else [])
         player = stats.stats(tables, package=0, rank=stats.RANK_PLAYER, area_level=args.area_level, race=3,
                              base_item=stats.weapon_base_item(equip, items, tables["itemstats"]) or 2, player_class=1,
-                             hero=True)
+                             hero=True,
+                             weapon_material=int((stats.weapon_item(equip, items, tables["itemstats"]) or {}).get("Material") or 0))
         player.update(stats.equipment(equip, items, tables))
         player["Interval"] = stats.attack_interval(equip, items, tables)
         print(f"player: {player['Attributes']}, {player['Health']} health, attack {player['Attack']}, defense {player['Defense']} "

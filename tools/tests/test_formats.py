@@ -795,6 +795,16 @@ class StatsTests(unittest.TestCase):
                                                 self.TABLES["itemstats"]), 2)
 
 
+    def test_weapon_material(self):
+        # A grey iron weapon (materialtypes 41 -> tier 2): x1.1 damage, x1.15 armour penetration.
+        tables = {k: dict(v) for k, v in self.TABLES.items()}
+        tables["materialtypes"] = {41: {"ID": 41, "Material": 2}}
+        tables["materialrules"] = {2: {"ID": 2, "Damage": 1.1, "ArmorPenetration": 1.15, "CritChanceModifier": 1.1}}
+        st = stats.stats(tables, package=0, rank=100, race=3, base_item=2, player_class=1, hero=True, weapon_material=41)
+        plain = stats.stats(tables, package=0, rank=100, race=3, base_item=2, player_class=1, hero=True)
+        self.assertAlmostEqual(st["Damage"][0] - plain["Damage"][0], 0.6, places=2)  # 6 x 0.1
+        self.assertAlmostEqual(st["Penetration"], 2.3, places=2)  # 2 x 1.15
+
     def test_follower(self):
         # Gilmore as the game rebuilds him on joining (checked against a save): level 2, 10 + race + class =
         # 15/14/10/11/11/13, then 5 + 3 points up to 14 + level x weight: STR +1 (target 16.4), DEX +2, WIL +5.

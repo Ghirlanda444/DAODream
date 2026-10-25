@@ -84,7 +84,9 @@ _COLUMNS = {
     "race_base.gda": ["ID", "label", "StrAdjust", "DexAdjust", "WillAdjust", "MagAdjust", "IntAdjust", "ConAdjust"],
     "itemstats.gda": ["ID", "label", "Damage", "DamageRange", "ArmorPenetration", "CritChanceModifier", "AttributeMod",
                       "Attribute0", "Attribute1", "Armor", "Defense", "MissileDeflection", "dspeed"],
-    "materialtypes.gda": ["ID", "label", "Armor"],
+    "materialtypes.gda": ["ID", "label", "Armor", "Material"],
+    "materialrules.gda": ["ID", "label", "Damage", "Armor", "CritChanceModifier", "ArmorPenetration", "ShieldRating",
+                          "MissileDeflection"],
     "difficulty.gda": ["ID", "label", "DmgScalingThresh"],
     "apr_base.gda": ["ID", "label", "creature_type", "DefaultWeapon", "DefaultArmor", "MovementTree"],
     "alwarrior_default.gda": ["ID", "AttInit", "AttWeight"],
@@ -116,6 +118,23 @@ def apply_overrides(tables: dict[str, dict[int, dict]], overrides: str | Path) -
         for p in override_files(overrides, name[:-4]):
             tables.setdefault(name[:-4], {}).update({r["ID"]: r for r in GDA.open(p, columns).records()})
     return tables
+
+
+def weapon_item(equip: list[dict], items: dict[str, dict], itemstats: dict[int, dict]) -> dict | None:
+    """The template of the first equipped item that is a weapon (weapon_base_item), or None."""
+    for e in equip or []:
+        uti = items.get(str(e.get("TemplateResRef") or "").lower())
+        base = int((uti or {}).get("BaseItem") or 0)
+        if base and float(itemstats.get(base, {}).get("Damage") or 0) > 0:
+            return uti
+    return None
+
+
+def material_rule(material: int | None, tables: dict) -> dict:
+    """An item's material tier (materialtypes' Material -> materialrules): the multipliers GetItemStat applies to
+    its base item's stats (Iron 1.0, Grey Iron 1.1 damage, Steel 1.2...). {} when unknown."""
+    tier = int((tables.get("materialtypes", {}).get(material or -1) or {}).get("Material") or 0)
+    return tables.get("materialrules", {}).get(tier) or {}
 
 
 def weapon_base_item(equip: list[dict], items: dict[str, dict], itemstats: dict[int, dict]) -> int | None:
@@ -227,7 +246,7 @@ def equipment(equip: list[dict], items: dict[str, dict], tables: dict) -> dict:
 
 def stats(tables: dict, *, package: int, rank: int, area_level: int = 1, race: int | None = None,
           base_item: int | None = None, player_class: int | None = None, hero: bool = False,
-          follower: str = "") -> dict:
+          follower: str = "", weapon_material: int | None = None) -> dict:
     """Level, attributes, max health, stamina (or mana), attack, defense, the damage
     range (min, max) before armour and the flat damage bonus after it, armour
     penetration, critical chance and the most flanking can add, for one creature.
@@ -292,13 +311,16 @@ def stats(tables: dict, *, package: int, rank: int, area_level: int = 1, race: i
     # (1.25 unarmed).
     item = tables["itemstats"].get(base_item or -1)
     if item:
-        low = float(item.get("Damage") or 0)
+        # GetItemStat: the base item's stats x the weapon's material tier (material_rule)
+        rule = material_rule(weapon_material, tables)
+        mult = lambda k: float(rule.get(k) or 1.0)
+        low = float(item.get("Damage") or 0) * mult("Damage")
         high = low * max(1.0, float(item.get("DamageRange") or 1.0))
         factor = float(item.get("AttributeMod") or 1.0)
         a0, a1 = int(item.get("Attribute0") or 1), int(item.get("Attribute1") or 0)
         bonus = (mod[ATTRIBUTES[a0 - 1]] + mod[ATTRIBUTES[a1 - 1]]) / 2 if a1 else mod[ATTRIBUTES[a0 - 1]]
-        penetration = float(item.get("ArmorPenetration") or 0)
-        weapon_crit = float(item.get("CritChanceModifier") or 0)
+        penetration = float(item.get("ArmorPenetration") or 0) * mult("ArmorPenetration")
+        weapon_crit = float(item.get("CritChanceModifier") or 0) * mult("CritChanceModifier")
     else:
         low, high, factor = UNARMED_DAMAGE, UNARMED_DAMAGE * 1.5, UNARMED_ATTRIBUTE_FACTOR
         bonus, penetration, weapon_crit = mod["Str"], 0.0, 0.0
