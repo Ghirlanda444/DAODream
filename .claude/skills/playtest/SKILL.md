@@ -40,6 +40,9 @@ Compile success, a read-back graph or a variable value are not enough.
   - `py playtest.py ranged night`: Play, the mabari knocked out and an archer woken 8 m off: whether it
     stands and shoots, its talents, the player's pin and armour; then the player switches to the shortbow
     and shoots it six times from 8 m (each shot read in one editor call).
+  - `py playtest.py partytalents night`: Play, the Teyrna woken and in the party beside the player and
+    the mabari against the panicked servant's three soldiers and war dog: per fighter its foe, stamina,
+    talents cooling down and modes on, Growl's debuff and knockdowns; RESULT lists the talents each used.
   - `py playtest.py party day --wipe`: Play, Gilmore and the mabari join against six larder rats; the
     player is dropped, the test wins the fight and checks everyone gets up, then knocks all out (game
     over). Winning starts Gilmore's end-of-fight conversation, as the castle's script does.

@@ -619,6 +619,92 @@ The simulator's archers shoot from 10 m. With them, the east hall's five (the
 player, the mabari and the Teyrna at level 2) is won 60% of the time, against
 29% when they fought in melee with their daggers' numbers.
 
+## The party's talents
+
+Stage 6, its first part (`abilities.follower_talents`, `simulate.py`,
+`tools/unreal/party.py`). The party fights by its own talents and tactics
+tables, as the hostiles do.
+
+- **What a follower knows** (`EVENT_TYPE_PARTY_MEMBER_HIRED`, `player_core`):
+  when it joins, the game rebuilds it (`Chargen_InitializeCharacter`: its
+  template's talents are wiped) at the hero's level then. `AL_DoAutoLevelUp`
+  then takes its level-up table's `InitialTalentID` list in order, whatever
+  the prerequisites, with 2 points, 1 a level above 1, and 1 more for a
+  follower that is neither a dog nor a rogue. Later level-ups take the
+  `TalentID` list as the hero's do.
+  - The Teyrna's table is her package's (88, Generic - Archer: `LevelupTable`
+    266, `ALArcher_Default`). She joins at the night's level 2 with Rapid
+    Shot, Pinning Shot, Precise Striking and Shattering Shot. Her template's
+    Shield Pummel, Precise Striking and Shield Bash go.
+  - The dog's table is `aldog`. It joins in the day at level 1 with Growl and
+    Fortitude, and takes Charge at level 2.
+  - Their tactics are their packages' `FollowerTacticsTable`:
+    - the Teyrna's 10117: Rapid Shot on, Pinning Shot on a foe in melee;
+    - the dog's 10107: Growl, then Charge, on a foe at half health or more.
+- **The Teyrna's kit**:
+  - At night the area's script (`AREALOAD_PRELOADEXIT`) takes her gown off
+    and puts her light rolled leather on (`area.AREA_EQUIP`). It counts for
+    her numbers (armour 4.25); her look stays the gown for now.
+  - Her template carries no weapon, and no script in the data gives her one.
+    Her package and tactics are an archer's, so she gets the longbow
+    `bhn_constants_h` names beside her dagger (`stats.FOLLOWER_WEAPONS`, an
+    inference). She shoots every 2.26 s (1.96 with Rapid Shot, 0.3 s faster at
+    dexterity 16), to 35 m.
+- **The dogs' talents** (Reborn's `talent_singletarget`, `talent_aoe_instant`;
+  the original's `monster_talent_overwhelm`):
+  - Growl: no attack roll; −15 defense for 30 s unless resisted.
+  - Charge: a blow; a hit knocks down unless resisted.
+  - Shred: a hit is a critical, and the target bleeds that damage again over
+    10 s.
+  - Mabari Howl: every hostile of a non-special rank within 10 m stunned 5 s.
+  - Overwhelm: a humanoid pinned 2 s while the dog bites. The number of bites
+    is its animation's, not in the data: 2 here.
+  - Fortitude and Combat Training are passives.
+  Tonight only Growl and Charge are used: the hero's dog has Growl, Fortitude
+  and Charge at level 2, and Howe's war dogs (level 1, package 8) have the
+  same. Shred, Howl and Overwhelm are in the rules and the simulator, not in
+  Unreal yet.
+- **Rapid Shot** (`talent_modal`, `combat_h`): aims a twentieth of a second
+  faster a point of dexterity above 10 (at most 2 s), and no criticals while
+  on. Its `RAPIDSHOT_ATTACK_PENALTY` is defined but never used.
+
+In Unreal, a party member fights its assigned target with the hostiles' code:
+- **PartyFight**: the target becomes its Foe. `FoeStep` then runs:
+  - an archer keeps its range and shoots;
+  - the rest close in;
+  - each attack round goes through the tactics table, its talents or a plain
+    blow.
+- **PartyAct**: a party member gets a second of stamina back each second, and
+  stands still while stunned or knocked down.
+- **Defense debuffs**: Growl's lowers a creature's defense when it is struck
+  (`TakeStrike`, `TakeAttack`), and the player's (`StrikePlayer`).
+- **Resistance**: a creature the party knocks down or growls at rolls its
+  resistance first (`KnockResist`, `DefenseDebuff`). Talents aimed at the
+  party never did: party members resist nothing.
+- **Point blank**: an archer's shot counts as clear within 2.5 m. Before, the
+  Teyrna, with a soldier in her face, kept stepping about instead of
+  shooting.
+
+Checked in Play (silent, `py playtest.py partytalents night`, 2026-10-25),
+against the panicked servant's three soldiers and war dog:
+- the Teyrna switched Rapid Shot on (her pool 130 to 95, a shot every 1.96 s)
+  and used Pinning Shot;
+- the mabari growled and charged: a soldier and the war dog lost their defense
+  and were knocked down;
+- the war dog growled at the Teyrna;
+- all four fell, with no script errors.
+
+The simulator gives the party members with tactics their combat rounds as the
+foes have them; the Teyrna shoots from 10 m. The night at level 2, 2,000
+fights each (the player, the mabari and the Teyrna):
+
+| Foes | Before | With the party's talents |
+| --- | --- | --- |
+| The two at the bedroom door | won 100%, 20 s | won 100%, 16 s |
+| The knight | won 94% | won 100% |
+| The east hall's five | won 60% | won 83% |
+| The panicked servant's four (a war dog among them) | | won 100% |
+
 ## Balance simulator
 
 `tools/daotools/simulate.py` fights the party against foes many times over without Unreal, with the same
@@ -827,8 +913,8 @@ Movers still don't push against each other or the player.
 
 ## Not there yet
 
-Howe's war dogs' talents; party members' talents and ranged attacks (tactics);
-spells; real-time with pause
+the dogs' Shred, Howl and Overwhelm in Unreal; the archers' bow model; orders
+to party members and their tactics edited by the player; spells; real-time with pause
 (hostiles go for the nearest foe, not the one they hate most); allies outside
 the party (the castle's guards) cannot be struck yet; injuries; switching to a
 party member; proper animations (the attack is a generic punch, the fall and

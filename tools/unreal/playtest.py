@@ -13,6 +13,7 @@ run are printed at the end.
     python playtest.py threat night                                        Play: two soldiers' threat tables
     python playtest.py enemytalents night                                  Play: soldiers using their talents
     python playtest.py ranged night                                        Play: an archer shoots; the player's bow
+    python playtest.py partytalents night                                  Play: the Teyrna and the mabari's talents
 
 Characters are named by their tag (NpcTags in extracted/ue/areas/<area>.json). Hidden ones (waiting for a
 plot) are shown for the pictures. The editor must be open with its MCP server running (docs/UNREAL_SETUP.md);
@@ -799,6 +800,66 @@ OUT.update({"hits": m.get_editor_property("Hits") - before[0], "misses": m.get_e
         run.finish()
 
 
+def party_talents(args):
+    """Play at night: the Teyrna is woken (she starts the night hidden) and joins (SetInParty) beside the player and
+    the mabari, and hostiles (--tags) are
+    woken 8 m away; every few seconds, per fighter: health, foe and its distance, stamina, the talents cooling down
+    and the modes on, its defense debuff (Growl) and knockdown left; the arrows in flight. The player is kept up."""
+    run = Run("partytalents", args.area)
+    run.start(simulate=False)
+    try:
+        g = run.g
+        for _ in range(8):
+            g.converse(seconds=90)
+            if not g.talking().get("bTalking"):
+                break
+        foes = [run.npc(t) for t in args.tags]
+        x, y, z = g.loc(foes[0])
+        g.go(x + 800, y, z, wait=0.5)
+        for k, t in enumerate(("bhn100cr_mother", "gen00fl_dog")):
+            pyrun.run(NPC % run.npc(t) + 'a.call_method("SetPlotActive", (True,))\na.call_method("SetInParty", (True,))\n'
+                      'a.set_actor_location(unreal.Vector(%f, %f, %f), False, True)\n' % (x + 900, y + 150 * (k * 2 - 1), z), 60)
+        for f in foes:
+            pyrun.run(NPC % f + 'a.call_method("SetPlotActive", (True,))\n', 60)
+        watch = [(t[-12:], run.npc(t)) for t in ("bhn100cr_mother", "gen00fl_dog")] + list(zip(args.tags, foes))
+        sample = MGR + """
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+now = unreal.GameplayStatics.get_time_seconds(w)
+if m.get_editor_property("PlayerHealth") < 60.0:
+    m.call_method("HurtPlayer", (m.get_editor_property("PlayerHealth") - m.get_editor_property("PlayerMaxHealth"),))
+OUT["arrows"] = sum(1 for a in acts.values() if a.get_class().get_name() == "BP_Arrow_C")
+OUT["player"] = round(m.get_editor_property("PlayerHealth"), 1)
+for tag, name in %r:
+    a = acts[name]
+    foe = a.get_editor_property("Foe")
+    tal = list(a.get_editor_property("NTalents"))
+    ready = list(a.get_editor_property("NReady"))
+    on = list(a.get_editor_property("NOn"))
+    OUT[tag[-14:]] = {"hp": round(a.get_editor_property("Health"), 1), "dead": a.get_editor_property("bDead"),
+        "foe": foe.get_name()[-14:] if foe else None, "m": round(a.get_distance_to(foe) / 100.0, 1) if foe else None,
+        "sta": round(a.get_editor_property("NStamina"), 1),
+        "cool": {int(tal[k * 18]): round(ready[k] - now, 1) for k in range(len(ready)) if tal[k * 18] and ready[k] > now},
+        "on": [int(tal[k * 18]) for k in range(len(on)) if on[k] > 0],
+        "growled": round(max(0.0, a.get_editor_property("NDefUntil") - now), 1),
+        "down": round(max(0.0, a.get_editor_property("KnockUntil") - now), 1),
+        "every": round(a.get_editor_property("Interval"), 2)}
+"""
+        seen = {}
+        for k in range(args.samples):
+            time.sleep(3.0)
+            r = pyrun.run(sample % (watch,), 60)
+            print(json.dumps(r, default=str)[:1400], flush=True)
+            for tag, v in r.items():
+                if isinstance(v, dict):
+                    for i in list(v.get("cool", {})) + v.get("on", []):
+                        seen.setdefault(tag, set()).add(i)
+            if k in (1, 4):
+                run.shot("party_%d" % k)
+        print("RESULT", json.dumps({t: sorted(str(i) for i in s) for t, s in seen.items()}))
+    finally:
+        run.finish()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--sound", action="store_true", help="play the game's sound (tests are silent otherwise)")
@@ -855,6 +916,12 @@ def main():
     s.add_argument("--tag", default="bhn200cr_howe_main_hall1", help="a hostile archer")
     s.add_argument("--samples", type=int, default=8)
     s.set_defaults(fn=ranged)
+    s = sub.add_parser("partytalents", help=party_talents.__doc__)
+    s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
+    s.add_argument("--tags", nargs="+", default=["bhn200cr_howe_panicked1", "bhn200cr_howe_panicked2",
+                                                 "bhn200cr_howe_panicked3", "bhn200cr_howe_panicked4"])
+    s.add_argument("--samples", type=int, default=10)
+    s.set_defaults(fn=party_talents)
     s = sub.add_parser("party", help=party.__doc__)
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("--seconds", type=int, default=120)
