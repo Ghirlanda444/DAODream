@@ -33,6 +33,7 @@ PLAYER = "player"
 INTERVAL = {"player": 1.0, "party": 1.5, "foe": 2.0, "export": True}
 TIME_LIMIT = 600.0
 RULES = ("Armour", "Penetration", "Crit", "Flanking", "DamageBonus")  # area.RULES
+SLOTS = 1  # PROVISIONAL: foes attacking the same party member at once, as BP_PlotManager.Slots in Unreal
 
 
 @dataclass
@@ -113,8 +114,10 @@ def strike(rng: random.Random, a: Fighter, d: Fighter, flanking: float = 0.0) ->
 
 
 def fight(party: list[Fighter], foes: list[Fighter], rng: random.Random, wave: int = 0,
-          flank: bool = True) -> dict:
-    """One fight to the end. The fighters are changed (health, down): pass fresh ones."""
+          flank: bool = True, slots: int = 0) -> dict:
+    """One fight to the end. The fighters are changed (health, down): pass fresh ones. `slots` (provisional,
+    docs/COMBAT.md): at most that many foes attack the same party member at once; a foe finding every
+    standing party member taken waits for its next turn (0: no limit)."""
     wave = wave or len(foes)
     active, reserve = list(foes[:wave]), list(foes[wave:])
     for f in party + active:
@@ -132,7 +135,12 @@ def fight(party: list[Fighter], foes: list[Fighter], rng: random.Random, wave: i
         a.next_attack += a.interval
         if a.target is None or a.target.down:
             if a.side == "foe":
-                a.target = rng.choice(standing)
+                taken_by = {id(f): sum(1 for x in live if x is not a and x.target is f) for f in standing}
+                free = [f for f in standing if not slots or taken_by[id(f)] < slots]
+                if not free:
+                    a.target = None
+                    continue
+                a.target = rng.choice(free)
             else:
                 count = {id(f): 0 for f in live}
                 for f in standing:
@@ -166,14 +174,14 @@ def fight(party: list[Fighter], foes: list[Fighter], rng: random.Random, wave: i
 
 
 def simulate(area: dict, party: list[str], foes: list[str], runs: int = 1000, seed: int = 1, wave: int = 0,
-             flank: bool = True) -> dict:
+             flank: bool = True, slots: int = 0) -> dict:
     """`runs` fights; the share won and lost, fight time, and per party member how often they fell, the health
     they had left and their share of the damage dealt; hit, miss and critical rates per side."""
     rng = random.Random(seed)
     results = []
     for _ in range(runs):
         ours, theirs = fighters(area, party, foes)
-        results.append(fight(ours, theirs, rng, wave, flank))
+        results.append(fight(ours, theirs, rng, wave, flank, slots))
     tags = list(results[0]["Party"])
     totals = {s: [sum(r["Tally"][s][k] for r in results) for k in range(3)] for s in ("party", "foe")}
     dealt = {t: sum(r["Party"][t]["Dealt"] for r in results) for t in tags}

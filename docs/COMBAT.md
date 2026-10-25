@@ -408,6 +408,23 @@ creature's numbers are confirmed against a save), so the next evidence has to be
 original's fight that can be counted frame by frame (the YouTube readings were too loose), or the owner's own
 count in the original.
 
+**PROVISIONAL tuning, until such a recording** (the owner's choice, 2026-10-25). Only the two engine behaviours
+the data cannot show were tuned; every creature's numbers stay as confirmed:
+
+- At most one creature attacks the same target at once (`BP_PlotManager.Slots` = 1, `combat_rules.py slots`;
+  `simulate.SLOTS`, `--slots`): each re-pick recounts who is on whom (`CountAttackers`), and the player and
+  party members offer themselves only while free; the others wait.
+- An animal attacks at most every 3 s (`stats.ANIMAL_ROUND`): rats 3.0, the mabari 3.0 (its animations
+  average 2.07).
+
+Chosen with the simulator (1,500 fights each): one per target and 3 s give a won fight with nobody falling,
+the player 57% down, Gilmore 29%, the mabari 71%, about 95 s, a damage rate per second close to the
+recordings' (their fights are shorter: our party kills about three times slower, a separate open question).
+Two per target, or 2 to 2.5 s, still has party members falling. Checked in Unreal (`playtest.py larder`): all
+18 rats killed, never more than 3 biting (one per party member), the player down to 17 at worst and 63% lost,
+the mabari falling only at the very end and up again after; the test presses attack once a sample (about
+every 12 s), far less often than a player, so it runs longer and harder than play.
+
 ## Path finding
 
 `L_CastleCousland` has a `NavMeshBoundsVolume` (`CastleNavBounds`) over the

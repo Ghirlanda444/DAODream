@@ -97,6 +97,7 @@ _COLUMNS = {
 BASE_TIMING = {"single": 2.0, "dual": 1.5, "twohanded": 2.5}
 _TWO_HANDED = ("Weapon - Greatsword", "Weapon - Battleaxe", "Weapon - Maul", "Weapon - Staff")
 ANIM_LENGTH = 4009  # an animation's length in seconds (.ani, GFF4)
+ANIMAL_ROUND = 3.0  # PROVISIONAL: the least seconds between an animal's attacks (see attack_interval)
 
 
 def load_tables(game_dir: str | Path, overrides: str | Path | None = None) -> dict[str, dict[int, dict]]:
@@ -166,7 +167,7 @@ def attack_anims(game_dir: str | Path, tables: dict, appearances) -> dict[int, f
 def attack_interval(equip: list[dict], items: dict[str, dict], tables: dict, anim: float | None = None) -> float:
     """Seconds between attacks (CalculateAttackTiming): with a weapon ("Weapon - ..." in itemstats), the wield
     style's base timing plus the weapon's dspeed: two weapons and no shield 1.5, a two-handed one 2.5, else 2.0;
-    otherwise its attack animations' length (`anim`, attack_anims), but at least 2.0."""
+    otherwise its attack animations' length (`anim`, attack_anims), but at least ANIMAL_ROUND (provisional)."""
     weapons = []
     shield = False
     for e in equip or []:
@@ -177,9 +178,10 @@ def attack_interval(equip: list[dict], items: dict[str, dict], tables: dict, ani
         if label.startswith("Weapon - ") and float(row.get("Damage") or 0) > 0 and not label.endswith("bow"):
             weapons.append(row)
     if not weapons:
-        # Recordings of the original's larder fight show a rat biting about every 2 s (5 in 10 s), not once per
-        # 0.63 s bite animation: an animal's attack round is at least the 2 s base round.
-        return max(anim or 0.0, BASE_TIMING["single"])
+        # The engine times an animal's attacks itself (compiled, undocumented). Recordings of the original's
+        # larder fight show far fewer bites than one per 0.63 s bite animation; ANIMAL_ROUND is provisional,
+        # chosen with the simulator so the fight's damage rate matches them (docs/COMBAT.md).
+        return max(anim or 0.0, ANIMAL_ROUND)
     main = weapons[0]
     if str(main.get("label")).startswith(_TWO_HANDED):
         style = "twohanded"

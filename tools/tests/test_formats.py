@@ -847,9 +847,9 @@ class StatsTests(unittest.TestCase):
         self.assertEqual(stats.attack_interval(eq("sword", "round"), items, tables), 1.9)  # 2.0 - 0.1
         self.assertEqual(stats.attack_interval(eq("dagger", "dagger"), items, tables), 1.0)  # dual 1.5 - 0.5
         self.assertEqual(stats.attack_interval(eq("great"), items, tables), 2.5)
-        self.assertEqual(stats.attack_interval(eq("rat_bite"), items, tables, anim=0.633), 2.0)  # a round at least
-        self.assertEqual(stats.attack_interval(eq("rat_bite"), items, tables, anim=2.3), 2.3)  # or the animation
-        self.assertEqual(stats.attack_interval([], items, tables), 2.0)
+        self.assertEqual(stats.attack_interval(eq("rat_bite"), items, tables, anim=0.633), stats.ANIMAL_ROUND)
+        self.assertEqual(stats.attack_interval(eq("rat_bite"), items, tables, anim=9.0), 9.0)  # or the animation
+        self.assertEqual(stats.attack_interval([], items, tables), stats.ANIMAL_ROUND)
 
     def test_overrides(self):
         # A mod's <table>_<suffix>.gda rows replace the game's rows by ID.
@@ -903,6 +903,14 @@ class SimulateTests(unittest.TestCase):
         # a player alone against five rats at once, weakened: lost every time
         weak = dict(self.AREA, PlayerStats=[10.0] + self.AREA["PlayerStats"][1:])
         self.assertEqual(simulate.simulate(weak, [], ["rat_*"], runs=50)["Lost"], 1.0)
+
+    def test_slots(self):
+        # One foe per target: with only the player standing, never more than one rat attacks; the rest wait.
+        rng = random.Random(2)
+        ours, foes = simulate.fighters(self.AREA, [], ["rat_*"])
+        out = simulate.fight(ours, foes, rng, slots=1)
+        self.assertLessEqual(sum(1 for f in foes if f.target is not None and not f.down), 1)
+        self.assertIn(out["Won"] or out["Lost"], (True,))
 
     def test_waves(self):
         # Waves of two: each death brings the next rat in, so all five are fought.

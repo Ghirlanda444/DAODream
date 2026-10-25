@@ -28,7 +28,10 @@ graphs writes the graphs, callees first; party points PartyFight's attack at Tak
 graph reads back with ids the DSL cannot write); beasts writes the animals' WatchDeath; save turns the one-hit
 test switch off and saves. pace (on its own) gives everyone the game's attack timing: BP_DlgNPC.Interval from the
 export's NpcInterval (SetInterval, via GiveNpcRules; default 2 s) for Bite and PartyFight, the player's
-PInterval from PlayerStats[12] (SetPlayerPace; default 1 s) for PlayerAttack.
+PInterval from PlayerStats[12] (SetPlayerPace; default 1 s) for PlayerAttack. slots (on its own, PROVISIONAL):
+at most BP_PlotManager.Slots (1) creatures attack the same target at once: PickFoe recounts every hostile's foe
+(CountAttackers, TallyAttacker; the picking hostile not counted), and the player (OfferPlayer) and party members
+(FoeBid) offer themselves only while fewer than Slots are on them; the rest wait.
 """
 import json
 import os
@@ -49,9 +52,9 @@ VARIABLES = {
     PM: [("LastDamage", F), ("LastCrit", "bool"), ("LastFlank", F), ("Hits", "int"), ("Misses", "int"),
          ("Crits", "int"), ("PArmour", F), ("PPen", F), ("PCrit", F), ("PFlank", F), ("PBonus", F),
          ("bGameOver", "bool"), ("bPlayerDown", "bool"), ("FoeBest", ACTOR), ("FoeDist", F), ("Standing", "int"),
-         ("LastCombat", F), ("PInterval", F)],
+         ("LastCombat", F), ("PInterval", F), ("Slots", "int"), ("PlayerAttackers", "int")],
     NPC: [("Armour", F), ("Pen", F), ("Crit", F), ("Flank", F), ("DmgBonus", F), ("Foe", ACTOR), ("FoeTimer", F),
-          ("bDown", "bool"), ("Interval", F)],
+          ("bDown", "bool"), ("Interval", F), ("Attackers", "int")],
     AL: [("NpcRules", F, "ARRAY"), ("NpcInterval", F, "ARRAY")],
 }
 # function -> parameters: (name, type) with type a primitive, "float[]", or an object class path
@@ -83,10 +86,15 @@ FUNCTIONS = {
         "RegenAll": [],
         "RegenTick": [],
         "SetPlayerPace": [("InStats", "float[]")],
+        "AddAttackerTo": [("Foe", ACTOR)],
+        "TallyAttacker": [("Npc", NPC_CLASS), ("Hostile", ACTOR)],
+        "CountAttackers": [("Hostile", ACTOR)],
     },
     NPC: {
         "SetRules": [("InRules", "float[]"), ("K", "int")],
         "SetInterval": [("InInterval", F)],
+        "ClearAttackers": [],
+        "AddAttacker": [],
         "TakeStrike": [("Attacker", ACTOR), ("InAttack", F), ("InMin", F), ("InMax", F), ("InScale", F),
                        ("InCrit", F), ("InPen", F), ("InBonus", F), ("InFlank", F)],
         "SetFoe": [("InFoe", ACTOR)],
@@ -109,11 +117,11 @@ FUNCTIONS = {
 # Graphs written from dsl/, in order: a call's keyword pins exist only once the callee is compiled.
 GRAPHS = [
     (PM, ["FloorDamage", "Mitigate", "RollHit", "FlankBonus", "ResolveHit", "StrikeNpc", "Restart", "GameOver",
-          "FoeOffer", "OfferPlayer", "CountStanding", "PlayerDown", "PlayerFalls", "MemberDown", "HurtPlayer",
+          "FoeOffer", "CountStanding", "PlayerDown", "PlayerFalls", "MemberDown", "HurtPlayer",
           "StrikePlayer", "PlayerStrike", "RevivePlayer"]),
-    (NPC, ["SetRules", "SetInterval", "TakeStrike", "TakeAttack", "SetFoe", "FoeBid", "ChaseFoe", "StrikeNpcFoe", "StrikeFoe", "Bite", "CombatStep",
+    (NPC, ["SetRules", "SetInterval", "ClearAttackers", "AddAttacker", "TakeStrike", "TakeAttack", "SetFoe", "FoeBid", "ChaseFoe", "StrikeNpcFoe", "StrikeFoe", "Bite", "CombatStep",
            "ShowPartyBar", "KnockOut", "Wounded", "TakeHit", "GetUp", "Regen"]),
-    (PM, ["PickFoe", "ReviveMembers", "RegenAll", "RegenTick", "SetPlayerRules", "SetPlayerPace", "SetPlayerStats"]),
+    (PM, ["AddAttackerTo", "TallyAttacker", "CountAttackers", "OfferPlayer", "PickFoe", "ReviveMembers", "RegenAll", "RegenTick", "SetPlayerRules", "SetPlayerPace", "SetPlayerStats"]),
     (NPC, ["FoeStep", "HostileTick", "CombatTick"]),
     (AL, ["GiveNpcRules", "GiveNpcAlly", "BuildFixtures"]),
 ]
@@ -247,6 +255,27 @@ OUT["ok"] = 1
     save()
 
 
+# PROVISIONAL (docs/COMBAT.md): at most Slots creatures attack the same target at once; the rest wait.
+SLOT_GRAPHS = [(NPC, ["ClearAttackers", "AddAttacker"]), (PM, ["AddAttackerTo", "TallyAttacker", "CountAttackers",
+               "OfferPlayer", "PickFoe"]), (NPC, ["FoeBid"])]
+
+
+def slots():
+    setup()
+    for bp, names in SLOT_GRAPHS:
+        for fn in names:
+            code = open(os.path.join(HERE, "dsl", fn + ".dsl"), encoding="utf-8").read()
+            print(fn, str(call("write_graph_dsl", {"graph": {"refPath": "%s:%s" % (bp, fn)}, "code": code}))[:200])
+        call("compile_blueprint", {"blueprint": {"refPath": bp}})
+    import pyrun
+    print(pyrun.run('''
+pm = unreal.EditorAssetLibrary.load_asset("/Game/Cousland/Plots/BP_PlotManager")
+unreal.get_default_object(pm.generated_class()).set_editor_property("Slots", 1)
+OUT["ok"] = 1
+''', 120))
+    save()
+
+
 def save():
     import pyrun
     print(pyrun.run('''
@@ -264,6 +293,8 @@ if __name__ == "__main__":
     phase = sys.argv[1] if len(sys.argv) > 1 else "all"
     if phase == "pace":
         pace()
+    if phase == "slots":
+        slots()
     for name, f in (("setup", setup), ("graphs", graphs), ("party", party), ("beasts", beasts), ("save", save)):
         if phase in (name, "all"):
             f()

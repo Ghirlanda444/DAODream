@@ -498,7 +498,7 @@ def cmd_unreal_simulate(args) -> int:
     for path in args.area:
         a = json.loads(Path(path).read_text(encoding="utf-8"))
         sim = simulate.simulate(a, args.party, args.foes, runs=args.runs, seed=args.seed, wave=args.wave,
-                                flank=not args.no_flanking)
+                                flank=not args.no_flanking, slots=args.slots)
         sim["File"] = Path(path).name
         print(simulate.report(sim, Path(path).name))
         out.append(sim)
@@ -678,6 +678,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--runs", type=int, default=1000)
     s.add_argument("--seed", type=int, default=1)
     s.add_argument("--no-flanking", action="store_true", help="never count an attacker as behind its target")
+    s.add_argument("--slots", type=int, default=simulate.SLOTS,
+                   help="foes attacking the same party member at once (provisional default %d; 0: no limit)" % simulate.SLOTS)
     s.add_argument("--out", help="write the results (JSON) here")
     s.set_defaults(func=cmd_unreal_simulate)
 

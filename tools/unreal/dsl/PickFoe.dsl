@@ -1,4 +1,5 @@
 (fn PickFoe (Hostile)
+  (Funzionedichiamata|CountAttackers :Hostile Hostile)
   (Variabili|Predefinito|ImpostaFoeDist 1500.0)
   (Variabili|Predefinito|ImpostaFoeBest)
   (Funzionedichiamata|OfferPlayer :Hostile Hostile)
