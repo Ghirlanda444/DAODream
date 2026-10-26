@@ -1,0 +1,4 @@
+(fn SwapCell (J)
+  (Variabili|Predefinito|ImpostaTmp (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniRows) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica (Utility|Operatori|Sottrai (Variabili|Predefinito|OttieniEditRow) 1) 6) J)))
+  (Utilità|Array|SetArrayElem (Variabili|Predefinito|OttieniRows) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica (Utility|Operatori|Sottrai (Variabili|Predefinito|OttieniEditRow) 1) 6) J) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniRows) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica (Variabili|Predefinito|OttieniEditRow) 6) J)))
+  (Utilità|Array|SetArrayElem (Variabili|Predefinito|OttieniRows) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica (Variabili|Predefinito|OttieniEditRow) 6) J) (Variabili|Predefinito|OttieniTmp)))

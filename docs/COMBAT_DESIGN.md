@@ -51,8 +51,8 @@ comes before stage 3, since the Human Noble is a warrior or a rogue and Howe's m
 and the enemies' talents are built (`docs/COMBAT.md`, "Threat", "Enemy talents"), and ranged combat ("Ranged
 combat"). The party fights by its tactics tables and talents (stage 6's first part, "The party's talents").
 Real-time with pause and orders to the party are built ("Pause and party orders"). Stage 3 has begun: the
-night mage's staff and spells, spellpower and elemental damage ("Spells"). Still to come: the other spells
-and their effects, and tactics the player edits.
+night mage's staff and spells, spellpower and elemental damage ("Spells"). The tactics screen is built ("The
+tactics screen"). Still to come: the other spells and their effects, and the screen's presets and behaviours.
 
 ## 2. Dragon Age Reborn as the balance base
 

@@ -1,5 +1,6 @@
 (fn HeroTacticUse (I)
   (Variabili|Predefinito|ImpostaHTFound -1)
+  (Variabili|Predefinito|ImpostaHTStop (Utility|Operatori|Uguale(==) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniPTactics) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica I 6) 3)) 2.0))
   (bind _sub (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniPTactics) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica I 6) 4)))
   (Utilities|FlowControl|ForLoop :FirstIndex 0 :LastIndex (Utility|Operatori|Sottrai (Utilità|Array|Length (Variabili|Predefinito|OttieniTalentNames)) 1)
     (:LoopBody

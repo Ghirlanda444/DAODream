@@ -1,0 +1,5 @@
+(fn ClosePick ()
+  (Variabili|Predefinito|ImpostaStage 0)
+  (Utilità|Array|Clear (Variabili|Predefinito|OttieniOptIds))
+  (Utilità|Array|Clear (Variabili|Predefinito|OttieniOptNames))
+  (Funzionedichiamata|DrawPick))

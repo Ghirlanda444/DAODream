@@ -946,6 +946,68 @@ Two traps on the way, now worked round:
 - a literal multiplying a vector came out as zero, so it is a vector of its
   own (`MakeVector 400 400 0`).
 
+### The tactics screen
+
+The original's tactics panel, on its key (`\`, `ToggleTactics` in
+KeyBindings.ini): `tools/unreal/tactics_screen.py`, `WBP_Tactics`, the export's
+lists from `tactics.menu`. Opening it pauses the game, as the original's panels
+do; closing it resumes unless the game was paused before.
+
+- **Tabs**: the hero, then each party member standing (at most three).
+- **Rows**: one per tactic slot, top to bottom, the first whose condition
+  holds being used. Each row is a target, a condition and an action. Up moves
+  a row above the one before it, X clears it.
+- **Picking**: clicking a field lists the choices. The condition goes in two
+  steps, as the game groups them: a kind (Health, Mana or stamina level,
+  Surrounded by enemies...), then the condition itself (Health < 50%...). An
+  empty row starts as Enemy / Any / Attack. A new target resets the condition
+  to Any.
+- **The lists**: the game's own, those its menu offers the player (the
+  tables' `0x2a1af533` column) with the talk table's names, kept to what the
+  Unreal side runs:
+  - targets: Self and Enemy;
+  - conditions: any, nearest visible, health and mana or stamina levels (the
+    target's or its own), being attacked in melee or at range, surrounded by
+    two to four enemies, the target at short, medium or long range, the
+    target using melee or ranged attacks (58 in all; magic attacks are left
+    out until spells hit as attacks);
+  - actions: Attack, and the member's talents (a sustained one as Activate
+    mode).
+- **Slots** (`tactics.slots`, `Chargen_SetNumTactics`): `exptable` Tactics,
+  2 at levels 1 and 2, 3 from level 3, + 1, 2, 4 or 6 with Combat Tactics.
+  Skills aren't ported yet, so nobody has the bonus.
+
+Party members run their tactic slots, not their AI table, while in the party
+(`var_module` `AI_USE_GUI_TABLES_FOR_FOLLOWERS` is on). When one is hired its
+package's `FollowerTacticsTable` fills them (`player_core`), so the export
+carries both (`NpcPartyTactics`, `NpcTacticSlots`), and joining or leaving the
+party swaps them (`PartyRowsTick`), keeping the player's edits. Tonight:
+- the mabari: two rows, its talents 90017 and 90016 on an enemy at 50%
+  health or more;
+- the Teyrna: Rapid Shot on herself, then Pinning Shot on an enemy using a
+  melee attack;
+- Ser Gilmore: none. His package has no table (-1), so in the original his
+  slots start empty for the player to fill. At night he is an ally outside
+  the party and keeps his AI table.
+
+Added on both sides for the menu's conditions: its own health or stamina
+whatever the target (33, 34), the followers' range bands (35), and an attack
+row attacks at once.
+
+Checked in Play (silent, `py playtest.py screencheck night`, 2026-10-27), with
+the Teyrna and the mabari in the party:
+- the screen opened paused, with tabs for the hero, Teyrna Eleanor and Dog,
+  and two rows each (their two slots);
+- the hero's rows read "Enemy | Health >= 75% | Shield Bash" and "Enemy |
+  Nearest visible | Shield Pummel";
+- his first condition, picked through Health and then its eleven levels,
+  became Health < 50% in his tactics; his second action became Attack;
+- on the Teyrna's tab a new target, a row moved up and a row cleared reached
+  her tactics;
+- closing resumed the game. When she left the party she got her AI table
+  back, and rejoining brought back the edited rows;
+- no script errors.
+
 ## Pause and party orders
 
 Real-time with pause (`tools/unreal/pause.py`), with the original's keys
@@ -1205,7 +1267,9 @@ Movers still don't push against each other or the player.
 
 ## Not there yet
 
-the archers' bow model (with the weapon art, all weapons together); the tactics screen
-(tactics edited by the player) and the party members' tactics slots by level; the spells of
+the archers' bow model (with the weapon art, all weapons together); the tactics screen's
+presets and behaviours, its targets other than Self and Enemy (Ally, Hero, the one in control),
+and the conditions and actions not run yet (statuses, armour, ranks, flanks, potions, weapon
+sets, jumps); skills (Combat Tactics' extra slots); the spells of
 other mages (only the night mage's are in); injuries; proper animations (the attack is a generic punch, the fall and
 getting up are instant). The plan: `docs/COMBAT_DESIGN.md`.

@@ -1,0 +1,11 @@
+(fn LoadMenu ()
+  (Variabili|Predefinito|ImpostaTTargets (Classe|BPPlotManager|OttieniTTargets (Variabili|Predefinito|OttieniMgr)))
+  (Variabili|Predefinito|ImpostaTTargetNames (Classe|BPPlotManager|OttieniTTargetNames (Variabili|Predefinito|OttieniMgr)))
+  (Variabili|Predefinito|ImpostaTBases (Classe|BPPlotManager|OttieniTBases (Variabili|Predefinito|OttieniMgr)))
+  (Variabili|Predefinito|ImpostaTBaseNames (Classe|BPPlotManager|OttieniTBaseNames (Variabili|Predefinito|OttieniMgr)))
+  (Variabili|Predefinito|ImpostaTConds (Classe|BPPlotManager|OttieniTConds (Variabili|Predefinito|OttieniMgr)))
+  (Variabili|Predefinito|ImpostaTCondNames (Classe|BPPlotManager|OttieniTCondNames (Variabili|Predefinito|OttieniMgr)))
+  (Variabili|Predefinito|ImpostaAttackName "Attack")
+  (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggiore(>) (Utilità|Array|Length (Classe|BPPlotManager|OttieniTCommandNames (Variabili|Predefinito|OttieniMgr))) 0)
+    (:then
+      (Variabili|Predefinito|ImpostaAttackName (Utilità|Array|Ottieni(unacopia) (Classe|BPPlotManager|OttieniTCommandNames (Variabili|Predefinito|OttieniMgr)) 0)))))

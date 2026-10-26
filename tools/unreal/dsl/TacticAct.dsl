@@ -10,4 +10,8 @@
         (:else
           (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Uguale(==) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTactics) (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniRB) 3)) 9.0)
             (:then
-              (Funzionedichiamata|TacticMove :Sub (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTactics) (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniRB) 4))))))))))
+              (Funzionedichiamata|TacticMove :Sub (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTactics) (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniRB) 4))))
+            (:else
+              (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Uguale(==) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTactics) (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniRB) 3)) 2.0)
+                (:then
+                  (Variabili|Predefinito|ImpostaTacDone "true"))))))))))

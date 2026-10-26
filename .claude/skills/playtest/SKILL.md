@@ -60,6 +60,10 @@ Compile success, a read-back graph or a variable value are not enough.
     on each other near the player: who is stunned or bleeding (the player's stun and bleed end times too:
     a 2-5 s stun can end between samples), the talents cooling down. --solo knocks the mabari out first (it
     gets up again after a lull).
+  - `py playtest.py screencheck night`: Play, the tactics screen (\, ToggleTactics) with the Teyrna and
+    the mabari in the party: the tabs and rows shown, a condition picked through the lists, an action set to
+    Attack, a member's row retargeted, moved up and cleared, each read back from the tactics; the member
+    leaving and rejoining the party (AI table, then the edited slots).
   - `py playtest.py alliescheck night`: Play, the main hall's battle with its allies (the conversation
     played through first): Howe's men there and the castle's (Gilmore and the two immortal guards) woken
     together, the Teyrna and the mabari in the party; whom Howe's men attack, everyone's health, how many

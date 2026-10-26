@@ -1,0 +1,8 @@
+(fn FillPick ()
+  (Utilità|Array|Clear (Variabili|Predefinito|OttieniOptIds))
+  (Utilità|Array|Clear (Variabili|Predefinito|OttieniOptNames))
+  (Funzionedichiamata|FillTargets)
+  (Funzionedichiamata|FillBases)
+  (Funzionedichiamata|FillConds)
+  (Funzionedichiamata|FillActs)
+  (Funzionedichiamata|DrawPick))

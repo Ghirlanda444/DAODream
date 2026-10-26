@@ -8,7 +8,7 @@ companions (the mabari), combat and cutscenes.
 
 Each phase ends with something you can see running.
 
-## Phase 0: Data pipeline (in progress)
+## Phase 0: Data pipeline
 
 - [x] Readers for ERF archives, GFF4, talk tables, data tables, conversations
 - [x] Run `daotools scan` on the real install and record the archive layout (`docs/GAME_DATA.md`)
@@ -67,17 +67,25 @@ Each phase ends with something you can see running.
 
 ## Phase 3: First fight
 
-- [ ] The larder quest with the mabari: first combat prototype. Started: the
-      larder fight plays start to finish with the game's own logic (the
-      mabari's conversation starts it, three waves of rats, the castle reacts
-      when they are dead), with placeholder numbers (`docs/COMBAT.md`).
-      Gilmore and the mabari join the party when the scripts say so, follow
-      you and fight beside you, but only against hostiles near you; the
-      castle's armed guards fight Howe's men too, without joining the party.
-      A test switch (`bOneShot`, on for now) makes the player kill in one hit
+- [x] The larder quest with the mabari: first combat prototype. The larder
+      fight plays start to finish with the game's own logic (the mabari's
+      conversation starts it, three waves of rats, the castle reacts when they
+      are dead), now with the game's numbers (`docs/COMBAT.md`). Gilmore and
+      the mabari join the party when the scripts say so, follow you and fight
+      beside you, but only against hostiles near you. The one-hit test switch
+      (`bOneShot`) is off by default
 - [ ] Real-time with pause, tactics slots, DAO's stats and abilities from the
-      data tables. Started: health, attack, defense and damage come from the
-      tables, as the scripts compute them, and every attack rolls to hit
+      data tables. Built, each checked in Play: stats, armour and every attack's
+      roll from the tables as the scripts compute them; stamina, the warrior's,
+      rogue's and dogs' talents, threat, enemy talents and tactics, ranged
+      attacks; the party's talents and tactics; pause with orders to the party;
+      the original's PC controls (clicking orders, taking control, the tactical
+      camera); the night mage's spells; the castle's guards as allies, the
+      immortal ones never dying; the tactics screen (`\`), the game's own
+      targets, conditions and actions in each member's slots, and a game over.
+      Still to come: the weapons and animations (every attack is a punch), the
+      other spells and their effects, the tactics screen's presets and
+      behaviours, skills, injuries
 
 ## Phase 4: The siege
 
@@ -97,7 +105,7 @@ Each phase ends with something you can see running.
       day castle's opening to Duncan's farewell with no flag set by hand; it
       ends on an "End of the Human Noble origin" message (`docs/NIGHT.md`).
       Still placeholder: greybox rooms and mannequins, cutscenes as captions,
-      no game over, Howe's men only attack you and your party
+      generic attack animations
 
 ## Later
 

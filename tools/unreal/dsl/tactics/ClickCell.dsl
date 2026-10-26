@@ -1,0 +1,6 @@
+(fn ClickCell (R C)
+  (Variabili|Predefinito|ImpostaEditRow R)
+  (Funzionedichiamata|InitIfEmpty :R R)
+  (Funzionedichiamata|FindTI)
+  (Variabili|Predefinito|ImpostaStage (Matematica|Intero|SelectInt 1 (Matematica|Intero|SelectInt 2 4 (Utility|Operatori|Uguale(==) C 1)) (Utility|Operatori|Uguale(==) C 0)))
+  (Funzionedichiamata|FillPick))

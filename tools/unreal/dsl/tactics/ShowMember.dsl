@@ -1,0 +1,9 @@
+(fn ShowMember (K)
+  (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Minore(<) K (Utility|Operatori|Aggiungi (Utilità|Array|Length (Variabili|Predefinito|OttieniMembers)) 1))
+    (:then
+      (Variabili|Predefinito|ImpostaMemberIdx K)
+      (Funzionedichiamata|TabName :K K)
+      (Funzionedichiamata|LoadRows)
+      (Funzionedichiamata|LoadTalents)
+      (Funzionedichiamata|ClosePick)
+      (Funzionedichiamata|Redraw))))

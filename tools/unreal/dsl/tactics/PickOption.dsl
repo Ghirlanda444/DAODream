@@ -1,0 +1,6 @@
+(fn PickOption (K)
+  (Variabili|Predefinito|ImpostaStageNow (Variabili|Predefinito|OttieniStage))
+  (Funzionedichiamata|PickTarget :K K)
+  (Funzionedichiamata|PickCond :K K)
+  (Funzionedichiamata|PickBase :K K)
+  (Funzionedichiamata|PickAct :K K))

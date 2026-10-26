@@ -21,6 +21,7 @@ run are printed at the end.
     python playtest.py dogcheck night                                      Play: the dogs' Howl, Overwhelm, Shred
     python playtest.py magecheck night                                     Play: the mage's staff and spells
     python playtest.py alliescheck night                                   Play: the main hall's battle with its allies
+    python playtest.py screencheck night                                   Play: the tactics screen
 
 Characters are named by their tag (NpcTags in extracted/ue/areas/<area>.json). Hidden ones (waiting for a
 plot) are shown for the pictures. The editor must be open with its MCP server running (docs/UNREAL_SETUP.md);
@@ -1224,6 +1225,85 @@ OUT.update({"offset": [round(o.x), round(o.y)], "arm": round(boom.get_editor_pro
         run.finish()
 
 
+def screen_check(args):
+    """Play at night: the tactics screen. The Teyrna and the mabari join (their tactic slots replace their AI
+    tables); \\ (ToggleTactics) opens the screen and pauses. On the hero's tab: his first row's condition picked
+    through the lists (Health, then Health < 50 percent), his second row's action set to Attack. On the first member's: an
+    empty row started (a target picked: Self), moved up, the row above cleared. Each change is read back from the
+    hero's PTactics or the member's NTactics. Closing resumes; the member leaving the party gets its AI table back,
+    rejoining brings the edited rows back."""
+    run = Run("screencheck", args.area)
+    run.start(simulate=False)
+    try:
+        g = run.g
+        for _ in range(8):
+            g.converse(seconds=90)
+            if not g.talking().get("bTalking"):
+                break
+        mom, dog = run.npc("bhn100cr_mother"), run.npc("gen00fl_dog")
+        x, y, z = g.loc(mom)
+        for k, a in enumerate((mom, dog)):
+            pyrun.run(NPC % a + 'a.call_method("SetPlotActive", (True,))\na.call_method("SetInParty", (True,))\n', 60)
+        time.sleep(1.0)
+        member = """
+def rows(a, n=4):
+    t = list(a.get_editor_property("NTactics"))
+    return [[round(v) for v in t[6 * i:6 * i + 6]] for i in range(n)]
+"""
+        print("party rows", pyrun.run(MGR + member + """
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+OUT.update({n[-6:]: {"slots": acts[n].get_editor_property("TacticSlots"), "swapped": acts[n].get_editor_property("bPartyRows"),
+                     "rows": rows(acts[n])} for n in %r})
+""" % [mom, dog], 60), flush=True)
+        screen = MGR + member + """
+tac = m.get_editor_property("Tac")
+def txt(n):
+    return str(tac.get_editor_property(n).get_text())
+def shown(n):
+    return "COLLAPSED" if "COLLAPSED" in str(tac.get_editor_property(n).get_visibility()).upper() else "SHOWN"
+p = list(m.get_editor_property("PTactics"))
+OUT.update({"open": m.get_editor_property("bTacOpen"), "paused": m.get_editor_property("bPaused"), "title": txt("Title"),
+            "tabs": [txt("MemT%d" % k) for k in range(4) if shown("Mem%d" % k) != "COLLAPSED"],
+            "rows": [" | ".join(txt("%sT%d" % (c, r)) for c in ("Tgt", "Cnd", "Act")) for r in range(12) if shown("Row%d" % r) != "COLLAPSED"],
+            "picker": txt("PickTitle"), "options": list(tac.get_editor_property("OptNames")),
+            "hero_rows": [[round(v) for v in p[6 * i:6 * i + 6]] for i in range(3)]})
+"""
+        r = pyrun.run(MGR + 'm.call_method("ToggleTactics")\n' + screen.split(MGR, 1)[1], 60)
+        print("opened", json.dumps(r, default=str), flush=True)
+        run.shot("hero_tab")
+
+        def pick(label, *calls):
+            body = "".join('tac.call_method(%r, %r)\n' % c for c in calls)
+            r = pyrun.run(MGR + "tac = m.get_editor_property(\"Tac\")\n" + body + screen.split(MGR, 1)[1], 60)
+            print(label, json.dumps(r, default=str), flush=True)
+            return r
+
+        r = pick("hero row 1 condition: the bases", ("ClickCell", (0, 1)))
+        base = next(i for i, n in enumerate(r["options"]) if n.lower().startswith("health"))
+        r = pick("  Health", ("PickOption", (base,)))
+        run.shot("picker")
+        cond = next(i for i, n in enumerate(r["options"]) if "< 50" in n)
+        pick("  < 50%", ("PickOption", (cond,)))
+        pick("hero row 2 action: Attack", ("ClickCell", (1, 2)), ("PickOption", (0,)))
+        r = pick("first member's tab", ("ShowMember", (1,)))
+        n = len(r["rows"])
+        pick("its row %d: an empty one, target Self" % n, ("ClickCell", (n - 1, 0)), ("PickOption", (0,)))
+        pick("moved up", ("MoveUp", (n - 1,)))
+        r = pick("the row above it cleared", ("ClearRow", (n - 2,)))
+        run.shot("member_tab")
+        who = pyrun.run(MGR + 'tac = m.get_editor_property("Tac")\nOUT["who"] = tac.get_editor_property("Members")[0].get_name()', 60)["who"]
+        print("member", who, pyrun.run(NPC % who + member + 'OUT["rows"] = rows(a)', 60), flush=True)
+        print("closed", pyrun.run(MGR + 'm.call_method("ToggleTactics")\nOUT.update({"open": m.get_editor_property("bTacOpen"), "paused": m.get_editor_property("bPaused")})', 60), flush=True)
+        pyrun.run(NPC % who + 'a.call_method("SetInParty", (False,))', 60)
+        time.sleep(1.0)
+        print("left the party", pyrun.run(NPC % who + member + 'OUT.update({"swapped": a.get_editor_property("bPartyRows"), "rows": rows(a)})', 60), flush=True)
+        pyrun.run(NPC % who + 'a.call_method("SetInParty", (True,))', 60)
+        time.sleep(1.0)
+        print("back in it", pyrun.run(NPC % who + member + 'OUT.update({"swapped": a.get_editor_property("bPartyRows"), "rows": rows(a)})', 60), flush=True)
+    finally:
+        run.finish()
+
+
 DOG_ROWS = [  # abilities.talent_row's 18 fields: Mabari Howl, Overwhelm, Shred (Reborn's costs and cooldowns)
     [90048, 4, 30, 40, 0, 0, 0, 5.0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0],
     [90015, 4, 40, 60, 0, 0, 0, 2.0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0],
@@ -1529,6 +1609,9 @@ def main():
     s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
     s.add_argument("--tag", default="bhn200cr_howe_mage")
     s.set_defaults(fn=mage_check)
+    s = sub.add_parser("screencheck", help=screen_check.__doc__)
+    s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
+    s.set_defaults(fn=screen_check)
     s = sub.add_parser("alliescheck", help=allies_check.__doc__)
     s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
     s.add_argument("--foes", nargs="+", default=["bhn200cr_howe_main_hall*", "bhn200cr_howe_mage"])

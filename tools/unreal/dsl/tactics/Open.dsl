@@ -1,0 +1,7 @@
+(fn Open (InMgr)
+  (Variabili|Predefinito|ImpostaMgr InMgr)
+  (Funzionedichiamata|CollectOnce)
+  (Funzionedichiamata|LoadMenu)
+  (Funzionedichiamata|ListMembers)
+  (Funzionedichiamata|DrawTabs)
+  (Funzionedichiamata|ShowMember :K 0))
