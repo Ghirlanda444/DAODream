@@ -16,6 +16,7 @@ run are printed at the end.
     python playtest.py partytalents night                                  Play: the Teyrna and the mabari's talents
     python playtest.py pausecheck night                                    Play: pause, queued actions, party orders
     python playtest.py clickcheck day --tag ""                             Play: right clicks: move, attack, talk
+    python playtest.py controlcheck night                                  Play: taking control of party members
 
 Characters are named by their tag (NpcTags in extracted/ue/areas/<area>.json). Hidden ones (waiting for a
 plot) are shown for the pictures. The editor must be open with its MCP server running (docs/UNREAL_SETUP.md);
@@ -1039,6 +1040,119 @@ OUT["best"] = best
         run.finish()
 
 
+def control_check(args):
+    """Play at night: taking control of party members, as the original. The Teyrna and the mabari join; F2
+    (SelectMember 1): who is in control, where the camera's boom hangs, the hero's movement input ignored. The
+    movement keys steer her (ManualMove for 2 s, camera-forward); a right click on the floor walks her there and
+    the hero follows; one on a hostile (--tags woken) sets her on it while the hero picks his own fight. A left
+    click (the cursor put on the mabari) takes control of the dog; F1 gives the hero back."""
+    run = Run("controlcheck", args.area)
+    run.start(simulate=False)
+    try:
+        g = run.g
+        for _ in range(8):
+            g.converse(seconds=90)
+            if not g.talking().get("bTalking"):
+                break
+        mom, dog = run.npc("bhn100cr_mother"), run.npc("gen00fl_dog")
+        foes = [run.npc(t) for t in args.tags]
+        x, y, z = g.loc(foes[0])
+        g.go(x + 300, y, z, wait=0.5)
+        print("hero placed", g.loc("BP_ThirdPersonCharacter_C_0"), "foe", (x, y), flush=True)
+        for k, a in enumerate((mom, dog)):
+            pyrun.run(NPC % a + 'a.call_method("SetPlotActive", (True,))\na.call_method("SetInParty", (True,))\n'
+                      'a.set_actor_location(unreal.Vector(%f, %f, %f), False, True)\n' % (x + 400, y + 150 * (k * 2 - 1), z), 60)
+        state = MGR + """
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+pawn = unreal.GameplayStatics.get_player_pawn(w, 0)
+pc = unreal.GameplayStatics.get_player_controller(w, 0)
+boom = pawn.get_component_by_class(unreal.SpringArmComponent)
+sel = m.get_editor_property("Selected")
+OUT.update({"in_control": sel.get_name() if sel else "hero", "boom_on": boom.get_attach_parent().get_owner().get_name(),
+            "hero_keys_off": pc.is_move_input_ignored(), "hero_at": [round(v) for v in (pawn.get_actor_location().x, pawn.get_actor_location().y)],
+            "hero_target": str(m.get_editor_property("HeroTarget"))[-18:-1], "attacks": m.get_editor_property("Hits") + m.get_editor_property("Misses")})
+for name in %r:
+    a = acts[name]
+    t = a.get_editor_property("Target")
+    OUT[name[-6:]] = {"ctl": a.get_editor_property("bControlled"), "at": [round(v) for v in (a.get_actor_location().x, a.get_actor_location().y)],
+        "move": a.get_editor_property("bOrderMove"), "target": t.get_name()[-6:] if t else None, "hp": round(a.get_editor_property("Health"))}
+if m.get_editor_property("PlayerHealth") < 60.0:
+    m.call_method("HurtPlayer", (m.get_editor_property("PlayerHealth") - m.get_editor_property("PlayerMaxHealth"),))
+"""
+        say = lambda label: print(label, json.dumps(pyrun.run(state % ([mom, dog] + foes,), 60), default=str)[:1500], flush=True)
+        say("start")
+        print("F2", pyrun.run(MGR + 'm.call_method("SelectMember", (1,))\nOUT["sel"] = str(m.get_editor_property("Selected"))[-30:]', 60))
+        say("F2 taken")
+        run.shot("control_teyrna")
+        # the keys: W held 2 s (MoveKeys, then SteerFor: a test cannot hold a key)
+        for k in range(2):
+            print("  W" if k else "  turn", pyrun.run(MGR + """
+import math
+sel = m.get_editor_property("Selected")
+pc = unreal.GameplayStatics.get_player_controller(w, 0)
+foe = [a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor) if a.get_name() == %r][0]
+to = foe.get_actor_location() - sel.get_actor_location()
+if %r:  # the first call turns the camera on the room; the camera follows on the next frame
+    pc.set_control_rotation(unreal.Rotator(roll=0.0, pitch=-15.0, yaw=math.degrees(math.atan2(to.y, to.x))))
+cam = unreal.GameplayStatics.get_player_camera_manager(w, 0).get_camera_rotation()
+before = sel.get_actor_location()
+if not %r:
+    m.call_method("MoveKeys", (0.0, 1.0))
+    sel.call_method("SteerFor", (2.0,))
+d = sel.get_editor_property("ManualDir")
+OUT.update({"camera_yaw": round(cam.yaw), "dir_yaw": round(math.degrees(math.atan2(d.y, d.x))),
+            "at": [round(before.x), round(before.y)]})
+""" % (foes[0], k == 0, k == 0), 60), flush=True)
+        time.sleep(2.5)
+        say("after the keys")
+        # right click on the floor 5 m off: she walks there, the hero follows
+        mx, my, mz = g.loc(mom)
+        pyrun.run(MGR + 'm.call_method("CommandAt", (unreal.Vector(%f, %f, %f), None))' % (mx - 500, my, mz), 60)
+        time.sleep(3.0)
+        say("walked")
+        # right click on a hostile (the mabari out of it, the hostiles kept up: the Teyrna's and the hero's fights show)
+        pyrun.run(NPC % dog + 'a.call_method("KnockOut")\n', 60)
+        for f in foes:
+            pyrun.run(NPC % f + 'a.call_method("SetPlotActive", (True,))\n', 60)
+        print("attack", pyrun.run(MGR + """
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+m.call_method("CommandAt", (acts[%r].get_actor_location(), acts[%r]))
+OUT["order"] = str(m.get_editor_property("Selected").get_editor_property("OrderTarget"))[-20:]
+""" % (foes[0], foes[0]), 60), flush=True)
+        for k in range(3):
+            time.sleep(2.0)
+            pyrun.run(MGR + """
+for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor):
+    if a.get_name() in %r and 0.0 < a.get_editor_property("Health") < 120.0:
+        a.call_method("TakeHit", (-200.0,))
+""" % (foes,), 60)
+            say("fighting %d" % k)
+            if k == 1:
+                run.shot("teyrna_fights")
+        # a left click on the mabari
+        print("left click", pyrun.run(MGR + """
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+pc = unreal.GameplayStatics.get_player_controller(w, 0)
+d = acts[%r]
+screen = pc.project_world_location_to_screen(d.get_actor_location(), False)
+OUT["screen"] = (round(screen.x), round(screen.y)) if screen is not None else None
+if screen is not None:
+    pc.set_mouse_location(int(screen.x), int(screen.y))
+    m.call_method("SelectClick")
+sel = m.get_editor_property("Selected")
+OUT["in_control"] = sel.get_name() if sel else "hero"
+if not sel or sel.get_name() != d.get_name():
+    m.call_method("SelectNpc", (d,))
+    OUT["by"] = "SelectNpc (the cursor was not on it)"
+""" % dog, 60), flush=True)
+        say("dog taken")
+        run.shot("control_dog")
+        print("F1", pyrun.run(MGR + 'm.call_method("SelectMember", (0,))', 60))
+        say("hero back")
+    finally:
+        run.finish()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--sound", action="store_true", help="play the game's sound (tests are silent otherwise)")
@@ -1110,6 +1224,10 @@ def main():
     s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
     s.add_argument("--tag", default="bhn200cr_howe_panicked1", help="the hostile to right-click")
     s.set_defaults(fn=click_check)
+    s = sub.add_parser("controlcheck", help=control_check.__doc__)
+    s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
+    s.add_argument("--tags", nargs="+", default=["bhn200cr_howe_knight"])
+    s.set_defaults(fn=control_check)
     s = sub.add_parser("party", help=party.__doc__)
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("--seconds", type=int, default=120)

@@ -6,12 +6,16 @@
       (Funzionedichiamata|StopMoving))
     (:else
       (Funzionedichiamata|Recover)
-      (Utilità|ControlloDiFlusso|Ramo (Utilità|IsValid (Variabili|Predefinito|OttieniTarget))
+      (Utilità|ControlloDiFlusso|Ramo (Variabili|Predefinito|OttieniControlled)
         (:then
-          (Funzionedichiamata|PartyFight :Dt Dt))
+          (Funzionedichiamata|ControlledAct :Dt Dt))
         (:else
-          (Utilità|ControlloDiFlusso|Ramo (Variabili|Predefinito|OttieniHold)
+          (Utilità|ControlloDiFlusso|Ramo (Utilità|IsValid (Variabili|Predefinito|OttieniTarget))
             (:then
-              (Funzionedichiamata|StopMoving))
+              (Funzionedichiamata|PartyFight :Dt Dt))
             (:else
-              (Funzionedichiamata|PartyFollow :Dt Dt))))))))
+              (Utilità|ControlloDiFlusso|Ramo (Variabili|Predefinito|OttieniHold)
+                (:then
+                  (Funzionedichiamata|StopMoving))
+                (:else
+                  (Funzionedichiamata|FollowLeader :Dt Dt))))))))))

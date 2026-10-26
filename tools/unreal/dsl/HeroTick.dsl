@@ -1,7 +1,13 @@
 (fn HeroTick (Dt)
   (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ORBoolean (Variabili|Predefinito|OttieniTalking) (Matematica|Booleano|ORBoolean (Variabili|Predefinito|OttieniPlayerDown) (Variabili|Predefinito|OttieniGameOver)))
     (:then
-      (Funzionedichiamata|CancelOrders))
+      (Variabili|Predefinito|ImpostaHeroTarget)
+      (Variabili|Predefinito|ImpostaHeroUse)
+      (Variabili|Predefinito|ImpostaMoving "false"))
     (:else
       (Funzionedichiamata|KeepCursor)
-      (Funzionedichiamata|HeroOrderStep :Dt Dt))))
+      (Utilità|ControlloDiFlusso|Ramo (Utilità|IsValid (Variabili|Predefinito|OttieniSelected))
+        (:then
+          (Funzionedichiamata|HeroAI :Dt Dt))
+        (:else
+          (Funzionedichiamata|HeroOrderStep :Dt Dt))))))

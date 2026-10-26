@@ -7,5 +7,6 @@
   (bind _all (Attore|GetAllActorsOfClass "/Game/Cousland/Dialogue/BP_DlgNPC.BP_DlgNPC_C"))
   (for _a _all
     (Classe|BPDlgNPC|SelectOffer _a :InMgr (Variabili|Ottieniunriferimentoasestesso)))
+  (Funzionedichiamata|TakeControl)
   (Funzionedichiamata|ShowTalents)
-  (Funzionedichiamata|ShowMsg :Txt (Utilità|Stringa|Append "Orders: " (Variabili|Predefinito|OttieniSelName))))
+  (Funzionedichiamata|ShowMsg :Txt (Utilità|Stringa|Append "Control: " (Variabili|Predefinito|OttieniSelName))))

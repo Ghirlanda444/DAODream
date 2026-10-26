@@ -1,4 +1,4 @@
-"""python controls.py [assets|setup|graphs|input|save|all]: Dragon Age: Origins' PC controls (docs/COMBAT.md,
+"""python controls.py [assets|setup|graphs|input|prompts|save|all]: Dragon Age: Origins' PC controls (docs/COMBAT.md,
 "Controls"; the original's own bindings: Documents/BioWare/Dragon Age/Settings/KeyBindings.ini). Play/Simulate
 stopped; pause.py must have run.
 
@@ -19,6 +19,20 @@ lives alone: PickClicked, PickDoorOf; UseRoute); else the ground ->
 MoveGoal (HeroMoveStep). HeroTick runs the order each tick; HeroWalk asks the nav mesh for a path every 0.4 s and
 walks towards its next point. Moving with the keys drops the order (CancelOrders on IA_Move, which no longer
 consumes its input so the hero still gets it).
+
+Taking control (the original's F1-F4 and left click on a party member; party members are Actors, not Pawns, so
+nothing is possessed): SelectMember / SelectClick (SelectRoute, SelectNpc) set Selected and TakeControl: the hero's
+camera boom is attached to that member's capsule (Body) at the same offset (back to the hero's capsule for F1),
+its turning still the controller's; the hero's movement input is ignored (SetIgnoreMoveInput; reset for F1).
+MoveKeys turns the movement keys into a direction from the camera's yaw for the member (ManualMove); right
+clicks go to it (MemberCommand: OrderAttack on a hostile, else OrderMoveTo); F and 1-6 order it as before
+(FindOrderTarget: the hostile nearest it, OrderOffer; OrderOnTarget keeps a target it has). BP_DlgNPC
+ControlledAct: keys first, then a move order (OrderMoveStep), then its target (PartyFight), else it stands: when
+its target falls it stops (OrderDone -> DropTarget), as in the original. The others follow whoever is in control
+(FollowLeader, FollowTo). The hero meanwhile (HeroAI, every 0.5 s): keeps or picks the hostile nearest him within
+12 m (HeroPick, HeroBid), walks into reach by the nav mesh (SimpleMoveToActor) and strikes (HeroStrike), else
+follows the one in control. SteerFor holds a member's steering for some seconds (the Play test's
+held key). The mouse wheel zooms (Zoom: the boom's length, 1.5 to 15 m).
 """
 import os
 import sys
@@ -32,6 +46,7 @@ NPC_CLASS, ACTOR = cr.NPC_CLASS, cr.ACTOR
 F, B, VEC = "float", "bool", "vector"
 
 VARIABLES = {
+    NPC: [("bControlled", B), ("ManualDir", VEC), ("ManualUntil", F), ("bOrderMove", B), ("OrderGoal", VEC)],
     PM: [("HeroTarget", NPC_CLASS), ("HeroUse", ACTOR), ("MoveGoal", VEC), ("bMoving", B),
          ("HeroPath", VEC, "ARRAY"), ("PathTimer", F), ("NextPoint", VEC), ("PickNpc", NPC_CLASS), ("PickDist", F),
          ("PickDoor", "/Game/Cousland/Areas/BP_Door.BP_Door_C")],
@@ -44,21 +59,32 @@ FUNCTIONS = {
          "PickOffer": [("Npc", NPC_CLASS), ("Where", VEC)], "CancelOrders": [], "HeroTick": [("Dt", F)],
          "HeroOrderStep": [("Dt", F)], "HeroAttackStep": [("Dt", F)], "HeroStrike": [], "HeroUseStep": [("Dt", F)],
          "HeroUseNow": [], "UseRoute": [], "PickDoorOf": [("What", ACTOR)], "KeepCursor": [], "HeroMoveStep": [("Dt", F)], "HeroWalk": [("Goal", VEC), ("Dt", F)], "HeroRepath": [("Goal", VEC), ("Dt", F)],
-         "HeroNext": [("Goal", VEC)], "PreferTarget": [("Reach", F)], "HeroReach": []},
-    NPC: {"ClickOffer": [("InMgr", cr.PM + "_C"), ("Where", VEC)]},
+         "HeroNext": [("Goal", VEC)], "PreferTarget": [("Reach", F)], "HeroReach": [],
+         "TakeControl": [], "SelectClick": [], "SelectRoute": [("What", ACTOR)], "SelectNpc": [("Npc", NPC_CLASS)],
+         "MoveKeys": [("X", F), ("Y", F)], "MemberCommand": [("Where", VEC)], "OrderDone": [("Follower", NPC_CLASS)],
+         "HeroAI": [("Dt", F)], "HeroPick": [], "HeroBid": [], "HeroAIAct": [], "Zoom": [("Value", F)]},
+    NPC: {"ClickOffer": [("InMgr", cr.PM + "_C"), ("Where", VEC)], "SetControlled": [("bOn", B)], "DropOrders": [],
+          "DropTarget": [], "ManualMove": [("Dir", VEC)], "OrderMoveTo": [("Goal", VEC)],
+          "OrderOffer": [("InMgr", cr.PM + "_C"), ("From", ACTOR)], "ControlledAct": [("Dt", F)],
+          "OrderMoveStep": [("Dt", F)], "FollowLeader": [("Dt", F)], "FollowTo": [("Leader", ACTOR), ("Dt", F)],
+          "SteerFor": [("Seconds", F)]},
 }
 GRAPHS = [
-    (NPC, ["ClickOffer"]),
+    (NPC, ["ClickOffer", "SetControlled", "DropOrders", "DropTarget", "ManualMove", "OrderMoveTo", "OrderOffer",
+           "OrderMoveStep", "FollowTo", "FollowLeader", "ControlledAct", "PartyAct", ("OrderAttack", "OrderAttack_NPC"), "SteerFor"]),
     (PM, ["InitControls", "KeepCursor", "TurnCamera", "PickDoorOf", "PickOffer", "PickNpcNear", "CancelOrders", "CommandThing", "CommandNpc",
           "PickClicked", "CommandRoute", "CommandAt", "Command", "PreferTarget", "HeroNext", "HeroRepath", "HeroWalk", "HeroReach", "HeroStrike",
           "HeroAttackStep", "UseRoute", "HeroUseNow", "HeroUseStep", "HeroMoveStep", "HeroOrderStep", "HeroTick", "MeleeAttack",
-          "BowAttack", "FindTarget"]),
+          "BowAttack", "FindTarget", "TakeControl", "SelectNpc", "SelectRoute", "SelectClick", "SelectMember",
+          "MoveKeys", "MemberCommand", "CommandRoute", "FindOrderTarget", "OrderOnTarget", "OrderDone",
+          "AssignTarget", "HeroBid", "HeroPick", "HeroAIAct", "HeroAI", "HeroTick", "Zoom"]),
 ]
 NEW_ACTIONS = {  # name: (value type, [(key, negate)], trigger)
     "IA_TurnCamera": ("AXIS1D", [("A", True), ("D", False)], None),
     "IA_CameraHold": ("BOOLEAN", [("RightMouseButton", False)], None),
     "IA_Command": ("BOOLEAN", [("RightMouseButton", False)], "tap"),
     "IA_Select": ("BOOLEAN", [("LeftMouseButton", False)], None),
+    "IA_Zoom": ("AXIS1D", [("MouseWheelAxis", False)], None),
 }
 
 
@@ -141,8 +167,9 @@ def setup():
 
 def graphs():
     for bp, names in GRAPHS:
-        for fn in names:
-            code = open(os.path.join(cr.HERE, "dsl", fn + ".dsl"), encoding="utf-8").read()
+        for entry in names:
+            fn, src = (entry, entry) if isinstance(entry, str) else entry
+            code = open(os.path.join(cr.HERE, "dsl", src + ".dsl"), encoding="utf-8").read()
             r = cr.call("write_graph_dsl", {"graph": {"refPath": "%s:%s" % (bp, fn)}, "code": code})
             print(fn, str(r)[:300])
         cr.call("compile_blueprint", {"blueprint": {"refPath": bp}})
@@ -184,11 +211,35 @@ def _after(g, title, fn, args=()):
     return ins
 
 
+def _move_keys(g):
+    """MoveKeys after IA_Move's CancelOrders, with the action's X and Y."""
+    if cr.call("find_nodes", {"graph": g, "title": "MoveKeys"}):
+        print("MoveKeys already called")
+        return
+    ev = next(n for n in cr.call("find_nodes", {"graph": g, "title": "IA_Move"}))
+    cancel = next(n for n in cr.call("find_nodes", {"graph": g, "title": "CancelOrders"}))
+    then = next(p for p in cr.pins(cancel)["output_pins"] if p["type_id"] == "Exec")
+    call = cr.call("create_node", {"graph": g, "type_id": "Funzionedichiamata|MoveKeys", "pos": {"x": 2400, "y": 7600}})
+    ins = {p["name"]: p["pin_id"] for p in cr.pins(call)["input_pins"]}
+    outs = {p["name"]: p["pin_id"] for p in cr.pins(ev)["output_pins"]}
+    cr.call("connect_pins", {"output_pin": then["pin_id"], "input_pin": ins["execute"]})
+    brk = cr.call("create_node", {"graph": g, "type_id": "Matematica|Vector2D|BreakVector2D", "pos": {"x": 2100, "y": 7800}})
+    b_ins = {p["name"]: p["pin_id"] for p in cr.pins(brk)["input_pins"]}
+    b_outs = {p["name"]: p["pin_id"] for p in cr.pins(brk)["output_pins"]}
+    cr.call("connect_pins", {"output_pin": outs["ActionValue"], "input_pin": next(iter(b_ins.values()))})
+    cr.call("connect_pins", {"output_pin": b_outs["X"], "input_pin": ins["X"]})
+    cr.call("connect_pins", {"output_pin": b_outs["Y"], "input_pin": ins["Y"]})
+    print("CancelOrders -> MoveKeys")
+
+
 def input_events():
     g = {"refPath": PM + ":EventGraph"}
     _event(g, "IA_TurnCamera", "TurnCamera", {"x": 1600, "y": 7000}, "Triggered", "Value")
     _event(g, "IA_Command", "Command", {"x": 1600, "y": 7300}, "Triggered")
     _event(g, "IA_Move", "CancelOrders", {"x": 1600, "y": 7600}, "Triggered")
+    _event(g, "IA_Select", "SelectClick", {"x": 1600, "y": 7900}, "Started")
+    _event(g, "IA_Zoom", "Zoom", {"x": 1600, "y": 8200}, "Triggered", "Value")
+    _move_keys(g)
     _after(g, "InitCombat", "InitControls")
     ins = _after(g, "MsgTick", "HeroTick")
     if ins:  # the tick's delta: the same pin MsgTick takes
@@ -197,6 +248,30 @@ def input_events():
         dt = next(p for p in cr.pins(ev)["output_pins"] if p["name"] == "DeltaSeconds")
         cr.call("connect_pins", {"output_pin": dt["pin_id"], "input_pin": ins["Dt"]})
     cr.call("compile_blueprint", {"blueprint": {"refPath": PM}})
+
+
+def prompts():
+    """The prompts over people and doors say right click: BP_DlgNPC's PromptText, BP_Door.UpdateLabel's texts."""
+    import pyrun
+    print(pyrun.run('''
+EAL = unreal.EditorAssetLibrary
+bp = EAL.load_asset("/Game/Cousland/Dialogue/BP_DlgNPC")
+sub = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
+for h in sub.k2_gather_subobject_data_for_blueprint(bp):
+    o = unreal.SubobjectDataBlueprintFunctionLibrary.get_object(unreal.SubobjectDataBlueprintFunctionLibrary.get_data(h))
+    if isinstance(o, unreal.TextRenderComponent) and o.get_name().startswith("PromptText"):
+        o.set_editor_property("text", "Right click: Talk")
+unreal.BlueprintEditorLibrary.compile_blueprint(bp)
+EAL.save_asset("/Game/Cousland/Dialogue/BP_DlgNPC", only_if_is_dirty=False)
+''', 120))
+    door = "/Game/Cousland/Areas/BP_Door.BP_Door"
+    g = {"refPath": door + ":UpdateLabel"}
+    for n in cr.call("find_nodes", {"graph": g, "title": ""}):
+        for pin in cr.pins(n)["input_pins"]:
+            if (pin.get("value") or "").startswith("E: "):
+                cr.call("set_pin_value", {"pin": pin["pin_id"], "value": "Right click: " + pin["value"][3:]})
+    cr.call("compile_blueprint", {"blueprint": {"refPath": door}})
+    print(pyrun.run('OUT["saved"] = unreal.EditorAssetLibrary.save_asset("/Game/Cousland/Areas/BP_Door", only_if_is_dirty=False)', 60))
 
 
 def save():
@@ -212,6 +287,6 @@ if __name__ == "__main__":
     ue.init()
     phase = sys.argv[1] if len(sys.argv) > 1 else "all"
     for name, f in (("assets", assets), ("setup", setup), ("graphs", graphs), ("input", input_events),
-                    ("save", save)):
+                    ("prompts", prompts), ("save", save)):
         if phase in (name, "all"):
             f()

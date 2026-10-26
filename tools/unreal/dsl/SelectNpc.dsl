@@ -1,0 +1,8 @@
+(fn SelectNpc (Npc)
+  (Variabili|Predefinito|ImpostaSelected Npc)
+  (Classe|BPDlgNPC|MakeOrderLine Npc)
+  (Variabili|Predefinito|ImpostaSelName (Classe|BPDlgNPC|OttieniDisplayName Npc))
+  (Variabili|Predefinito|ImpostaSelLine (Classe|BPDlgNPC|OttieniOrderLine Npc))
+  (Funzionedichiamata|TakeControl)
+  (Funzionedichiamata|ShowTalents)
+  (Funzionedichiamata|ShowMsg :Txt (Utilità|Stringa|Append "Control: " (Variabili|Predefinito|OttieniSelName))))

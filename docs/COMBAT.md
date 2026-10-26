@@ -747,6 +747,49 @@ Checked in Play (silent, `py playtest.py clickcheck`, 2026-10-26):
 
 No script errors.
 
+### Taking control
+
+The original's F1-F4, and a left click on a party member, give you that
+member: the camera, the keys, the right clicks and the quickbar are theirs.
+Our party members are Actors, not Pawns, so nothing is possessed:
+- **The camera**: the hero's camera boom is re-attached to the member's capsule
+  at the same offset, and still turns with your mouse and A/D. F1 puts it back
+  on the hero.
+- **The keys** steer the member along the camera's heading (`MoveKeys`), and
+  the hero's own movement input is switched off meanwhile.
+- **Right clicks**: a hostile becomes the member's target; anywhere else, it
+  walks there.
+- **F and 1-6** order the member as before.
+- **When its target falls** the member in control stops and waits, as in the
+  original. The others pick their own fights.
+- **The others** follow whoever is in control.
+- **The hero, when not in control** (every half second): keeps or picks the
+  hostile nearest him within 12 m, walks into reach by the nav mesh and
+  strikes, else follows the one in control. He uses no talents yet: in the
+  original he would run his tactics.
+- **The prompts** over people and doors now say "Right click".
+- **The mouse wheel** zooms the camera (1.5 to 15 m). The original zooms out
+  much further, into an overhead tactical view: not here.
+
+Checked in Play (silent, `py playtest.py controlcheck night`, 2026-10-26),
+the Teyrna and the mabari against the knight:
+- **F2**: control went to the Teyrna, the boom onto her, and the hero's keys
+  off.
+- **W held 2 s** (the camera turned on the room): she ran 7.9 m at 159
+  degrees, the camera's heading, and the mabari followed her.
+- **A right click on the floor**: she walked there and stopped within 60 cm.
+- **A right click on the knight**: she fought him. The hero took him as his
+  own target and walked by the nav mesh to keep up when the knight moved.
+- **A left click on the mabari**: control went to the dog.
+- **F1**: the hero back, boom and keys included.
+- No script errors.
+
+Two traps on the way, now worked round:
+- a pawn function given the hero as a plain argument read the empty
+  `LastHitBy`, so the camera's rotation comes from the camera manager;
+- a literal multiplying a vector came out as zero, so it is a vector of its
+  own (`MakeVector 400 400 0`).
+
 ## Pause and party orders
 
 Real-time with pause (`tools/unreal/pause.py`), with the original's keys
@@ -756,9 +799,9 @@ where they exist:
 | --- | --- |
 | Space | Pause and resume. |
 | F1 | Orders go to the hero. |
-| F2, F3, F4 | Orders go to a party member, in the order the level lists them (at night: the Teyrna, then the mabari). |
-| F or the left mouse button | With a member selected: it attacks the hostile nearest the player within 15 m, and keeps to it while it stands. |
-| 1-6 | With a member selected: it uses that talent at its next attack round, on that hostile. |
+| F2, F3, F4 | Take control of a party member, in the order the level lists them (at night: the Teyrna, then the mabari). See "Controls". |
+| F | With a member in control: it attacks the hostile nearest it within 15 m, and keeps to it while it stands. |
+| 1-6 | With a member in control: it uses that talent at its next attack round, on its target (else the hostile nearest it). |
 | H | Hold position: the selected member, or with the hero selected the whole party. Again: follow. |
 
 The template's jump loses Space; Dragon Age has none.
@@ -778,10 +821,8 @@ The template's jump loses Space; Dragon Age has none.
   selected it shows that member: its name, "(holding)", and its talents,
   "ON" for a mode on and "*" for an order waiting.
 
-The original makes you control the selected member (its portrait, its
-quickbar, clicking a target or a place). Here the hero stays under control
-and the others take orders: there is no clicking on a target or the ground
-yet.
+Since then, F1-F4 take control of the member, as in the original
+("Controls").
 
 Checked in Play (silent, `py playtest.py pausecheck night`, 2026-10-26),
 against three of the panicked servant's pursuers:
@@ -1008,8 +1049,8 @@ Movers still don't push against each other or the player.
 
 ## Not there yet
 
-the dogs' Shred, Howl and Overwhelm in Unreal; the archers' bow model; clicking a target
-or a place for an order, and taking control of a party member; tactics edited by the player; spells
+the dogs' Shred, Howl and Overwhelm in Unreal; the archers' bow model; the overhead tactical
+camera; the hero's tactics when another is in control; tactics edited by the player; spells
 (hostiles go for the nearest foe, not the one they hate most); allies outside
 the party (the castle's guards) cannot be struck yet; injuries; switching to a
 party member; proper animations (the attack is a generic punch, the fall and

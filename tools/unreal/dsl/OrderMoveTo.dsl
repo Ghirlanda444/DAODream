@@ -1,0 +1,5 @@
+(fn OrderMoveTo (Goal)
+  (Variabili|Predefinito|ImpostaOrderTarget)
+  (Variabili|Predefinito|ImpostaTarget)
+  (Variabili|Predefinito|ImpostaOrderGoal Goal)
+  (Variabili|Predefinito|ImpostaOrderMove "true"))
