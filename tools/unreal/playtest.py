@@ -18,6 +18,7 @@ run are printed at the end.
     python playtest.py clickcheck day --tag ""                             Play: right clicks: move, attack, talk
     python playtest.py controlcheck night                                  Play: taking control of party members
     python playtest.py tacticscheck night                                  Play: the hero's tactics, pan, tactical zoom
+    python playtest.py dogcheck night                                      Play: the dogs' Howl, Overwhelm, Shred
 
 Characters are named by their tag (NpcTags in extracted/ue/areas/<area>.json). Hidden ones (waiting for a
 plot) are shown for the pictures. The editor must be open with its MCP server running (docs/UNREAL_SETUP.md);
@@ -1220,6 +1221,77 @@ OUT.update({"offset": [round(o.x), round(o.y)], "arm": round(boom.get_editor_pro
         run.finish()
 
 
+DOG_ROWS = [  # abilities.talent_row's 18 fields: Mabari Howl, Overwhelm, Shred (Reborn's costs and cooldowns)
+    [90048, 4, 30, 40, 0, 0, 0, 5.0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0],
+    [90015, 4, 40, 60, 0, 0, 0, 2.0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0],
+    [90047, 4, 40, 20, 0, 0, 0, 10.0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0]]
+DOG_TACTICS = [[1, 16, 0, 4, 90048, 100], [3, 16, 0, 4, 90015, 100], [3, 16, 0, 4, 90047, 100]]
+
+
+def dog_check(args):
+    """Play at night: the dogs' Mabari Howl, Overwhelm and Shred. Both the hero's mabari and a war dog (--tag) are
+    given the three (SetNpcTalents: those rows and an always tactic for each, in that order) and stamina enough
+    (SetStatus), then the war dog is woken 5 m from the player and his dog: every few seconds who is stunned or
+    pinned, who bleeds, the dogs' talents cooling down. The player and the dogs are kept up."""
+    run = Run("dogcheck", args.area)
+    run.start(simulate=False)
+    try:
+        g = run.g
+        for _ in range(8):
+            g.converse(seconds=90)
+            if not g.talking().get("bTalking"):
+                break
+        war, dog = run.npc(args.tag), run.npc("gen00fl_dog")
+        x, y, z = g.loc(war)
+        g.go(x + 500, y, z, wait=0.5)
+        talents = [float(v) for r in DOG_ROWS for v in r] + [0.0] * 18 * 3
+        tactics = [float(v) for r in DOG_TACTICS for v in r] + [0.0] * 6 * 9
+        for a in (war, dog):
+            print("give", a, pyrun.run(NPC % a + """
+st = [2.0, a.get_editor_property("DurScale"), 0.0, 15.0, 0.0, 300.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+a.call_method("SetStatus", (st, 0))
+a.call_method("SetNpcTalents", (%r, %r, 0))
+OUT["talents"] = [int(v) for v in list(a.get_editor_property("NTalents"))[::18] if v]
+OUT["stamina"] = a.get_editor_property("NStamina")
+""" % (talents, tactics), 60), flush=True)
+        pyrun.run(NPC % dog + 'a.set_actor_location(unreal.Vector(%f, %f, %f), False, True)\n' % (x + 450, y + 150, z), 60)
+        if args.solo:  # the war dog has only the player: Howl and Overwhelm on him
+            pyrun.run(NPC % dog + 'a.call_method("KnockOut")\n', 60)
+        pyrun.run(NPC % war + 'a.call_method("SetPlotActive", (True,))\n', 60)
+        state = MGR + """
+now = unreal.GameplayStatics.get_time_seconds(w)
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+if m.get_editor_property("PlayerHealth") < 60.0:
+    m.call_method("HurtPlayer", (m.get_editor_property("PlayerHealth") - m.get_editor_property("PlayerMaxHealth"),))
+OUT["player"] = {"hp": round(m.get_editor_property("PlayerHealth")), "stunned": round(max(0.0, m.get_editor_property("PStunUntil") - now), 1),
+                 "bleeding": round(max(0.0, m.get_editor_property("PBleedUntil") - now), 1),
+                 "stun_until": round(m.get_editor_property("PStunUntil"), 1), "bleed_until": round(m.get_editor_property("PBleedUntil"), 1),
+                 "now": round(now, 1)}
+for name in %r:
+    a = acts[name]
+    if 0.0 < a.get_editor_property("Health") < 60.0:
+        a.call_method("TakeHit", (-150.0,))
+    tal = list(a.get_editor_property("NTalents")); ready = list(a.get_editor_property("NReady"))
+    f = a.get_editor_property("Foe")
+    OUT[name[-6:]] = {"hp": round(a.get_editor_property("Health")), "foe": f.get_name()[-8:] if f else None,
+        "stunned": round(max(0.0, a.get_editor_property("StunUntil") - now), 1), "bleeding": round(max(0.0, a.get_editor_property("BleedUntil") - now), 1),
+        "cool": {int(tal[k * 18]): round(ready[k] - now, 1) for k in range(len(ready)) if tal[k * 18] and ready[k] > now}}
+""" % ([war, dog],)
+        used = {}
+        for k in range(8):
+            time.sleep(2.0)
+            r = pyrun.run(state, 60)
+            print(json.dumps(r, default=str)[:600], flush=True)
+            for who in (war[-6:], dog[-6:]):
+                for t in (r.get(who) or {}).get("cool", {}):
+                    used.setdefault(who, set()).add(t)
+            if k in (1, 4):
+                run.shot("dogs_%d" % k)
+        print("RESULT", json.dumps({w: sorted(str(t) for t in s) for w, s in used.items()}))
+    finally:
+        run.finish()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--sound", action="store_true", help="play the game's sound (tests are silent otherwise)")
@@ -1299,6 +1371,11 @@ def main():
     s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
     s.add_argument("--tag", default="bhn200cr_howe_knight")
     s.set_defaults(fn=tactics_check)
+    s = sub.add_parser("dogcheck", help=dog_check.__doc__)
+    s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
+    s.add_argument("--tag", default="bhn200cr_howe_panicked4", help="a war dog")
+    s.add_argument("--solo", action="store_true", help="the hero's mabari knocked out: the war dog has only the player")
+    s.set_defaults(fn=dog_check)
     s = sub.add_parser("party", help=party.__doc__)
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("--seconds", type=int, default=120)

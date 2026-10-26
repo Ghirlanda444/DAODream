@@ -55,6 +55,11 @@ Compile success, a read-back graph or a variable value are not enough.
   - `py playtest.py tacticscheck night`: Play, the Teyrna in control against the knight (kept above 120
     health): the hero's tactics (his talents cooling down, his stamina); then the camera: a pan, the mouse pan,
     a move key recentering it, zoomed all the way out (25 m, -75 degrees) and back.
+  - `py playtest.py dogcheck night [--solo]`: Play, the hero's mabari and a war dog given Mabari Howl, Overwhelm
+    and Shred (SetNpcTalents, SetStatus: instance variables cannot be set from Python, functions can) and set
+    on each other near the player: who is stunned or bleeding (the player's stun and bleed end times too:
+    a 2-5 s stun can end between samples), the talents cooling down. --solo knocks the mabari out first (it
+    gets up again after a lull).
   - `py playtest.py pausecheck night`: Play, the Teyrna and the mabari in the party; three hostiles woken
     and the game paused in the same editor call (each call lets some 10 s of game go by). It checks that game
     time and places stand still; queues the hero's attack and talent; orders F2's member to use a talent (--slot)

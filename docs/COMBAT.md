@@ -660,10 +660,32 @@ tables, as the hostiles do.
   - Overwhelm: a humanoid pinned 2 s while the dog bites. The number of bites
     is its animation's, not in the data: 2 here.
   - Fortitude and Combat Training are passives.
-  Tonight only Growl and Charge are used: the hero's dog has Growl, Fortitude
+  Tonight only Growl and Charge come up: the hero's dog has Growl, Fortitude
   and Charge at level 2, and Howe's war dogs (level 1, package 8) have the
-  same. Shred, Howl and Overwhelm are in the rules and the simulator, not in
-  Unreal yet.
+  same. Shred, Howl and Overwhelm come at higher levels. They are built too
+  (`tools/unreal/dogs.py`):
+  - **Shred**: the blow's critical chance is raised past certain, and the
+    target bleeds the damage again a second at a time (`BleedTick`, and
+    `PlayerBleedTick` for the player).
+  - **Howl**: it reaches every creature hostile to the dog within 10 m: a
+    party dog's are the hostiles, a war dog's the party and the player.
+    Lieutenants and bosses are spared, told by their rank's effect duration
+    scale (below 0.78).
+  - **Overwhelm**: the dog asks the plot manager whether its target is an
+    animal (`CheckBeast`: the look actor's name is the mabari's or the giant
+    rat's; a cast would tie the Blueprint to the third-party assets kept out
+    of the repo). On an animal it just bites, since the original's AI would
+    not try.
+
+  Checked in Play (silent, `py playtest.py dogcheck night [--solo]`,
+  2026-10-26), both dogs given the three talents and set on each other near
+  the player:
+  - both used all three;
+  - the war dog was stunned by the mabari's Howl;
+  - both dogs and the player bled from Shred;
+  - the war dog's Howl stunned the player and the mabari for 5 s each;
+  - Overwhelm on a dog became a bite;
+  - no script errors.
 - **Rapid Shot** (`talent_modal`, `combat_h`): aims a twentieth of a second
   faster a point of dexterity above 10 (at most 2 s), and no criticals while
   on. Its `RAPIDSHOT_ATTACK_PENALTY` is defined but never used.
@@ -1086,7 +1108,7 @@ Movers still don't push against each other or the player.
 
 ## Not there yet
 
-the dogs' Shred, Howl and Overwhelm in Unreal; the archers' bow model; the tactics screen
+the archers' bow model (with the weapon art, all weapons together); the tactics screen
 (tactics edited by the player) and the party members' tactics slots by level; spells
 (hostiles go for the nearest foe, not the one they hate most); allies outside
 the party (the castle's guards) cannot be struck yet; injuries; switching to a
