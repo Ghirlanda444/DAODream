@@ -13,6 +13,7 @@
   (Variabili|Predefinito|ImpostaNpcTalents (Json|GetField _json "NpcTalents"))
   (Variabili|Predefinito|ImpostaNpcTactics (Json|GetField _json "NpcTactics"))
   (Variabili|Predefinito|ImpostaNpcSpell (Json|GetField _json "NpcSpell"))
+  (Variabili|Predefinito|ImpostaNpcImmortal (Json|GetField _json "NpcImmortal"))
   (Variabili|Predefinito|ImpostaPlayerTalents (Json|GetField _json "PlayerTalents"))
   (Variabili|Predefinito|ImpostaPlayerPassives (Json|GetField _json "PlayerPassives"))
   (Variabili|Predefinito|ImpostaPlayerTalentNames (Json|GetField _json "PlayerTalentNames"))

@@ -60,6 +60,10 @@ Compile success, a read-back graph or a variable value are not enough.
     on each other near the player: who is stunned or bleeding (the player's stun and bleed end times too:
     a 2-5 s stun can end between samples), the talents cooling down. --solo knocks the mabari out first (it
     gets up again after a lull).
+  - `py playtest.py alliescheck night`: Play, the main hall's battle with its allies (the conversation
+    played through first): Howe's men there and the castle's (Gilmore and the two immortal guards) woken
+    together, the Teyrna and the mabari in the party; whom Howe's men attack, everyone's health, how many
+    of Howe's men stand, and the allies' lowest health (never below 1).
   - `py playtest.py magecheck night`: Play, Howe's mage (the main hall's conversation played through
     first: nobody fights during one): at 8 m his staff and Lightning, at 3 m Shock and backing off, with the
     player, the Teyrna and the mabari around him Mind Blast; his mana, spells cooling down, the hostiles he

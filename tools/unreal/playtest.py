@@ -20,6 +20,7 @@ run are printed at the end.
     python playtest.py tacticscheck night                                  Play: the hero's tactics, pan, tactical zoom
     python playtest.py dogcheck night                                      Play: the dogs' Howl, Overwhelm, Shred
     python playtest.py magecheck night                                     Play: the mage's staff and spells
+    python playtest.py alliescheck night                                   Play: the main hall's battle with its allies
 
 Characters are named by their tag (NpcTags in extracted/ue/areas/<area>.json). Hidden ones (waiting for a
 plot) are shown for the pictures. The editor must be open with its MCP server running (docs/UNREAL_SETUP.md);
@@ -27,6 +28,7 @@ the level is loaded if another one is open. While the run lasts the editor is no
 background, so it keeps a usable frame rate.
 """
 import argparse
+import fnmatch
 import json
 import math
 import os
@@ -1373,6 +1375,72 @@ OUT.update({"player_hp": round(hp), "player_stun_until": round(m.get_editor_prop
         run.finish()
 
 
+def allies_check(args):
+    """Play at night: the main hall's battle with its allies. Howe's men there (--foes: the nine and the mage) and
+    the castle's (--allies: Gilmore and the two guards, immortal) are woken together, the Teyrna and the mabari in
+    the party: every few seconds whom Howe's men attack, everyone's health, how many of Howe's men stand. The
+    player is kept up so the battle runs to its end."""
+    run = Run("alliescheck", args.area)
+    run.start(simulate=False)
+    try:
+        g = run.g
+        for _ in range(8):
+            g.converse(seconds=90)
+            if not g.talking().get("bTalking"):
+                break
+        foes = [run.npc(t) for t in g.a["NpcTags"] if any(fnmatch.fnmatch(t, p) for p in args.foes)]
+        allies = [run.npc(t) for t in args.allies]
+        x, y, z = g.loc(foes[0])
+        g.go(x + 600, y, z, wait=0.5)
+        for _ in range(6):  # the hall's conversation
+            g.converse(seconds=60)
+            if not g.talking().get("bTalking"):
+                break
+        g.go(x + 600, y, z, wait=0.3)
+        mom, dog = run.npc("bhn100cr_mother"), run.npc("gen00fl_dog")
+        for k, a in enumerate((mom, dog)):
+            pyrun.run(NPC % a + 'a.call_method("SetPlotActive", (True,))\na.call_method("SetInParty", (True,))\n'
+                      'a.set_actor_location(unreal.Vector(%f, %f, %f), False, True)\n' % (x + 700, y + 150 * (k * 2 - 1), z), 60)
+        print("wake", pyrun.run(MGR + """
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+for name in %r:
+    acts[name].call_method("SetPlotActive", (True,))
+OUT["allies"] = {n[-6:]: (acts[n].get_editor_property("bAlly"), acts[n].get_editor_property("bImmortal")) for n in %r}
+""" % (foes + allies, allies), 60), flush=True)
+        state = MGR + """
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+if m.get_editor_property("PlayerHealth") < 60.0:
+    m.call_method("HurtPlayer", (m.get_editor_property("PlayerHealth") - m.get_editor_property("PlayerMaxHealth"),))
+foes, allies, party = %r, %r, %r
+on = {}
+for n in foes:
+    a = acts[n]
+    if a.get_editor_property("bDead"):
+        continue
+    f = a.get_editor_property("Foe")
+    who = "none" if not f else ("player" if f.get_name().startswith("BP_ThirdPerson") else ("ally" if f.get_name() in allies else ("party" if f.get_name() in party else "other")))
+    on[who] = on.get(who, 0) + 1
+OUT["howe_standing"] = sum(1 for n in foes if not acts[n].get_editor_property("bDead"))
+OUT["howe_attack"] = on
+OUT["allies_hp"] = {n[-6:]: round(acts[n].get_editor_property("Health")) for n in allies}
+OUT["party_hp"] = {"player": round(m.get_editor_property("PlayerHealth")), **{n[-6:]: round(acts[n].get_editor_property("Health")) for n in party}}
+""" % (foes, allies, [mom, dog])
+        lowest = {}
+        for k in range(10):
+            time.sleep(2.0)
+            r = pyrun.run(state, 60)
+            for n, hp in (r.get("allies_hp") or {}).items():
+                lowest[n] = min(lowest.get(n, 1e9), hp)
+            print("  ", json.dumps(r, default=str)[:500], flush=True)
+            if k in (1, 4):
+                run.shot("main_hall_%d" % k)
+            if r.get("howe_standing") == 0:
+                break
+        print("RESULT", json.dumps({"lowest_ally_health": lowest}))
+    finally:
+        run.finish()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--sound", action="store_true", help="play the game's sound (tests are silent otherwise)")
@@ -1461,6 +1529,11 @@ def main():
     s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
     s.add_argument("--tag", default="bhn200cr_howe_mage")
     s.set_defaults(fn=mage_check)
+    s = sub.add_parser("alliescheck", help=allies_check.__doc__)
+    s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
+    s.add_argument("--foes", nargs="+", default=["bhn200cr_howe_main_hall*", "bhn200cr_howe_mage"])
+    s.add_argument("--allies", nargs="+", default=["bhn100cr_gilmore", "bhn200cr_guard_main_hall1", "bhn200cr_guard_main_hall2"])
+    s.set_defaults(fn=allies_check)
     s = sub.add_parser("party", help=party.__doc__)
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("--seconds", type=int, default=120)

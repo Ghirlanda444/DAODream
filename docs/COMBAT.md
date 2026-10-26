@@ -785,8 +785,44 @@ Checked in Play (silent, `py playtest.py magecheck night`, 2026-10-26):
 The simulator (no geometry) lets Shock and Mind Blast catch the target and whoever is fighting the
 caster at close quarters. The main hall, 2,000 fights with the mabari and the Teyrna in waves of five:
 won 10% without his spells, 0% with them. The mage alone is won every time in 9 s. In the game the castle's
-guards fight in the main hall too (the area script makes two of them immortal), and the simulator
-doesn't bring allies in yet: that fight needs a balance pass with them.
+guards fight in the main hall too (the area script makes two of them immortal); with them the fight
+is won (next section).
+
+## Allies
+
+The castle's guards and Gilmore at night fight on the player's side without joining the party
+(`NpcAlly`, "In Unreal" above). Now they are fought back as well, and some of them cannot die
+(`simulate.py`, `tools/unreal/allies.py`).
+
+- **Who cannot die**: a creature whose template says Immortal (Gilmore), or one the area's script makes
+  immortal when it loads (the main hall's two guards, `bhn200ar_castle_after_siege`; `area.AREA_IMMORTAL`).
+  Exported as `NpcImmortal`. Beaten down to 1 health, it fights on.
+- **Foes see them**: an ally counts as one of the party's side when a hostile looks around for threat,
+  so it draws threat and is picked and struck as party members are (`AllyOn`, read by
+  `BP_PlotManager.Inspect`).
+- **Win and loss**: a fight is lost when the player and the party are down, allies standing or not.
+  Allies don't count for the party's size (effect durations).
+
+The simulator (`daotools simulate --allies PATTERN`), 2,000 fights at night with the mabari and the Teyrna:
+
+| Fight | Without allies | With allies |
+| --- | --- | --- |
+| Main hall, all at once | 0% won | 100% won, 34 s |
+| Main hall, waves of five | 0% | 100% |
+| Hallway | 58% | 100% |
+| Dining room, chapel, after the hall | 100% | 100% |
+
+In the main hall Gilmore ends at 1 health and the two guards at about half. The party falls in 2-9% of
+the fights.
+
+Checked in Play (silent, `py playtest.py alliescheck night`, 2026-10-26): the hall's conversation
+played through, Howe's ten men there and the castle's three were woken together.
+- Howe's men went for the guards and Gilmore, and some for the party.
+- Gilmore and the two guards were beaten down to 1 health and fought on.
+- With the Teyrna and the mabari joining in, all ten of Howe's men fell.
+- In a run where the party stayed out of it, the three allies alone, at 1-13 health, did not finish
+  the last six.
+- No script errors.
 
 ## Controls
 
@@ -1171,7 +1207,5 @@ Movers still don't push against each other or the player.
 
 the archers' bow model (with the weapon art, all weapons together); the tactics screen
 (tactics edited by the player) and the party members' tactics slots by level; the spells of
-other mages (only the night mage's are in); allies in the simulator (the main hall's guards); allies outside
-the party (the castle's guards) cannot be struck yet; injuries; switching to a
-party member; proper animations (the attack is a generic punch, the fall and
+other mages (only the night mage's are in); injuries; proper animations (the attack is a generic punch, the fall and
 getting up are instant). The plan: `docs/COMBAT_DESIGN.md`.
