@@ -1,0 +1,10 @@
+(fn TacticMove (Sub)
+  (bind _d (Trasformazione|GetDistanceTo (Variabili|Ottieniunriferimentoasestesso) (Variabili|Predefinito|OttieniFoe)))
+  (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ANDBoolean (Utility|Operatori|Uguale(==) Sub 6.0) (Utility|Operatori|Minore(<) _d 1300.0))
+    (:then
+      (bind (_x _y _z) (Matematica|Vettore|BreakVector (Utility|Operatori|Sottrai (Trasformazione|GetActorLocation (Variabili|Ottieniunriferimentoasestesso)) (Trasformazione|GetActorLocation (Variabili|Predefinito|OttieniFoe)))))
+      (Variabili|Predefinito|ImpostaFleeGoal (Utility|Operatori|Aggiungi (Trasformazione|GetActorLocation (Variabili|Ottieniunriferimentoasestesso)) (Utility|Operatori|Moltiplica (Matematica|Vettore|Normalize (Matematica|Vettore|MakeVector _x _y 0.0)) (Matematica|Vettore|MakeVector (Utility|Operatori|Moltiplica (Utility|Operatori|Sottrai _d 1300.0) -1.0) (Utility|Operatori|Moltiplica (Utility|Operatori|Sottrai _d 1300.0) -1.0) 0.0))))
+      (Variabili|Predefinito|ImpostaFleeUntil (Utility|Operatori|Aggiungi (Utilità|Testo|GetGameTimeinSeconds) 3.0))
+      (Variabili|Predefinito|ImpostaTacSlot -2)
+      (Variabili|Predefinito|ImpostaTacDone "true")
+      (Funzionedichiamata|SayText :Txt "Backs off"))))

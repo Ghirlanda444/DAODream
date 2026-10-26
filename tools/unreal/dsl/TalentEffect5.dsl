@@ -11,4 +11,4 @@
             (:then
               (Funzionedichiamata|EffOverwhelm :K K))
             (:else
-              (Funzionedichiamata|HitFoe :Bonus (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTalents) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica K 18) 6)) :Mul (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTalents) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica K 18) 15)) :bOff "false" :bSure "false"))))))))
+              (Funzionedichiamata|TalentEffect6 :K K))))))))

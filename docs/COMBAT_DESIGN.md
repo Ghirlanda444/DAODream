@@ -50,8 +50,9 @@ rogue's basic talents, in `daotools`, the simulator and Unreal (`docs/COMBAT.md`
 comes before stage 3, since the Human Noble is a warrior or a rogue and Howe's men are mostly warriors: threat
 and the enemies' talents are built (`docs/COMBAT.md`, "Threat", "Enemy talents"), and ranged combat ("Ranged
 combat"). The party fights by its tactics tables and talents (stage 6's first part, "The party's talents").
-Real-time with pause and orders to the party are built ("Pause and party orders"). Still to come: spells
-and effects, and tactics the player edits.
+Real-time with pause and orders to the party are built ("Pause and party orders"). Stage 3 has begun: the
+night mage's staff and spells, spellpower and elemental damage ("Spells"). Still to come: the other spells
+and their effects, and tactics the player edits.
 
 ## 2. Dragon Age Reborn as the balance base
 

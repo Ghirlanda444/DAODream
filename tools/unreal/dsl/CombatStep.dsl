@@ -1,8 +1,6 @@
 (fn CombatStep (Dt Dist)
-  (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggiore(>) Dist 1500.0)
+  (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggiore(>) (Variabili|Predefinito|OttieniFleeUntil) (Utilità|Testo|GetGameTimeinSeconds))
+    (:then
+      (Funzionedichiamata|FleeStep :Dt Dt))
     (:else
-      (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggiore(>) (Variabili|Predefinito|OttieniNRange) 0.0)
-        (:then
-          (Funzionedichiamata|RangedStep :Dt Dt :Dist Dist))
-        (:else
-          (Funzionedichiamata|MeleeStep :Dt Dt :Dist Dist))))))
+      (Funzionedichiamata|CombatStepOn :Dt Dt :Dist Dist))))

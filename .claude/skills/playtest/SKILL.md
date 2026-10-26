@@ -60,6 +60,10 @@ Compile success, a read-back graph or a variable value are not enough.
     on each other near the player: who is stunned or bleeding (the player's stun and bleed end times too:
     a 2-5 s stun can end between samples), the talents cooling down. --solo knocks the mabari out first (it
     gets up again after a lull).
+  - `py playtest.py magecheck night`: Play, Howe's mage (the main hall's conversation played through
+    first: nobody fights during one): at 8 m his staff and Lightning, at 3 m Shock and backing off, with the
+    player, the Teyrna and the mabari around him Mind Blast; his mana, spells cooling down, the hostiles he
+    counts around him, the player's stun and the last damage.
   - `py playtest.py pausecheck night`: Play, the Teyrna and the mabari in the party; three hostiles woken
     and the game paused in the same editor call (each call lets some 10 s of game go by). It checks that game
     time and places stand still; queues the hero's attack and talent; orders F2's member to use a talent (--slot)

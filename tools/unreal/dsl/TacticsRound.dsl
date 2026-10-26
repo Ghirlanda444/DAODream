@@ -4,4 +4,6 @@
     (:then
       (Funzionedichiamata|DoTalent))
     (:else
-      (Funzionedichiamata|StrikeFoe))))
+      (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Uguale(==) (Variabili|Predefinito|OttieniTacSlot) -2)
+        (:else
+          (Funzionedichiamata|StrikeFoe))))))

@@ -19,6 +19,7 @@ run are printed at the end.
     python playtest.py controlcheck night                                  Play: taking control of party members
     python playtest.py tacticscheck night                                  Play: the hero's tactics, pan, tactical zoom
     python playtest.py dogcheck night                                      Play: the dogs' Howl, Overwhelm, Shred
+    python playtest.py magecheck night                                     Play: the mage's staff and spells
 
 Characters are named by their tag (NpcTags in extracted/ue/areas/<area>.json). Hidden ones (waiting for a
 plot) are shown for the pictures. The editor must be open with its MCP server running (docs/UNREAL_SETUP.md);
@@ -1292,6 +1293,86 @@ for name in %r:
         run.finish()
 
 
+def mage_check(args):
+    """Play at night: Howe's mage (--tag). At range: the player alone 8 m off (the mabari knocked out): his staff
+    bolts and Lightning, the player's health. Then close: the player and the mabari next to him: Mind Blast (2
+    around him), Shock, backing off (FleeUntil). Every few seconds: his mana, spells cooling down, the hostiles he
+    counts around him, the player's stun; he and the player are kept up."""
+    run = Run("magecheck", args.area)
+    run.start(simulate=False)
+    try:
+        g = run.g
+        for _ in range(8):
+            g.converse(seconds=90)
+            if not g.talking().get("bTalking"):
+                break
+        mage, dog = run.npc(args.tag), run.npc("gen00fl_dog")
+        x, y, z = g.loc(mage)
+        g.go(x + 800, y, z, wait=0.5)
+        for _ in range(6):  # walking into the main hall starts a conversation: nobody fights during one
+            g.converse(seconds=60)
+            if not g.talking().get("bTalking"):
+                break
+        g.go(x + 800, y, z, wait=0.5)
+        print("talking after", g.talking(), flush=True)
+        pyrun.run(NPC % dog + 'a.call_method("KnockOut")\n', 60)
+        print("spells", pyrun.run(NPC % mage + """
+OUT["talents"] = [int(v) for v in list(a.get_editor_property("NTalents"))[::18] if v]
+OUT["tactics"] = sum(1 for k in range(0, len(list(a.get_editor_property("NTactics"))), 6) if list(a.get_editor_property("NTactics"))[k + 5] > 0)
+OUT.update({k: a.get_editor_property(k) for k in ("SpellPower", "bStaff", "NStamina", "DmgMin", "DmgMax")})
+a.call_method("SetPlotActive", (True,))
+""", 60), flush=True)
+        state = MGR + """
+now = unreal.GameplayStatics.get_time_seconds(w)
+a = [x for x in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor) if x.get_name() == %r][0]
+pawn = unreal.GameplayStatics.get_player_pawn(w, 0)
+if 0.0 < a.get_editor_property("Health") < 60.0:
+    a.call_method("TakeHit", (-100.0,))
+hp = m.get_editor_property("PlayerHealth")
+if hp < 50.0:
+    m.call_method("HurtPlayer", (hp - m.get_editor_property("PlayerMaxHealth"),))
+tal = list(a.get_editor_property("NTalents")); ready = list(a.get_editor_property("NReady"))
+OUT.update({"player_hp": round(hp), "player_stun_until": round(m.get_editor_property("PStunUntil"), 1), "now": round(now, 1),
+            "mage_hp": round(a.get_editor_property("Health")), "mana": round(a.get_editor_property("NStamina")),
+            "m": round(a.get_distance_to(pawn) / 100.0, 1), "around": a.get_editor_property("Around"),
+            "backing_off": round(max(0.0, a.get_editor_property("FleeUntil") - now), 1), "last": round(m.get_editor_property("LastDamage"), 1),
+            "cool": {int(tal[k * 18]): round(ready[k] - now, 1) for k in range(len(ready)) if tal[k * 18] and ready[k] > now}})
+""" % mage
+        used = set()
+        for k in range(5):
+            time.sleep(2.0)
+            r = pyrun.run(state, 60)
+            used |= set(r.get("cool", {}))
+            print("  range", json.dumps(r, default=str)[:420], flush=True)
+            if k == 1:
+                run.shot("mage_range")
+        # short range, nobody in melee: he backs off to 13 m (his move rows)
+        mx, my, mz = g.loc(mage)
+        g.go(mx + 300, my, mz, wait=0.2)
+        for k in range(3):
+            time.sleep(2.0)
+            r = pyrun.run(state, 60)
+            used |= set(r.get("cool", {}))
+            print("  short", json.dumps(r, default=str)[:420], flush=True)
+        # close: the player, the Teyrna and the mabari right by him (Mind Blast wants two around him)
+        mx, my, mz = g.loc(mage)
+        g.go(mx + 120, my, mz, wait=0.2)
+        mom = run.npc("bhn100cr_mother")
+        for k, a in enumerate((mom, dog)):
+            pyrun.run(NPC % a + 'a.call_method("SetPlotActive", (True,))\na.call_method("SetInParty", (True,))\n'
+                      'a.set_actor_location(unreal.Vector(%f, %f, %f), False, True)\n' % (mx, my + 120 * (k * 2 - 1), mz), 60)
+        for k in range(6):
+            time.sleep(2.0)
+            r = pyrun.run(state, 60)
+            used |= set(r.get("cool", {}))
+            print("  close", json.dumps(r, default=str)[:420], flush=True)
+            if k == 1:
+                run.shot("mage_close")
+        print("SPELLS USED", sorted(used), flush=True)
+    finally:
+        run.finish()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--sound", action="store_true", help="play the game's sound (tests are silent otherwise)")
@@ -1376,6 +1457,10 @@ def main():
     s.add_argument("--tag", default="bhn200cr_howe_panicked4", help="a war dog")
     s.add_argument("--solo", action="store_true", help="the hero's mabari knocked out: the war dog has only the player")
     s.set_defaults(fn=dog_check)
+    s = sub.add_parser("magecheck", help=mage_check.__doc__)
+    s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
+    s.add_argument("--tag", default="bhn200cr_howe_mage")
+    s.set_defaults(fn=mage_check)
     s = sub.add_parser("party", help=party.__doc__)
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("--seconds", type=int, default=120)

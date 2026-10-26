@@ -727,6 +727,67 @@ fights each (the player, the mabari and the Teyrna):
 | The east hall's five | won 60% | won 83% |
 | The panicked servant's four (a war dog among them) | | won 100% |
 
+## Spells
+
+Stage 3, its first part (`abilities.SPELLS`, `stats.spellpower`, `stats.is_staff`, `simulate.py`,
+`tools/unreal/spells.py`). The Human Noble is a warrior or a rogue, so tonight's spells are the
+enemies'. Howe's mage stands with the main hall's nine soldiers. He is an elf with an acolyte's staff,
+package 57 (Spellcaster - Nuker), level 1, and has 116 mana.
+
+- **What he knows**: his package's first abilities at his level: Shock, Mind Blast and Lightning.
+  Fireball comes at level 2.
+- **What he uses**: his tactics table (`aip_caster_nuker_1`) has 18 rows. The export used to keep 12,
+  which cut Shock and Lightning, so it now keeps 40 (the longest table has 39). In order:
+  - attacked in melee: skip the move rows;
+  - surrounded by two or more, or a target at short range: back off to 13 m
+    (`AI_MOVE_AWAY_FROM_ENEMY_MEDIUM`, 50%);
+  - surrounded by two or more: Mind Blast (30%);
+  - Tempest, Chain Lightning, Fireball and Petrify: rows he passes over, since he doesn't know them;
+  - a target at short range: Shock (35%);
+  - anyone: Lightning (25%);
+  - else his staff.
+- **Spellpower**: Magic above 10 (the game's Magic description: "Increases spellpower by 1 for each
+  point purchased"). His is 7.
+- **His staff** (`Combat_GetAttackResult`, `Combat_Damage_GetMageStaffDamage`): the bolt always hits.
+  It deals the staff's damage plus 25-75% of a quarter of spellpower (4.4-5.3), with no armour, no
+  critical and no damage bonus.
+- **The spells** (Reborn's `spell_singletarget`, `spell_cone`, `spell_aoe_instant`). There is no attack
+  roll and no armour; damage is (100 + spellpower) x the factor, cut only by the target's resistance to
+  its element (nobody tonight has any; at most 75%, `ResistDamage`):
+
+| Spell | Mana, cooldown | What it does |
+| --- | --- | --- |
+| Lightning | 20, 10 s | one target, x 0.3 electricity: 32 tonight |
+| Shock | 20, 10 s | everyone in a cone 10 m long, x 0.4 electricity: 43 |
+| Mind Blast | 20, 30 s | everyone hostile within 5 m stunned 3 s, rank-adjusted; their threat on him set to 1 |
+
+The cone's 35 degrees (`abi_base` aoe_param1) is taken as its half-angle; the data doesn't say which.
+
+In Unreal:
+- **Staff and spells**: the staff's bolt and the spells hit without a roll (`SpellHitFoe`, and
+  `BP_PlotManager.SpellHitPlayer`).
+- **Shock**: turns the caster to his foe and hits everyone hostile within the cone, judged from where he
+  faces (`GetHorizontalDotProductTo`).
+- **Mind Blast**: stuns everyone hostile within 5 m (the player for 2.4 s: the player rank's 0.8).
+- **Tactics**: condition 31 (surrounded: the hostiles within 2.5 m, counted through the plot manager)
+  and 6 (the nearest seen) are now handled. Condition 29's short range is 3.5 m (it was 2.5), and its
+  medium (3.5-12 m) and long (12-80 m) bands join.
+- **Move command**: the move-away command takes him up to 3 s of backing off (`TacticMove`, `FleeStep`).
+
+Checked in Play (silent, `py playtest.py magecheck night`, 2026-10-26):
+- **At 8 m**: his bolts hit for 4.5-5.3 and his Lightning for 32.1, costing 20 mana each.
+- **At 3 m**: he cast Shock, then backed off to 11.6 m.
+- **With three around him**: he cast Mind Blast and the player was stunned.
+- No script errors.
+- Walking into the main hall starts a conversation, and nobody fights during one. The test plays it
+  through first.
+
+The simulator (no geometry) lets Shock and Mind Blast catch the target and whoever is fighting the
+caster at close quarters. The main hall, 2,000 fights with the mabari and the Teyrna in waves of five:
+won 10% without his spells, 0% with them. The mage alone is won every time in 9 s. In the game the castle's
+guards fight in the main hall too (the area script makes two of them immortal), and the simulator
+doesn't bring allies in yet: that fight needs a balance pass with them.
+
 ## Controls
 
 The original's PC controls (`tools/unreal/controls.py`), from its own key
@@ -1109,8 +1170,8 @@ Movers still don't push against each other or the player.
 ## Not there yet
 
 the archers' bow model (with the weapon art, all weapons together); the tactics screen
-(tactics edited by the player) and the party members' tactics slots by level; spells
-(hostiles go for the nearest foe, not the one they hate most); allies outside
+(tactics edited by the player) and the party members' tactics slots by level; the spells of
+other mages (only the night mage's are in); allies in the simulator (the main hall's guards); allies outside
 the party (the castle's guards) cannot be struck yet; injuries; switching to a
 party member; proper animations (the attack is a generic punch, the fall and
 getting up are instant). The plan: `docs/COMBAT_DESIGN.md`.
