@@ -509,6 +509,7 @@ def cmd_unreal_area(args) -> int:
         player["TalentRows"] = [abilities.talent_row(i, table[i], player) for i in known
                                 if i in table and table[i]["Use"] != abilities.PASSIVE]
         player["Passives"] = [i for i in known if i in table and table[i]["Use"] == abilities.PASSIVE]
+        player["Tactics"] = tactics.hero_tactics(ai_tables, cls, int(player["Level"]), known)
         print(f"talents: {', '.join(table[i]['Name'] for i in known if i in table) or 'none'}; fatigue "
               f"{player['Fatigue']}%", file=sys.stderr)
         print(f"player: {player['Attributes']}, {player['Health']} health, attack {player['Attack']}, defense {player['Defense']} "

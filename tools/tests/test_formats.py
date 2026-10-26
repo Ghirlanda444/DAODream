@@ -1213,6 +1213,23 @@ class SimulateTests(unittest.TestCase):
         self.assertEqual(r["Won"], 1.0)
 
 
+    def test_hero_tactics(self):
+        # the Tank preset as the game has it, abridged: modes and talents the level-2 warrior lacks are skipped,
+        # Shield Bash and Shield Pummel fill his two slots; an attack row needs no ability
+        rows = [{"Target": 1, "Base": 16, "Param": 0, "Command": 5, "Sub": 808, "Chance": 100.0},
+                {"Target": 3, "Base": 2, "Param": 75, "Command": 4, "Sub": 617, "Chance": 100.0},
+                {"Target": 3, "Base": 6, "Param": 1, "Command": 4, "Sub": 1, "Chance": 100.0},
+                {"Target": 3, "Base": 6, "Param": 1, "Command": 4, "Sub": 3, "Chance": 100.0}]
+        use_types = {2: 0, 4: 4, 5: 2}
+        known = [617, 19, 1]
+        self.assertEqual([r["Sub"] for r in tactics.preset_rows(rows, known, 2, use_types)], [617, 1])
+        self.assertEqual([r["Sub"] for r in tactics.preset_rows(rows, known + [808], 2, use_types)], [808, 617])
+        attack = {"Target": 3, "Base": 16, "Param": 0, "Command": 2, "Sub": 0, "Chance": 100.0}
+        self.assertEqual(tactics.preset_rows([attack] + rows, [], 2, use_types), [attack])
+        tables = {"presets": {1: rows}, "slots": {2: 2, 3: 3}, "use_types": use_types}
+        self.assertEqual([r["Sub"] for r in tactics.hero_tactics(tables, 1, 3, known)], [617, 1])
+        self.assertTrue(tactics.condition_holds(rows[2], {}, {}))  # the nearest visible: the foe in hand
+
     def test_party_talents(self):
         # the dog: Growl (-15 defense 30 s, no roll), Charge (a knockdown), Overwhelm (pinned 2 s, two bites that
         # land), Mabari Howl (every foe not a boss stunned 5 s); Rapid Shot's row by dexterity

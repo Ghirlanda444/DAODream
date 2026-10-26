@@ -1005,6 +1005,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         # The player's talents to use, abilities.TALENT_FIELDS floats each (hotkeys 1-6 in this order), its
         # passive talents' ids, and the names of the ones to use.
         "PlayerTalents": [x for row in (player or {}).get("TalentRows", []) for x in row],
+        "PlayerTactics": tactics.flat_rows((player or {}).get("Tactics")),
         "PlayerPassives": (player or {}).get("Passives", []),
         "PlayerTalentNames": [abilities.NAMES.get(int(row[0]), str(int(row[0])))
                               for row in (player or {}).get("TalentRows", [])],
