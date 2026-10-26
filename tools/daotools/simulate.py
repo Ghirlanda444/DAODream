@@ -170,7 +170,9 @@ def player_fighter(area: dict, talents: bool = True) -> Fighter:
     return f
 
 
-def npc_fighter(area: dict, i: int, side: str) -> Fighter:
+def npc_fighter(area: dict, i: int, side: str, in_party: bool = False) -> Fighter:
+    """Creature i of the area; `in_party`: a follower in the party, which runs its tactic slots (NpcPartyTactics)
+    instead of its AI table."""
     r = _rules(area.get("NpcRules") or [], i)
     threshold = area["PlayerStats"][5] if area.get("PlayerStats") else 0.0
     n = len(area.get("NpcStatus") or []) // max(1, len(area["NpcTags"]))  # 11 (3, 5 and 9 in older exports)
@@ -189,7 +191,9 @@ def npc_fighter(area: dict, i: int, side: str) -> Fighter:
     rows = (area.get("NpcTalents") or [])[i * k * t:(i + 1) * k * t]
     f.talents = [dict(zip(abilities.TALENT_FIELDS, rows[j:j + k])) for j in range(0, len(rows), k) if rows[j]]
     k, t = len(ai.FIELDS), ai.MAX_TACTICS
-    rows = (area.get("NpcTactics") or [])[i * k * t:(i + 1) * k * t]
+    slots = area.get("NpcTacticSlots") or []
+    key = "NpcPartyTactics" if in_party and i < len(slots) and slots[i] > 0 else "NpcTactics"
+    rows = (area.get(key) or [])[i * k * t:(i + 1) * k * t]
     f.tactics = [dict(zip(ai.FIELDS, rows[j:j + k])) for j in range(0, len(rows), k) if rows[j + 5] > 0]
     return f
 
@@ -209,7 +213,8 @@ def fighters(area: dict, party: list[str], foes: list[str],
     the patterns (fnmatch), in tag order. A tag the area has more than once counts each creature. `talents` False
     leaves the player's out."""
     tags = area["NpcTags"]
-    ours = [player_fighter(area, talents)] + [npc_fighter(area, i, "party") for t in party for i, x in enumerate(tags) if x == t]
+    ours = [player_fighter(area, talents)] + [npc_fighter(area, i, "party", in_party=True)
+                                              for t in party for i, x in enumerate(tags) if x == t]
     for i, t in sorted((i, t) for i, t in enumerate(tags) if any(fnmatch.fnmatch(t, p) for p in allies or [])):
         f = npc_fighter(area, i, "party")
         f.ally = True

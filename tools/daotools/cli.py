@@ -406,7 +406,7 @@ def cmd_unreal_area(args) -> int:
             kit.pull(args.game, models, args.kit)
         door_models = kit.door_models(doors, gda_records, kit.load_kit(args.kit, models))
         print(f"doors: {len(door_models)} door templates sized from their models", file=sys.stderr)
-    creature_stats, player, ambient_tables = None, None, None
+    creature_stats, player, ambient_tables, tactic_menu = None, None, None, None
     if args.game:
         ambient_tables = ambient.load_tables(args.game)
         tables = stats.load_tables(args.game, overrides=args.mod_tables)
@@ -450,7 +450,8 @@ def cmd_unreal_area(args) -> int:
             numbers = stats.equipment(equip, items, tables)
             st = {**st, **numbers, "Outfit": stats.equipment(worn, items, tables)["Outfit"]}
             # its package's talents at its level, or a follower's (passives folded in), and its tactics table
-            # (stage 4; a follower's package's FollowerTacticsTable is its template's PackageAI here)
+            # (stage 4); a follower in the party runs its tactic slots instead, filled from its package's
+            # FollowerTacticsTable
             package = int(utc.get("Package") or 0)
             cls_id = int(tables["packages_base"].get(package, {}).get("StartingClass") or 1)
             if tag in area.FOLLOWERS:
@@ -463,6 +464,9 @@ def cmd_unreal_area(args) -> int:
             st["TalentRows"] = [abilities.talent_row(i, table[i], st) for i in known
                                 if i in table and table[i]["Use"] != abilities.PASSIVE][:tactics.MAX_TALENTS]
             st["Tactics"] = ai_tables["tactics"].get(int(utc.get("PackageAI") or 0), [])
+            if tag in area.FOLLOWERS:
+                st["PartyTactics"] = tactics.follower_tactics(ai_tables, package, int(st["Level"]), known)
+                st["TacticSlots"] = tactics.slots(ai_tables, int(st["Level"]), known)
             shield = int((items.get(st["Outfit"].get("shield", "")) or {}).get("BaseItem") or 0)
             offhand = stats.stats(tables, package=int(utc.get("Package") or 0), rank=rank, area_level=args.area_level,
                                   race=int(utc.get("Race") or 0) or None, base_item=shield)["Damage"] if shield \
@@ -510,6 +514,9 @@ def cmd_unreal_area(args) -> int:
                                 if i in table and table[i]["Use"] != abilities.PASSIVE]
         player["Passives"] = [i for i in known if i in table and table[i]["Use"] == abilities.PASSIVE]
         player["Tactics"] = tactics.hero_tactics(ai_tables, cls, int(player["Level"]), known)
+        player["TacticSlots"] = tactics.slots(ai_tables, int(player["Level"]), known)
+        talk = TalkTables([TalkTable.open(p) for p in _find_talk_tables(args.game, "en-us")])
+        tactic_menu = tactics.menu(ai_tables, talk.get)
         print(f"talents: {', '.join(table[i]['Name'] for i in known if i in table) or 'none'}; fatigue "
               f"{player['Fatigue']}%", file=sys.stderr)
         print(f"player: {player['Attributes']}, {player['Health']} health, attack {player['Attack']}, defense {player['Defense']} "
@@ -521,7 +528,7 @@ def cmd_unreal_area(args) -> int:
                     extra_creatures=[tuple(x.split("@", 1)) for x in args.add_creature or []], lights=lights,
                     fill=args.fill_lights,
                     fill_tint=area.WARM_FILL_COLOUR if args.warm_fills else area.FILL_COLOUR, fixtures=fixtures,
-                    soften=0.3 if args.warm_fills else None)
+                    soften=0.3 if args.warm_fills else None, tactic_menu=tactic_menu)
     s = out["Summary"]
     print(f"{out['Area']}: {s['Floors']} floor boxes, {s['Walls']} grid walls, {s['Solids']} kit solids "
           f"({s['DoorwaysCut']} doorways cut, {s['DoorFrames']} door frames, "

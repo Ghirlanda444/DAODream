@@ -1230,6 +1230,59 @@ class SimulateTests(unittest.TestCase):
         self.assertEqual([r["Sub"] for r in tactics.hero_tactics(tables, 1, 3, known)], [617, 1])
         self.assertTrue(tactics.condition_holds(rows[2], {}, {}))  # the nearest visible: the foe in hand
 
+    def test_follower_tactics(self):
+        # a follower's slots: the level's, more with Combat Tactics; its package's table loaded into them, none
+        # without one (Ser Gilmore's -1)
+        dog = [{"Target": 3, "Base": 6, "Param": 1, "Command": 4, "Sub": s, "Chance": 100.0} for s in (90017, 90016, 90015)]
+        tables = {"slots": {2: 2, 3: 3}, "use_types": {2: 0, 4: 4, 5: 2}, "gui": {10107: dog},
+                  "packages": {78: {"FollowerTacticsTable": 10107}, 96: {"FollowerTacticsTable": -1}}}
+        self.assertEqual(tactics.slots(tables, 2), 2)
+        self.assertEqual(tactics.slots(tables, 2, [100110]), 3)
+        self.assertEqual(tactics.slots(tables, 3, [100111, 100113]), 9)
+        self.assertEqual([r["Sub"] for r in tactics.follower_tactics(tables, 78, 2, [90015, 90016, 90017])], [90017, 90016])
+        self.assertEqual([r["Sub"] for r in tactics.follower_tactics(tables, 78, 2, [90015])], [90015])
+        self.assertEqual(tactics.follower_tactics(tables, 96, 2, [1, 3]), [])
+        # the conditions the menu adds: its own health whatever the target, the followers' range bands
+        me, foe = {"Health": 30.0, "Stamina": 90.0, "Distance": 8.0}, {"Health": 100.0, "Stamina": 100.0}
+        row = {"Target": 3, "Base": tactics.SELF_HP, "Param": -50, "Command": 4, "Sub": 1, "Chance": 100.0}
+        self.assertTrue(tactics.condition_holds(row, me, foe))
+        self.assertFalse(tactics.condition_holds(dict(row, Base=tactics.HP), me, foe))
+        self.assertTrue(tactics.condition_holds(dict(row, Base=tactics.FOLLOWER_RANGE, Param=2), me, foe))
+        # an attack row attacks: the rows below it are not tried
+        attack = dict(row, Base=tactics.ANY, Command=tactics.ATTACK, Sub=0)
+        shot = dict(row, Base=tactics.ANY)
+        self.assertEqual(tactics.choose([attack, shot], me, foe, lambda a, m: True, random.Random(1)), (tactics.ATTACK, 0))
+        self.assertEqual(tactics.choose([shot, attack], me, foe, lambda a, m: True, random.Random(1)), (tactics.USE_ABILITY, 1))
+
+    def test_tactics_menu(self):
+        # the screen's lists: the player's menu entries the Unreal side runs, named from the talk table
+        tables = {"menu": {
+            "targets": [{"ID": 1, "label": "Self", "StrRef": 11, "Type": 1}, {"ID": 2, "label": "Ally", "Type": 2},
+                        {"ID": 3, "label": "Enemy", "StrRef": 13, "Type": 4}],
+            "bases": [{"ID": 2, "label": "HP Level", "StrRef": 20, "ValidForTarget": 7, tactics.IN_MENU: 1},
+                      {"ID": 33, "label": "Self, HP", "ValidForTarget": 70, tactics.IN_MENU: 0},
+                      {"ID": 22, "label": "Attacked", "ValidForTarget": 1, tactics.IN_MENU: 1},
+                      {"ID": 31, "label": "Surrounded", "ValidForTarget": 1, tactics.IN_MENU: 1},
+                      {"ID": 4, "label": "Clustered", "ValidForTarget": 4, tactics.IN_MENU: 1}],
+            "conditions": [{"ID": 4, "label": "HP < 50%", "StrRef": 30, "ConditionBase": 2, "ConditionParameter": -50, tactics.IN_MENU: 1},
+                           {"ID": 50, "label": "Highest", "ConditionBase": 2, "ConditionParameter": 1, tactics.IN_MENU: 0},
+                           {"ID": 101, "label": "Melee", "ConditionBase": 22, "ConditionParameter": 1, tactics.IN_MENU: 1},
+                           {"ID": 103, "label": "Magic", "ConditionBase": 22, "ConditionParameter": 4, tactics.IN_MENU: 1},
+                           {"ID": 153, "label": "No enemies", "ConditionBase": 31, "ConditionParameter": 0, tactics.IN_MENU: 1},
+                           {"ID": 300, "label": "Self < 50%", "ConditionBase": 33, "ConditionParameter": -50, tactics.IN_MENU: 1},
+                           {"ID": 24, "label": "Clustered 2", "ConditionBase": 4, "ConditionParameter": 2, tactics.IN_MENU: 1}],
+            "commands": [{"ID": 2, "label": "Attack", "StrRef": 40}, {"ID": 3, "label": "Wait"},
+                         {"ID": 4, "label": "Use Ability"}]}}
+        names = {11: "Self", 13: "Enemy", 20: "Health", 30: "Health < 50%", 40: "Attack"}
+        m = tactics.menu(tables, names.get)
+        self.assertEqual(m["TacticTargets"], [1.0, 1.0, 3.0, 4.0])
+        self.assertEqual(m["TacticTargetNames"], ["Self", "Enemy"])
+        self.assertEqual(m["TacticBaseNames"], ["Health", "Self, HP", "Attacked"])
+        self.assertEqual(m["TacticBases"], [2.0, 1.0, 1.0, 33.0, 0.0, 1.0, 22.0, 1.0, 0.0])
+        self.assertEqual(m["TacticConds"], [4.0, 2.0, -50.0, 101.0, 22.0, 1.0, 300.0, 33.0, -50.0])
+        self.assertEqual(m["TacticCondNames"], ["Health < 50%", "Melee", "Self < 50%"])
+        self.assertEqual(m["TacticCommandNames"], ["Attack", "Use Ability"])
+
     def test_allies(self):
         # an ally fights on the party's side; an immortal one never falls; the fight is lost with the party down
         area = dict(self.AREA, NpcImmortal=[1, 0, 0, 0, 0, 0])
