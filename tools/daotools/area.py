@@ -226,6 +226,9 @@ FOLLOWERS = {"bhn100cr_gilmore", "gen00fl_dog", "bhn100cr_mother"}
 HIRED_AT = {"gen00fl_dog": 1, "bhn100cr_gilmore": 1}
 # What an area's script puts on a creature when the area loads, for its numbers (the look stays the template's):
 # at night (bhn200ar_castle_after_siege, AREALOAD_PRELOADEXIT) the Teyrna's gown off, her light leather on.
+# Who an area's script makes immortal when it loads (bhn200ar_castle_after_siege, AREALOAD_PRELOADEXIT: the two
+# main hall guards, SetImmortal), besides those whose template is (Gilmore): beaten down to 1 health, they never die.
+AREA_IMMORTAL = {"bhn200ar_castle_after_siege": {"bhn200cr_guard_main_hall1", "bhn200cr_guard_main_hall2"}}
 AREA_EQUIP = {"bhn200ar_castle_after_siege": {
     "bhn100cr_mother": ["gen_im_arm_cht_lgt_rlr", "gen_im_arm_bot_lgt_rlr", "gen_im_arm_glv_lgt_rlr"]}}
 # Per creature, the numbers a hit needs beyond attack and damage (stats.py, docs/COMBAT.md): armour,
@@ -801,6 +804,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     npc_idle = []
     poses = IDLE_POSES.get((are_root.get("Tag") or "").lower(), {})
     npc_team, npc_scale, npc_hostile, npc_rank, npc_dead, npc_ally = [], [], [], [], [], []
+    npc_immortal = []
+    immortal = AREA_IMMORTAL.get((are_root.get("Tag") or "").lower(), set())
     npc_morph, npc_crowd, npc_variety = [], [], []
     npc_health, npc_attack, npc_defense, npc_damage, npc_dscale = [], [], [], [], []
     npc_outfit, npc_chest, npc_helmet, npc_armour, npc_shield, npc_rules = [], [], [], [], [], []
@@ -852,6 +857,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         npc_scale.append(stand_in_scale(race, rank, morph))
         npc_hostile.append(1 if utc.get("GroupId") in (GROUP_HOSTILE, GROUP_HOSTILE_ON_GROUND) else 0)
         npc_ally.append(1 if armed_ally(utc, str(c.get("TemplateResRef", ""))) else 0)
+        # immortal (beaten down, never dead): the template's flag (Gilmore), or the area's script (AREA_IMMORTAL)
+        npc_immortal.append(1 if int(utc.get("Immortal") or 0) or str(c.get("Tag") or "").lower() in immortal else 0)
         npc_morph.append(morph)
         npc_crowd.append(crowd)
         npc_rank.append(rank)
@@ -971,6 +978,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcHostile": npc_hostile,
         # 1: fights hostiles near the player without joining the party (armed_ally).
         "NpcAlly": npc_ally,
+        "NpcImmortal": npc_immortal,
         "NpcMorph": npc_morph,
         "NpcCrowd": npc_crowd,
         "NpcRank": npc_rank,

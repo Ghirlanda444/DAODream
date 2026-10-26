@@ -53,6 +53,11 @@ RANGED_DISTANCE like an archer. The dogs' talents (abilities.EFFECTS): Growl tak
 resisted, Charge knocks down, Shred is a critical whose bleed is dealt at once here, Overwhelm pins for 2 s with
 two bites that land, Mabari Howl stuns every foe not a boss for 5 s (nobody is out of its 10 m here).
 
+Allies (the castle's guards, Gilmore at night): creatures fighting on the party's side without being in it. They
+pick their foes and run their tactics as party members do, and foes see them (threat); they do not count for the
+party's size (effect durations) and a fight is lost when the player and his party are down, allies standing or
+not. An immortal one (the main hall's guards) is beaten down to 1 health and fights on.
+
 Spells (stage 3): a mage's staff bolt always hits, for the staff's damage and part of his spellpower, without
 armour, criticals or the damage bonus. Lightning and Shock deal (100 + spellpower) x their factor, no roll, no
 armour (nobody here resists electricity). Shock's cone and Mind Blast's 5 m catch the target and everyone fighting
@@ -125,6 +130,8 @@ class Fighter:
     range: float = 0.0  # its bow's optimum range (0: melee)
     missile: float = 0.0  # missile shield: defense against arrows (a shield's MissileDeflection)
     disarm: tuple[float, float] = (0.0, 0.0)  # (until, attack taken away): Sunder Weapon
+    ally: bool = False  # on the party's side, not in the party
+    immortal: bool = False  # NpcImmortal: never below 1 health
     spellpower: float = 0.0  # NpcSpell
     staff: bool = False  # NpcSpell: its bolt always hits (stats.is_staff)
     locked: float = 0.0  # no talents until (Below the Belt)
@@ -197,11 +204,20 @@ def _interval(area: dict, i: int, side: str) -> float:
 
 
 def fighters(area: dict, party: list[str], foes: list[str],
-             talents: bool = True) -> tuple[list[Fighter], list[Fighter]]:
-    """The player and the party members named by tag; the foes matching the patterns (fnmatch), in tag order.
-    A tag the area has more than once counts each creature. `talents` False leaves the player's out."""
+             talents: bool = True, allies: list[str] | None = None) -> tuple[list[Fighter], list[Fighter]]:
+    """The player and the party members named by tag, then the allies matching the patterns; the foes matching
+    the patterns (fnmatch), in tag order. A tag the area has more than once counts each creature. `talents` False
+    leaves the player's out."""
     tags = area["NpcTags"]
     ours = [player_fighter(area, talents)] + [npc_fighter(area, i, "party") for t in party for i, x in enumerate(tags) if x == t]
+    for i, t in sorted((i, t) for i, t in enumerate(tags) if any(fnmatch.fnmatch(t, p) for p in allies or [])):
+        f = npc_fighter(area, i, "party")
+        f.ally = True
+        ours.append(f)
+    immortal = area.get("NpcImmortal") or []
+    for f in ours[1:]:
+        i = tags.index(f.tag)
+        f.immortal = bool(immortal[i]) if i < len(immortal) else False
     picked = sorted((t, i) for i, t in enumerate(tags) if any(fnmatch.fnmatch(t, p) for p in foes))
     return ours, [npc_fighter(area, i, "foe") for _, i in picked]
 
@@ -346,6 +362,8 @@ def perform(rng: random.Random, a: Fighter, d: Fighter, r: dict, now: float, par
             for f in enemies or []:
                 if f is not d and not f.down and f.target is a and not f.range:
                     f.health -= amount
+                    if f.immortal:
+                        f.health = max(f.health, 1.0)
                     f.down = f.health <= 0
         result = (amount, False)
     elif i == abilities.MIND_BLAST:  # every hostile close by stunned, rank-adjusted
@@ -482,8 +500,9 @@ def fight(party: list[Fighter], foes: list[Fighter], rng: random.Random, wave: i
     now = 0.0
     while now < TIME_LIMIT:
         standing = [f for f in party if not f.down]
+        size = sum(1 for f in party if not f.ally)  # the party proper: effect durations
         live = [f for f in active if not f.down]
-        if not standing or not live and not reserve:
+        if not any(not f.ally for f in standing) or not live and not reserve:
             break
         a = min((f for f in standing + live), key=lambda f: f.next_attack)
         now = a.next_attack
@@ -516,10 +535,10 @@ def fight(party: list[Fighter], foes: list[Fighter], rng: random.Random, wave: i
         bravery = abilities.BRAVERY_CRIT * max(0, sum(1 for x in live if x.target is a) - 2) \
             if abilities.BRAVERY in a.passives else 0.0
         if a.side == "foe" or a.tag != PLAYER and a.tactics and a.talents:
-            used, damage, crit = foe_turn(rng, a, d, now, party if a.side == "foe" else live, len(party),
+            used, damage, crit = foe_turn(rng, a, d, now, party if a.side == "foe" else live, size,
                                           flanking) if a.tactics and a.talents else (False, None, False)
         else:
-            used, damage, crit = use_talent(rng, a, d, now, len(party), flanking, bravery,
+            used, damage, crit = use_talent(rng, a, d, now, size, flanking, bravery,
                                             [f for f in live if f.threat] if use_threat else None) if a.talents \
                 else (False, None, False)
         if used and damage is None:
@@ -535,6 +554,8 @@ def fight(party: list[Fighter], foes: list[Fighter], rng: random.Random, wave: i
         t[0] += 1
         t[2] += crit
         d.health -= damage
+        if d.immortal:  # beaten down, never dead
+            d.health = max(d.health, 1.0)
         a.dealt += damage
         if d.threat is not None and d.health > 0:
             d.threat.change(a, th.damage_threat(damage, d.max_health, a.rogue, threatens(a)), now, rng, _alive, _health)
@@ -555,7 +576,7 @@ def fight(party: list[Fighter], foes: list[Fighter], rng: random.Random, wave: i
                 active.append(n)
                 comes_in(n, now)
     won = all(f.down for f in foes)
-    return {"Won": won, "Lost": all(f.down for f in party), "Time": round(now, 2),
+    return {"Won": won, "Lost": all(f.down for f in party if not f.ally), "Time": round(now, 2),
             "Party": {f.tag: {"Health": round(max(0.0, f.health), 1), "Max": f.max_health, "Down": f.down,
                               "Dealt": round(f.dealt, 1)} for f in party},
             "Talents": dict(party[0].used) if party else {},
@@ -565,13 +586,14 @@ def fight(party: list[Fighter], foes: list[Fighter], rng: random.Random, wave: i
 
 
 def simulate(area: dict, party: list[str], foes: list[str], runs: int = 1000, seed: int = 1, wave: int = 0,
-             flank: bool = True, slots: int = 0, talents: bool = True, use_threat: bool = True) -> dict:
+             flank: bool = True, slots: int = 0, talents: bool = True, use_threat: bool = True,
+             allies: list[str] | None = None) -> dict:
     """`runs` fights; the share won and lost, fight time, and per party member how often they fell, the health
     they had left and their share of the damage dealt; hit, miss and critical rates per side."""
     rng = random.Random(seed)
     results = []
     for _ in range(runs):
-        ours, theirs = fighters(area, party, foes, talents)
+        ours, theirs = fighters(area, party, foes, talents, allies)
         results.append(fight(ours, theirs, rng, wave, flank, slots, use_threat))
     tags = list(results[0]["Party"])
     totals = {s: [sum(r["Tally"][s][k] for r in results) for k in range(3)] for s in ("party", "foe")}

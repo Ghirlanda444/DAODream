@@ -573,7 +573,7 @@ def cmd_unreal_simulate(args) -> int:
         a = json.loads(Path(path).read_text(encoding="utf-8"))
         sim = simulate.simulate(a, args.party, args.foes, runs=args.runs, seed=args.seed, wave=args.wave,
                                 flank=not args.no_flanking, slots=args.slots, talents=not args.no_talents,
-                                use_threat=not args.no_threat)
+                                use_threat=not args.no_threat, allies=args.allies)
         sim["File"] = Path(path).name
         print(simulate.report(sim, Path(path).name))
         out.append(sim)
@@ -752,6 +752,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("area", nargs="+", help="area exports (daotools unreal area) to compare, e.g. with and without "
                                            "a rebalance mod's tables")
     s.add_argument("--party", action="append", default=[], metavar="TAG", help="a party member's tag; repeatable")
+    s.add_argument("--allies", action="append", default=[], metavar="PATTERN",
+                   help="creatures fighting on the party's side without being in it (fnmatch); repeatable")
     s.add_argument("--foes", action="append", required=True, metavar="PATTERN",
                    help="the foes' tags (fnmatch, e.g. 'bhn100cr_rat_giant_*'); repeatable")
     s.add_argument("--wave", type=int, default=0, help="foes in the fight at once; each death brings the next in")

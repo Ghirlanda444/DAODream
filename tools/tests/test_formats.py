@@ -1230,6 +1230,18 @@ class SimulateTests(unittest.TestCase):
         self.assertEqual([r["Sub"] for r in tactics.hero_tactics(tables, 1, 3, known)], [617, 1])
         self.assertTrue(tactics.condition_holds(rows[2], {}, {}))  # the nearest visible: the foe in hand
 
+    def test_allies(self):
+        # an ally fights on the party's side; an immortal one never falls; the fight is lost with the party down
+        area = dict(self.AREA, NpcImmortal=[1, 0, 0, 0, 0, 0])
+        ours, foes = simulate.fighters(area, [], ["rat_*"], allies=["knight"])
+        self.assertEqual([f.tag for f in ours], [simulate.PLAYER, "knight"])
+        knight = ours[1]
+        self.assertTrue(knight.ally and knight.immortal and knight.side == "party")
+        knight.health = 1.0
+        result = simulate.fight(ours, foes, random.Random(2))
+        self.assertFalse(knight.down)
+        self.assertEqual(result["Lost"], ours[0].down)
+
     def test_spells(self):
         # spellpower: magic above 10; a staff's damage + 25-75% of spellpower / 4
         self.assertEqual(stats.spellpower({"Mag": 18.0}), 8.0)
