@@ -17,6 +17,7 @@ run are printed at the end.
     python playtest.py pausecheck night                                    Play: pause, queued actions, party orders
     python playtest.py clickcheck day --tag ""                             Play: right clicks: move, attack, talk
     python playtest.py controlcheck night                                  Play: taking control of party members
+    python playtest.py tacticscheck night                                  Play: the hero's tactics, pan, tactical zoom
 
 Characters are named by their tag (NpcTags in extracted/ue/areas/<area>.json). Hidden ones (waiting for a
 plot) are shown for the pictures. The editor must be open with its MCP server running (docs/UNREAL_SETUP.md);
@@ -1153,6 +1154,72 @@ if not sel or sel.get_name() != d.get_name():
         run.finish()
 
 
+def tactics_check(args):
+    """Play at night: the hero's tactics and the camera, as the original. The Teyrna and the mabari join, the
+    knight (--tag, kept above 120 health) is woken, F2 hands control to the Teyrna: the hero fights by himself and
+    runs his tactics (his talents cooling down, his stamina). Then the camera: a pan (Pan, 3 m forward), a move
+    key recentering it, the mouse pan; zoomed all the way out the view tilts down (the tactical camera), and back."""
+    run = Run("tacticscheck", args.area)
+    run.start(simulate=False)
+    try:
+        g = run.g
+        for _ in range(8):
+            g.converse(seconds=90)
+            if not g.talking().get("bTalking"):
+                break
+        mom, dog, foe = run.npc("bhn100cr_mother"), run.npc("gen00fl_dog"), run.npc(args.tag)
+        x, y, z = g.loc(foe)
+        g.go(x + 300, y, z, wait=0.5)
+        for k, a in enumerate((mom, dog)):
+            pyrun.run(NPC % a + 'a.call_method("SetPlotActive", (True,))\na.call_method("SetInParty", (True,))\n'
+                      'a.set_actor_location(unreal.Vector(%f, %f, %f), False, True)\n' % (x + 400, y + 150 * (k * 2 - 1), z), 60)
+        print("tactics", pyrun.run(MGR + 'OUT["rows"] = [round(v) for v in m.get_editor_property("PTactics")][:12]', 60))
+        pyrun.run(MGR + 'm.call_method("SelectMember", (1,))', 60)
+        pyrun.run(NPC % foe + 'a.call_method("SetPlotActive", (True,))\n', 60)
+        hero = MGR + """
+now = unreal.GameplayStatics.get_time_seconds(w)
+t = [a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor) if a.get_name() == %r][0]
+if 0.0 < t.get_editor_property("Health") < 120.0:
+    t.call_method("TakeHit", (-200.0,))
+if m.get_editor_property("PlayerHealth") < 60.0:
+    m.call_method("HurtPlayer", (m.get_editor_property("PlayerHealth") - m.get_editor_property("PlayerMaxHealth"),))
+tal = list(m.get_editor_property("Talents")); ready = list(m.get_editor_property("TReady"))
+OUT.update({"in_control": str(m.get_editor_property("Selected"))[-24:-2], "hero_target": str(m.get_editor_property("HeroTarget"))[-24:-2],
+            "stamina": round(m.get_editor_property("PStamina")), "knight": round(t.get_editor_property("Health")),
+            "cooling": {int(tal[k * 18]): round(ready[k] - now, 1) for k in range(len(ready)) if ready[k] > now}})
+""" % foe
+        used = set()
+        for k in range(5):
+            time.sleep(2.0)
+            r = pyrun.run(hero, 60)
+            used |= set(r.get("cooling", {}))
+            print("  hero", json.dumps(r, default=str)[:400], flush=True)
+            if k == 2:
+                run.shot("hero_tactics")
+        print("HERO TALENTS USED", sorted(used), flush=True)
+        cam = MGR + """
+pawn = unreal.GameplayStatics.get_player_pawn(w, 0)
+boom = pawn.get_component_by_class(unreal.SpringArmComponent)
+r = unreal.GameplayStatics.get_player_camera_manager(w, 0).get_camera_rotation()
+o = boom.get_editor_property("target_offset")
+OUT.update({"offset": [round(o.x), round(o.y)], "arm": round(boom.get_editor_property("target_arm_length")), "pitch": round(r.pitch), "yaw": round(r.yaw)})
+"""
+        print("camera", pyrun.run(cam, 60))
+        print("pan 3 m", pyrun.run(MGR + 'm.call_method("Pan", (0.0, 1.0, 300.0))' + cam.split(MGR, 1)[1], 60))
+        print("mouse pan", pyrun.run(MGR + 'm.call_method("PanMouse", (-20.0, 0.0))' + cam.split(MGR, 1)[1], 60))
+        run.shot("panned")
+        print("a move key", pyrun.run(MGR + 'm.call_method("MoveKeys", (0.0, 0.0))' + cam.split(MGR, 1)[1], 60))
+        pyrun.run(MGR + 'm.call_method("Zoom", (-30.0,))', 60)
+        time.sleep(1.0)
+        print("zoomed out", pyrun.run(cam, 60))
+        run.shot("tactical")
+        pyrun.run(MGR + 'm.call_method("Zoom", (30.0,))\nm.call_method("Zoom", (-3.0,))', 60)
+        time.sleep(1.0)
+        print("back in", pyrun.run(cam, 60))
+    finally:
+        run.finish()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--sound", action="store_true", help="play the game's sound (tests are silent otherwise)")
@@ -1228,6 +1295,10 @@ def main():
     s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
     s.add_argument("--tags", nargs="+", default=["bhn200cr_howe_knight"])
     s.set_defaults(fn=control_check)
+    s = sub.add_parser("tacticscheck", help=tactics_check.__doc__)
+    s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
+    s.add_argument("--tag", default="bhn200cr_howe_knight")
+    s.set_defaults(fn=tactics_check)
     s = sub.add_parser("party", help=party.__doc__)
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("--seconds", type=int, default=120)

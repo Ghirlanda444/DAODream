@@ -1,2 +1,3 @@
 (fn Zoom (Value)
-  (Classe|SpringArmComponent|ImpostaTargetArmLength :self (Attore|GetComponentbyClass (Gioco|GetPlayerPawn 0) "/Script/Engine.SpringArmComponent") :TargetArmLength (Matematica|Float|Clamp(Float) (Utility|Operatori|Sottrai (Classe|SpringArmComponent|OttieniTargetArmLength (Attore|GetComponentbyClass (Gioco|GetPlayerPawn 0) "/Script/Engine.SpringArmComponent")) (Utility|Operatori|Moltiplica Value 60.0)) 150.0 1500.0)))
+  (Classe|SpringArmComponent|ImpostaTargetArmLength :self (Attore|GetComponentbyClass (Gioco|GetPlayerPawn 0) "/Script/Engine.SpringArmComponent") :TargetArmLength (Matematica|Float|Clamp(Float) (Utility|Operatori|Sottrai (Classe|SpringArmComponent|OttieniTargetArmLength (Attore|GetComponentbyClass (Gioco|GetPlayerPawn 0) "/Script/Engine.SpringArmComponent")) (Utility|Operatori|Moltiplica Value 80.0)) 150.0 2500.0))
+  (Funzionedichiamata|TacticalPitch))

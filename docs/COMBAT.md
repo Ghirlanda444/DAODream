@@ -717,6 +717,8 @@ mouse works:
 | Q, E | Strafe. Was A and D. E no longer talks: in the original, talking is a click. |
 | A, D | Turn the camera. |
 | Right button held | Turn the camera. |
+| Arrow keys, middle button held | Pan the camera off whoever is in control. Moving or taking control recenters it. |
+| Mouse wheel | Zoom, tilting down as it goes out: the tactical view. |
 | Right click | An order at the cursor. |
 | Left click | Select (taking control of a party member: next). It no longer attacks. |
 | / | Swap weapon sets. Was Q. |
@@ -764,12 +766,10 @@ Our party members are Actors, not Pawns, so nothing is possessed:
   original. The others pick their own fights.
 - **The others** follow whoever is in control.
 - **The hero, when not in control** (every half second): keeps or picks the
-  hostile nearest him within 12 m, walks into reach by the nav mesh and
-  strikes, else follows the one in control. He uses no talents yet: in the
-  original he would run his tactics.
+  hostile nearest him within 12 m, walks into reach by the nav mesh, and in
+  reach runs his tactics once an attack interval. With no hostile, he
+  follows the one in control.
 - **The prompts** over people and doors now say "Right click".
-- **The mouse wheel** zooms the camera (1.5 to 15 m). The original zooms out
-  much further, into an overhead tactical view: not here.
 
 Checked in Play (silent, `py playtest.py controlcheck night`, 2026-10-26),
 the Teyrna and the mabari against the knight:
@@ -783,6 +783,43 @@ the Teyrna and the mabari against the knight:
 - **A left click on the mabari**: control went to the dog.
 - **F1**: the hero back, boom and keys included.
 - No script errors.
+
+### The hero's tactics
+
+The hero has tactics like any party member; they run when someone else is in
+control. They come from the game's data:
+- **Character creation** gives the hero his class's preset (`sys_chargen`):
+  a warrior Tank, a rogue Damage Dealer, a mage Nuker (`tacticsuserpresets`).
+- **Each level-up** fills his tactic slots from that preset
+  (`Chargen_PopulateTacticsForPreset`). The slots come from `exptable`
+  "Tactics": 2 at levels 1 and 2, 3 from level 3.
+- **The loader** (`Chargen_LoadPresetsTable`) takes the preset's rows in
+  order, a row using an ability only when the hero knows it.
+
+The night's level-2 warrior knows Shield Bash, Precise Striking and Shield
+Pummel. The Tank preset's first rows he can use:
+1. Shield Bash on an enemy at 75% health or more;
+2. Shield Pummel on the nearest enemy he sees.
+
+When no row fires, he attacks. `tactics.hero_tactics` works this out and the
+export carries it (`PlayerTactics`). The conditions handled:
+- any;
+- the nearest seen (the foe in hand);
+- his or the target's health and stamina levels;
+- surrounded by at least n hostiles (within 2.5 m);
+- the target attacking in melee or at range.
+
+The simulator's player still plays as a person would (his talents in turn),
+not by these tactics.
+
+Checked in Play (silent, `py playtest.py tacticscheck night`, 2026-10-26), the
+Teyrna in control against the knight:
+- the hero used Shield Bash and Shield Pummel by himself, again and again,
+  his stamina falling from 120 to about 40;
+- the camera panned 3 m along its heading, sideways by mouse, and recentered
+  on a move key;
+- fully zoomed out the boom was 25 m and the view looked down at 75 degrees;
+- no script errors.
 
 Two traps on the way, now worked round:
 - a pawn function given the hero as a plain argument read the empty
@@ -1049,8 +1086,8 @@ Movers still don't push against each other or the player.
 
 ## Not there yet
 
-the dogs' Shred, Howl and Overwhelm in Unreal; the archers' bow model; the overhead tactical
-camera; the hero's tactics when another is in control; tactics edited by the player; spells
+the dogs' Shred, Howl and Overwhelm in Unreal; the archers' bow model; the tactics screen
+(tactics edited by the player) and the party members' tactics slots by level; spells
 (hostiles go for the nearest foe, not the one they hate most); allies outside
 the party (the castle's guards) cannot be struck yet; injuries; switching to a
 party member; proper animations (the attack is a generic punch, the fall and

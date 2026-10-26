@@ -52,6 +52,9 @@ Compile success, a read-back graph or a variable value are not enough.
     off), W held 2 s through SteerFor after turning the camera on the room (a test cannot hold a key; the
     camera follows a set rotation one frame later), a right click on the floor, one on the knight (kept above
     120 health, the mabari knocked out), a left click on the mabari, F1.
+  - `py playtest.py tacticscheck night`: Play, the Teyrna in control against the knight (kept above 120
+    health): the hero's tactics (his talents cooling down, his stamina); then the camera: a pan, the mouse pan,
+    a move key recentering it, zoomed all the way out (25 m, -75 degrees) and back.
   - `py playtest.py pausecheck night`: Play, the Teyrna and the mabari in the party; three hostiles woken
     and the game paused in the same editor call (each call lets some 10 s of game go by). It checks that game
     time and places stand still; queues the hero's attack and talent; orders F2's member to use a talent (--slot)

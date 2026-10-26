@@ -1,4 +1,4 @@
-"""python controls.py [assets|setup|graphs|input|prompts|save|all]: Dragon Age: Origins' PC controls (docs/COMBAT.md,
+"""python controls.py [assets|camera|setup|graphs|input|prompts|save|all]: Dragon Age: Origins' PC controls (docs/COMBAT.md,
 "Controls"; the original's own bindings: Documents/BioWare/Dragon Age/Settings/KeyBindings.ini). Play/Simulate
 stopped; pause.py must have run.
 
@@ -31,7 +31,17 @@ ControlledAct: keys first, then a move order (OrderMoveStep), then its target (P
 its target falls it stops (OrderDone -> DropTarget), as in the original. The others follow whoever is in control
 (FollowLeader, FollowTo). The hero meanwhile (HeroAI, every 0.5 s): keeps or picks the hostile nearest him within
 12 m (HeroPick, HeroBid), walks into reach by the nav mesh (SimpleMoveToActor) and strikes (HeroStrike), else
-follows the one in control. SteerFor holds a member's steering for some seconds (the Play test's
+follows the one in control. In reach, once an attack interval, he runs his tactics (HeroRound: the export's
+PlayerTactics, his class preset's rows he can use, BP_AreaLoader.GiveTalents -> SetPlayerTactics; HeroTactics goes
+down the rows: the chance, the condition, HeroTacticCond: any, the nearest seen, health or stamina levels of
+himself or his target, HeroTacticPct, surrounded by at least n hostiles within 2.5 m, HeroCountNear ->
+NearOffer -> CountOne, the target using melee or ranged attacks; HeroTacticUse finds the talent among his
+(HeroFindTalent) and HeroTacticFire uses it when ready, a mode when off), else a plain attack. The camera, as the original's: the arrow keys
+(IA_Pan, off IA_Move) and the middle button held with the mouse (IA_PanMouse chorded on IA_PanHold) pan the view
+off whoever is in control (Pan: the boom's TargetOffset along the camera's heading; PanKeys 15 m a second,
+PanMouse 12 cm a pixel); moving or taking control recenters it (Recenter). The wheel zooms (Zoom: the boom 1.5 to
+25 m) and tilts the view as it goes (TacticalPitch: -15 degrees at 4 m, -75 at 25 m: the tactical camera; the
+boom's collision keeps it under ceilings indoors). SteerFor holds a member's steering for some seconds (the Play test's
 held key). The mouse wheel zooms (Zoom: the boom's length, 1.5 to 15 m).
 """
 import os
@@ -46,10 +56,12 @@ NPC_CLASS, ACTOR = cr.NPC_CLASS, cr.ACTOR
 F, B, VEC = "float", "bool", "vector"
 
 VARIABLES = {
+    cr.AL: [("PlayerTactics", F, "ARRAY")],
     NPC: [("bControlled", B), ("ManualDir", VEC), ("ManualUntil", F), ("bOrderMove", B), ("OrderGoal", VEC)],
     PM: [("HeroTarget", NPC_CLASS), ("HeroUse", ACTOR), ("MoveGoal", VEC), ("bMoving", B),
          ("HeroPath", VEC, "ARRAY"), ("PathTimer", F), ("NextPoint", VEC), ("PickNpc", NPC_CLASS), ("PickDist", F),
-         ("PickDoor", "/Game/Cousland/Areas/BP_Door.BP_Door_C")],
+         ("PickDoor", "/Game/Cousland/Areas/BP_Door.BP_Door_C"), ("PTactics", F, "ARRAY"), ("bHTDone", B),
+         ("HTFound", "int"), ("bHTCond", B), ("HTCount", "int"), ("HTPct", F), ("PanOffset", VEC)],
 }
 FUNCTIONS = {
     PM: {"InitControls": [], "TurnCamera": [("Value", F)], "Command": [],
@@ -62,22 +74,32 @@ FUNCTIONS = {
          "HeroNext": [("Goal", VEC)], "PreferTarget": [("Reach", F)], "HeroReach": [],
          "TakeControl": [], "SelectClick": [], "SelectRoute": [("What", ACTOR)], "SelectNpc": [("Npc", NPC_CLASS)],
          "MoveKeys": [("X", F), ("Y", F)], "MemberCommand": [("Where", VEC)], "OrderDone": [("Follower", NPC_CLASS)],
-         "HeroAI": [("Dt", F)], "HeroPick": [], "HeroBid": [], "HeroAIAct": [], "Zoom": [("Value", F)]},
+         "HeroAI": [("Dt", F)], "HeroPick": [], "HeroBid": [], "HeroAIAct": [], "Zoom": [("Value", F)],
+         "SetPlayerTactics": [("InTactics", "float[]")], "HeroRound": [], "HeroCountNear": [], "CountOne": [],
+         "HeroTactics": [], "HeroTacticRow": [("I", "int")], "HeroTacticPct": [("I", "int")],
+         "HeroTacticCond": [("I", "int")], "HeroTacticUse": [("I", "int")],
+         "HeroFindTalent": [("K", "int"), ("Sub", F)], "HeroTacticFire": [("bMode", B)],
+         "Pan": [("X", F), ("Y", F), ("Rate", F)], "PanKeys": [("X", F), ("Y", F)], "PanMouse": [("X", F), ("Y", F)],
+         "Recenter": [], "TacticalPitch": []},
     NPC: {"ClickOffer": [("InMgr", cr.PM + "_C"), ("Where", VEC)], "SetControlled": [("bOn", B)], "DropOrders": [],
           "DropTarget": [], "ManualMove": [("Dir", VEC)], "OrderMoveTo": [("Goal", VEC)],
           "OrderOffer": [("InMgr", cr.PM + "_C"), ("From", ACTOR)], "ControlledAct": [("Dt", F)],
           "OrderMoveStep": [("Dt", F)], "FollowLeader": [("Dt", F)], "FollowTo": [("Leader", ACTOR), ("Dt", F)],
-          "SteerFor": [("Seconds", F)]},
+          "SteerFor": [("Seconds", F)], "NearOffer": [("InMgr", cr.PM + "_C")]},
 }
 GRAPHS = [
     (NPC, ["ClickOffer", "SetControlled", "DropOrders", "DropTarget", "ManualMove", "OrderMoveTo", "OrderOffer",
-           "OrderMoveStep", "FollowTo", "FollowLeader", "ControlledAct", "PartyAct", ("OrderAttack", "OrderAttack_NPC"), "SteerFor"]),
+           "OrderMoveStep", "FollowTo", "FollowLeader", "ControlledAct", "PartyAct", ("OrderAttack", "OrderAttack_NPC"), "SteerFor", "NearOffer"]),
     (PM, ["InitControls", "KeepCursor", "TurnCamera", "PickDoorOf", "PickOffer", "PickNpcNear", "CancelOrders", "CommandThing", "CommandNpc",
           "PickClicked", "CommandRoute", "CommandAt", "Command", "PreferTarget", "HeroNext", "HeroRepath", "HeroWalk", "HeroReach", "HeroStrike",
           "HeroAttackStep", "UseRoute", "HeroUseNow", "HeroUseStep", "HeroMoveStep", "HeroOrderStep", "HeroTick", "MeleeAttack",
           "BowAttack", "FindTarget", "TakeControl", "SelectNpc", "SelectRoute", "SelectClick", "SelectMember",
           "MoveKeys", "MemberCommand", "CommandRoute", "FindOrderTarget", "OrderOnTarget", "OrderDone",
-          "AssignTarget", "HeroBid", "HeroPick", "HeroAIAct", "HeroAI", "HeroTick", "Zoom"]),
+          "AssignTarget", "HeroBid", "HeroPick", "SetPlayerTactics", "CountOne", "HeroCountNear", "HeroFindTalent",
+          "HeroTacticFire", "HeroTacticUse", "HeroTacticPct", "HeroTacticCond", "HeroTacticRow", "HeroTactics",
+          "HeroRound", "HeroAIAct", "HeroAI", "HeroTick", "Pan", "PanKeys", "PanMouse", "Recenter", "TacticalPitch",
+          "Zoom", "MoveKeys", "TakeControl"]),
+    (cr.AL, ["GiveTalents", "BuildFixtures"]),
 ]
 NEW_ACTIONS = {  # name: (value type, [(key, negate)], trigger)
     "IA_TurnCamera": ("AXIS1D", [("A", True), ("D", False)], None),
@@ -211,6 +233,76 @@ def _after(g, title, fn, args=()):
     return ins
 
 
+def camera_assets():
+    """The arrow keys pan (IA_Pan, as WASD's modifiers: up and down swizzled), off IA_Move; the middle button held
+    with the mouse pans (IA_PanMouse on Mouse2D, chorded on IA_PanHold); all trigger while paused."""
+    import pyrun
+    print(pyrun.run('''
+EAL = unreal.EditorAssetLibrary
+factory = getattr(unreal, "InputAction_Factory", None) or getattr(unreal, "InputActionFactory")
+def find(name):
+    hits = [a.split(".")[0] for a in EAL.list_assets("/Game", recursive=True) if a.split(".")[0].endswith("/" + name)]
+    return EAL.load_asset(hits[0]) if hits else None
+def key(name):
+    k = unreal.Key(); k.set_editor_property("key_name", name); return k
+def action(name, vt):
+    path = "/Game/Cousland/Combat/" + name
+    ia = EAL.load_asset(path) if EAL.does_asset_exist(path) else unreal.AssetToolsHelpers.get_asset_tools().create_asset(name, "/Game/Cousland/Combat", unreal.InputAction, factory())
+    ia.set_editor_property("value_type", getattr(unreal.InputActionValueType, vt))
+    ia.set_editor_property("trigger_when_paused", True)
+    EAL.save_loaded_asset(ia, False)
+    return ia
+def maps_of(imc):
+    return list(imc.get_editor_property("default_key_mappings").get_editor_property("mappings"))
+def put(imc, maps):
+    d = imc.get_editor_property("default_key_mappings"); d.set_editor_property("mappings", maps)
+    imc.set_editor_property("default_key_mappings", d)
+    EAL.save_loaded_asset(imc, False)
+done = []
+pan, hold, mouse = action("IA_Pan", "AXIS2D"), action("IA_PanHold", "BOOLEAN"), action("IA_PanMouse", "AXIS2D")
+dft = find("IMC_Default")
+maps = maps_of(dft)
+arrows = [m for m in maps if m.action and m.action.get_name() == "IA_Move" and str(m.key.get_editor_property("key_name")) in ("Up", "Down", "Left", "Right")]
+for m in arrows:  # the same key and modifiers, now panning
+    m.set_editor_property("action", pan); done.append("pan " + str(m.key.get_editor_property("key_name")))
+put(dft, maps)
+dlg = find("IMC_Dialogue")
+maps = maps_of(dlg)
+have = {(m.action.get_name() if m.action else "", str(m.key.get_editor_property("key_name"))) for m in maps}
+if ("IA_PanHold", "MiddleMouseButton") not in have:
+    m = unreal.EnhancedActionKeyMapping(); m.set_editor_property("action", hold); m.set_editor_property("key", key("MiddleMouseButton"))
+    maps.append(m); done.append("hold middle")
+if ("IA_PanMouse", "Mouse2D") not in have:
+    m = unreal.EnhancedActionKeyMapping(); m.set_editor_property("action", mouse); m.set_editor_property("key", key("Mouse2D"))
+    c = unreal.InputTriggerChordAction(); c.set_editor_property("chord_action", hold)
+    m.set_editor_property("triggers", [c])
+    maps.append(m); done.append("mouse pan chorded")
+put(dlg, maps)
+OUT["done"] = done
+''', 300))
+
+
+def _event2d(g, action, fn, y):
+    """fn(X, Y) on the 2D action's Triggered, its value broken into X and Y."""
+    if cr.call("find_nodes", {"graph": g, "title": action}):
+        print(action, "already there")
+        return
+    types = cr.call("find_node_types", {"graph": g, "type_id_filter": action, "context_pins": []})
+    ids = [t.get("type_id", t) if isinstance(t, dict) else t for t in types]
+    ev = cr.call("create_node", {"graph": g, "type_id": next(i for i in ids if i.endswith(action)), "pos": {"x": 1600, "y": y}})
+    call = cr.call("create_node", {"graph": g, "type_id": "Funzionedichiamata|" + fn, "pos": {"x": 2400, "y": y}})
+    brk = cr.call("create_node", {"graph": g, "type_id": "Matematica|Vector2D|BreakVector2D", "pos": {"x": 2100, "y": y + 200}})
+    outs = {p["name"]: p["pin_id"] for p in cr.pins(ev)["output_pins"]}
+    ins = {p["name"]: p["pin_id"] for p in cr.pins(call)["input_pins"]}
+    b_ins = {p["name"]: p["pin_id"] for p in cr.pins(brk)["input_pins"]}
+    b_outs = {p["name"]: p["pin_id"] for p in cr.pins(brk)["output_pins"]}
+    cr.call("connect_pins", {"output_pin": outs["Triggered"], "input_pin": ins["execute"]})
+    cr.call("connect_pins", {"output_pin": outs["ActionValue"], "input_pin": next(iter(b_ins.values()))})
+    cr.call("connect_pins", {"output_pin": b_outs["X"], "input_pin": ins["X"]})
+    cr.call("connect_pins", {"output_pin": b_outs["Y"], "input_pin": ins["Y"]})
+    print(action, "->", fn)
+
+
 def _move_keys(g):
     """MoveKeys after IA_Move's CancelOrders, with the action's X and Y."""
     if cr.call("find_nodes", {"graph": g, "title": "MoveKeys"}):
@@ -240,6 +332,8 @@ def input_events():
     _event(g, "IA_Select", "SelectClick", {"x": 1600, "y": 7900}, "Started")
     _event(g, "IA_Zoom", "Zoom", {"x": 1600, "y": 8200}, "Triggered", "Value")
     _move_keys(g)
+    _event2d(g, "IA_Pan", "PanKeys", 8500)
+    _event2d(g, "IA_PanMouse", "PanMouse", 8900)
     _after(g, "InitCombat", "InitControls")
     ins = _after(g, "MsgTick", "HeroTick")
     if ins:  # the tick's delta: the same pin MsgTick takes
@@ -279,14 +373,14 @@ def save():
     print(pyrun.run('''
 EAL = unreal.EditorAssetLibrary
 OUT["saved"] = [EAL.save_asset(p, only_if_is_dirty=False) for p in ("/Game/Cousland/Plots/BP_PlotManager",
-                "/Game/Cousland/Dialogue/BP_DlgNPC")]
+                "/Game/Cousland/Dialogue/BP_DlgNPC", "/Game/Cousland/Areas/BP_AreaLoader")]
 ''', 300))
 
 
 if __name__ == "__main__":
     ue.init()
     phase = sys.argv[1] if len(sys.argv) > 1 else "all"
-    for name, f in (("assets", assets), ("setup", setup), ("graphs", graphs), ("input", input_events),
+    for name, f in (("assets", assets), ("camera", camera_assets), ("setup", setup), ("graphs", graphs), ("input", input_events),
                     ("prompts", prompts), ("save", save)):
         if phase in (name, "all"):
             f()

@@ -1,0 +1,5 @@
+(fn Pan (X Y Rate)
+  (bind (_fx _fy _fz) (Matematica|Vettore|BreakVector (Matematica|Vettore|GetForwardVector (Telecamera|GetCameraRotation :self (Gioco|GetPlayerCameraManager 0)))))
+  (bind (_rx _ry _rz) (Matematica|Vettore|BreakVector (Matematica|Vettore|GetRightVector (Telecamera|GetCameraRotation :self (Gioco|GetPlayerCameraManager 0)))))
+  (Variabili|Predefinito|ImpostaPanOffset (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniPanOffset) (Utility|Operatori|Moltiplica (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica (Matematica|Vettore|MakeVector _fx _fy 0.0) (Matematica|Vettore|MakeVector Y Y 0.0)) (Utility|Operatori|Moltiplica (Matematica|Vettore|MakeVector _rx _ry 0.0) (Matematica|Vettore|MakeVector X X 0.0))) (Matematica|Vettore|MakeVector Rate Rate 0.0))))
+  (Classe|SpringArmComponent|ImpostaTargetOffset :self (Attore|GetComponentbyClass (Gioco|GetPlayerPawn 0) "/Script/Engine.SpringArmComponent") :TargetOffset (Variabili|Predefinito|OttieniPanOffset)))

@@ -1,4 +1,5 @@
 (fn MoveKeys (X Y)
+  (Funzionedichiamata|Recenter)
   (Utilità|ControlloDiFlusso|Ramo (Utilità|IsValid (Variabili|Predefinito|OttieniSelected))
     (:then
       (bind (_fx _fy _fz) (Matematica|Vettore|BreakVector (Matematica|Vettore|GetForwardVector (Telecamera|GetCameraRotation :self (Gioco|GetPlayerCameraManager 0)))))

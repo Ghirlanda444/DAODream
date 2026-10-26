@@ -7,7 +7,7 @@
           (IA|Navigazione|SimpleMovetoActor (Gioco|GetPlayerController 0) :Goal (Variabili|Predefinito|OttieniHeroTarget)))
         (:else
           (IA|Navigazione|StopMovement (Gioco|GetPlayerController 0))
-          (Funzionedichiamata|HeroStrike))))
+          (Funzionedichiamata|HeroRound))))
     (:else
       (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggiore(>) (Trasformazione|GetDistanceTo (Gioco|GetPlayerPawn 0) (Variabili|Predefinito|OttieniSelected)) 350.0)
         (:then

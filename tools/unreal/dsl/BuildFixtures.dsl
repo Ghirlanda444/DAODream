@@ -15,6 +15,7 @@
   (Variabili|Predefinito|ImpostaPlayerTalents (Json|GetField _json "PlayerTalents"))
   (Variabili|Predefinito|ImpostaPlayerPassives (Json|GetField _json "PlayerPassives"))
   (Variabili|Predefinito|ImpostaPlayerTalentNames (Json|GetField _json "PlayerTalentNames"))
+  (Variabili|Predefinito|ImpostaPlayerTactics (Json|GetField _json "PlayerTactics"))
   (Funzionedichiamata|GiveTalents)
   (Variabili|Predefinito|ImpostaKitMeshes (Json|GetField _json "KitMeshes"))
   (Variabili|Predefinito|ImpostaKitPlaced (Json|GetField _json "KitPlaced"))
