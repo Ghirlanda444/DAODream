@@ -228,6 +228,17 @@ def attack_anims(game_dir: str | Path, tables: dict, appearances) -> dict[int, f
     return out
 
 
+def is_staff(row: dict) -> bool:
+    """A mage's staff (itemstats label "Weapon - Staff"): its bolt always hits (Combat_GetAttackResult)."""
+    return "staff" in str(row.get("label") or "").lower()
+
+
+def spellpower(attributes: dict[str, float]) -> float:
+    """PROPERTY_ATTRIBUTE_SPELLPOWER: the game's Magic description, "Increases spellpower by 1 for each point
+    purchased": magic above 10 (talents and items add more; none tonight)."""
+    return max(0.0, float(attributes.get("Mag", BASE_ATTRIBUTE)) - BASE_ATTRIBUTE)
+
+
 def is_ranged(row: dict) -> bool:
     """A bow or crossbow (itemstats OptimumRange)."""
     return float(row.get("OptimumRange") or 0.0) > 0.0
@@ -415,10 +426,15 @@ def stats(tables: dict, *, package: int, rank: int, area_level: int = 1, race: i
                 "Damage": (round(low, 2), round(high, 2)), "DamageBonus": 0.0, "Penetration": round(penetration, 2),
                 "Crit": round(weapon_crit, 2), "Flanking": FLANKING_MAX * 0.5,
                 "DamageScale": float(auto.get("fDamageScale") or 1.0), "DamageThreshold": threshold, "OneShot": True}
+    power = spellpower(attrs)
+    if item and is_staff(item):  # Combat_Damage_GetMageStaffDamage: the staff's damage + 25-75% of spellpower / 4
+        damage = (round(low + power / 4.0 * 0.25, 2), round(high + power / 4.0 * 0.75, 2))
+    else:  # each hit rolls in this range, then hit_damage() applies criticals, armour, the bonus and rank scaling
+        damage = (round(low + bonus * 0.25 * factor, 2), round(high + bonus * 0.5 * factor, 2))
     return {"Level": level, "Class": cls.get("label", ""), "Attributes": attrs, "Health": round(health, 1),
-            "Stamina": round(stamina, 1), "Attack": attack, "Defense": defense,
-            # Each hit rolls in this range, then hit_damage() applies criticals, armour, the bonus and rank scaling.
-            "Damage": (round(low + bonus * 0.25 * factor, 2), round(high + bonus * 0.5 * factor, 2)),
+            "Stamina": round(stamina, 1), "Attack": attack, "Defense": defense, "SpellPower": power,
+            "Staff": bool(item and is_staff(item)),
+            "Damage": damage,
             "DamageBonus": round(damage_bonus, 2),
             "Penetration": round(penetration + DERIVED["PenetrationInt"] * mod["Int"], 2),
             "Crit": round(CRIT_CHANCE * fscale + weapon_crit, 2),

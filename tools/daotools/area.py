@@ -807,6 +807,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     npc_interval = []
     npc_status = []
     npc_talents = []
+    npc_spell = []  # per creature: spellpower, a staff in hand (1/0)
     npc_tactics = []
     npc_ambient, npc_ambient_prefix = [], []
     creatures = list(are_root.get("CreatureList") or [])
@@ -870,6 +871,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
             npc_rules.extend(rules(st))
             npc_interval.append(st.get("Interval", 2.0))
             npc_status.extend(st.get("Status") or [1.0, 1.0, 0.0, 15.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+            npc_spell.extend([float(st.get("SpellPower", 0.0)), 1.0 if st.get("Staff") else 0.0])
             rows = [x for r in st.get("TalentRows", []) for x in r]
             npc_talents.extend(rows + [0.0] * (len(abilities.TALENT_FIELDS) * tactics.MAX_TALENTS - len(rows)))
             npc_tactics.extend(tactics.flat_rows(st.get("Tactics")))
@@ -994,6 +996,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcInterval": npc_interval,
         # Per creature, STATUS floats (abilities.effect_duration, resist_chance, threat.seen_threat).
         "NpcStatus": npc_status,
+        "NpcSpell": npc_spell,
         # Per creature, tactics.MAX_TALENTS talents (abilities.TALENT_FIELDS each, zeros when fewer) and its tactics
         # table, tactics.MAX_TACTICS rows of tactics.FIELDS (chance 0 when fewer).
         "NpcTalents": npc_talents,

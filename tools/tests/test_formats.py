@@ -1230,6 +1230,35 @@ class SimulateTests(unittest.TestCase):
         self.assertEqual([r["Sub"] for r in tactics.hero_tactics(tables, 1, 3, known)], [617, 1])
         self.assertTrue(tactics.condition_holds(rows[2], {}, {}))  # the nearest visible: the foe in hand
 
+    def test_spells(self):
+        # spellpower: magic above 10; a staff's damage + 25-75% of spellpower / 4
+        self.assertEqual(stats.spellpower({"Mag": 18.0}), 8.0)
+        self.assertEqual(stats.spellpower({"Mag": 9.0}), 0.0)
+        self.assertTrue(stats.is_staff({"label": "Weapon - Staff"}))
+        # Lightning's row carries its factor; (100 + 8) x 0.3 = 32.4, no roll, no armour
+        table = {i: {"Name": str(i), "Use": 4, "Cost": 20.0, "Cooldown": 10.0, "Upkeep": 0.0, "Fatigue": 0.0,
+                     "Effect": abilities.EFFECTS[i]} for i in abilities.SPELLS}
+        rows = {i: dict(zip(abilities.TALENT_FIELDS, abilities.talent_row(i, table[i], {"Level": 1.0})))
+                for i in abilities.SPELLS}
+        self.assertEqual((rows[abilities.LIGHTNING]["DamageMul"], rows[abilities.SHOCK]["DamageMul"]), (0.3, 0.4))
+        ours, foes = simulate.fighters(self.AREA, [], ["rat_*"])
+        p, mage, other = ours[0], foes[0], foes[1]
+        mage.spellpower, mage.stamina, mage.pool = 8.0, 100.0, 100.0
+        rng = random.Random(5)
+        damage, crit = simulate.perform(rng, mage, p, rows[abilities.LIGHTNING], 0.0, 1)
+        self.assertAlmostEqual(damage, 32.4)
+        # Mind Blast: the target and those on the caster in melee stunned 3 s x their rank's scale
+        other.target = mage
+        p.target = mage
+        simulate.perform(rng, mage, p, rows[abilities.MIND_BLAST], 0.0, 1, enemies=[p, other])
+        self.assertEqual(p.disabled, 3.0 * p.duration_scale)
+        self.assertGreater(other.disabled, 0.0)
+        # a staff bolt always hits
+        mage.staff, mage.damage = True, (4.0, 6.0)
+        p.defense, p.displacement = 1000.0, 0.0
+        damage, crit = simulate.strike(rng, mage, p)
+        self.assertTrue(4.0 <= damage <= 6.0 and not crit)
+
     def test_party_talents(self):
         # the dog: Growl (-15 defense 30 s, no roll), Charge (a knockdown), Overwhelm (pinned 2 s, two bites that
         # land), Mabari Howl (every foe not a boss stunned 5 s); Rapid Shot's row by dexterity
@@ -1257,10 +1286,10 @@ class SimulateTests(unittest.TestCase):
     def test_foe_talents(self):
         # a rat that only Shield Pummels (always, 4 s stun): the player is stunned and struck three times
         rows = [1, 4, 30, 20, 0, 0, 10, 4.0, 0, 0, 0, 0, 0, 0, 0, 1.1, 0, 0]
-        tac = [7, 16, 0, 4, 1, 100] + [0.0] * 66
+        tac = [7, 16, 0, 4, 1, 100] + [0.0] * (tactics.MAX_TACTICS * 6 - 6)
         area = dict(self.AREA, NpcStatus=[1.0, 1.0, 0.0, 25.0, 0.0, 0.0, 0.0, 0.0, 0.0] +
                     [1.0, 1.5, 0.0, 15.0, 0.0, 50.0, 0.0, 3.0, 4.0] * 5,
-                    NpcTalents=[0.0] * 108 + (rows + [0.0] * 90) * 5, NpcTactics=[0.0] * 72 + tac * 5)
+                    NpcTalents=[0.0] * 108 + (rows + [0.0] * 90) * 5, NpcTactics=[0.0] * tactics.MAX_TACTICS * 6 + tac * 5)
         ours, foes = simulate.fighters(area, [], ["rat_1"])
         p, rat = ours[0], foes[0]
         self.assertEqual((rat.stamina, rat.offhand, len(rat.talents), len(rat.tactics)), (50.0, (3.0, 4.0), 1, 1))

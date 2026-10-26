@@ -52,6 +52,12 @@ takes its combat rounds as a foe does (tactics.choose), against its own target; 
 RANGED_DISTANCE like an archer. The dogs' talents (abilities.EFFECTS): Growl takes 15 defense for 30 s unless
 resisted, Charge knocks down, Shred is a critical whose bleed is dealt at once here, Overwhelm pins for 2 s with
 two bites that land, Mabari Howl stuns every foe not a boss for 5 s (nobody is out of its 10 m here).
+
+Spells (stage 3): a mage's staff bolt always hits, for the staff's damage and part of his spellpower, without
+armour, criticals or the damage bonus. Lightning and Shock deal (100 + spellpower) x their factor, no roll, no
+armour (nobody here resists electricity). Shock's cone and Mind Blast's 5 m catch the target and everyone fighting
+the caster at close quarters (no geometry here); Mind Blast stuns them 3 s, rank-adjusted. "Target at short range"
+holds for a caster someone is on in melee.
 """
 
 from __future__ import annotations
@@ -119,6 +125,8 @@ class Fighter:
     range: float = 0.0  # its bow's optimum range (0: melee)
     missile: float = 0.0  # missile shield: defense against arrows (a shield's MissileDeflection)
     disarm: tuple[float, float] = (0.0, 0.0)  # (until, attack taken away): Sunder Weapon
+    spellpower: float = 0.0  # NpcSpell
+    staff: bool = False  # NpcSpell: its bolt always hits (stats.is_staff)
     locked: float = 0.0  # no talents until (Below the Belt)
 
     def __post_init__(self):
@@ -167,6 +175,9 @@ def npc_fighter(area: dict, i: int, side: str) -> Fighter:
                 r.get("DamageBonus", 0.0), _interval(area, i, side), level=status[0], duration_scale=status[1],
                 resist=status[2], seen=status[3], rogue=bool(status[4]), stamina=status[5], fatigue=status[6],
                 offhand=(status[7], status[8]), range=status[9], missile=status[10])
+    spell = (area.get("NpcSpell") or [])[2 * i:2 * i + 2]
+    if len(spell) == 2:
+        f.spellpower, f.staff = spell[0], bool(spell[1])
     k, t = len(abilities.TALENT_FIELDS), ai.MAX_TALENTS
     rows = (area.get("NpcTalents") or [])[i * k * t:(i + 1) * k * t]
     f.talents = [dict(zip(abilities.TALENT_FIELDS, rows[j:j + k])) for j in range(0, len(rows), k) if rows[j]]
@@ -208,6 +219,8 @@ def strike(rng: random.Random, a: Fighter, d: Fighter, flanking: float = 0.0, no
     the defender, its damage scale for the attacker; a disarmed attacker (Sunder Weapon) lost its attack rating."""
     if d.displacement and rng.random() * 100.0 < d.displacement and not sure:
         return None, False
+    if a.staff and not talent:  # Combat_GetAttackResult: staves always hit; their own damage, no armour or critical
+        return rng.uniform(*a.damage), False
     ranged = a.range > 0
     if ranged:
         flanking = 0.0
@@ -327,6 +340,22 @@ def perform(rng: random.Random, a: Fighter, d: Fighter, r: dict, now: float, par
         if not resisted():
             d.buffs.append((now + r["Seconds"], {"Defense": r["Defense"]}))
         result = (None, False)
+    elif i in (abilities.LIGHTNING, abilities.SHOCK):  # no roll: (100 + spellpower) x the factor, no armour
+        amount = (100.0 + a.spellpower) * (r.get("DamageMul") or 0.0)
+        if i == abilities.SHOCK:  # the cone: the others close by, here those fighting the caster
+            for f in enemies or []:
+                if f is not d and not f.down and f.target is a and not f.range:
+                    f.health -= amount
+                    f.down = f.health <= 0
+        result = (amount, False)
+    elif i == abilities.MIND_BLAST:  # every hostile close by stunned, rank-adjusted
+        for f in [d] + [f for f in enemies or [] if f is not d and f.target is a and not f.range]:
+            if not f.down:
+                lasting = r["Seconds"] + (0 if f.side == "party" else max(0, abilities.PARTY_SLOTS - party_size))
+                f.disabled = max(f.disabled, now + lasting * f.duration_scale)
+                if f.threat is not None:
+                    f.threat.forget(a, _alive)
+        result = (None, False)
     elif i == 90048:  # Mabari Howl: every enemy not a boss stunned, no resistance, no rank adjustment
         for f in enemies or [d]:
             if not f.down and not f.boss:
@@ -388,7 +417,8 @@ def foe_turn(rng: random.Random, a: Fighter, d: Fighter, now: float, enemies: li
     me = {"Health": _health(a) * 100.0, "Stamina": a.stamina / a.pool * 100.0 if a.pool else 0.0,
           "AttackedInMelee": any(f.target is a and not f.range for f in enemies if not f.down),
           "AttackedAtRange": any(f.target is a and f.range for f in enemies if not f.down),
-          "Distance": RANGED_DISTANCE if a.range else 1.0,
+          "Distance": 1.0 if not a.range or any(f.target is a and not f.range for f in enemies if not f.down)
+          else RANGED_DISTANCE,
           "Surrounding": sum(1 for f in enemies if not f.down and f.target is a)}
     them = {"Health": _health(d) * 100.0, "Ranged": d.range > 0,
             "Stamina": d.stamina / d.pool * 100.0 if d.pool else 0.0}

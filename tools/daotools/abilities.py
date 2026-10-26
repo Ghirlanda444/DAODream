@@ -35,6 +35,10 @@ ENEMY = (1, 3025, 4, 3, 3024, 28, 3074, 803, 3072, 500, 33)
 DOG = (90017, 90050, 90016, 90048, 90049, 90015, 90047)
 RAPID_SHOT = 3071
 PARTY = DOG + (RAPID_SHOT,)
+# The spells (stage 3): Howe's mage at night (package 57, Spellcaster - Nuker, level 1) knows Shock, Mind Blast and
+# Lightning, and his tactics table (aip_caster_nuker_1) uses the three; Fireball comes at level 2.
+SHOCK, MIND_BLAST, LIGHTNING = 14000, 12006, 14001
+SPELLS = (SHOCK, MIND_BLAST, LIGHTNING)
 SUSTAINED, PASSIVE, ACTIVATED = 2, 3, 4  # abi_base usetype
 CHARGEN_TALENT_POINTS = 2  # sys_chargen_h: PROPERTY_SIMPLE_TALENT_POINTS
 # Creature properties (properties.gda) the passive and scripted effects change, by name.
@@ -97,6 +101,14 @@ EFFECTS = {
     #   target down for the engine's moment (an instant knockdown)
     500: {"Self": {"Attack": 10.0, "Crit": 10.0, "Penetration": 3.0, "DamageBonus": 2.0, "AimDelay": 1.5}},  # Aim
     33: {"Self": {"Defense": 15.0}},  # Defensive Fire (Reborn: the defense only)
+    # The spells (stage 3, Reborn's spell_singletarget, spell_cone, spell_aoe_instant): no attack roll; damage
+    #   (100 + the caster's spellpower) x the factor, of the element (ResistDamage: less the target's resistance
+    #   to it, at most 75%; no armour)
+    LIGHTNING: {"SpellDamage": 0.3, "Element": "Electricity"},  # one target (LIGHTNING_DAMAGE_FACTOR)
+    SHOCK: {"SpellDamage": 0.4, "Element": "Electricity", "Cone": 10.0},  # everyone in a cone 10 m long
+    #   (abi_base aoe_param1 35 degrees, aoe_param2 10 m; SHOCK_DAMAGE_FACTOR)
+    MIND_BLAST: {"Stun": 3.0, "Radius": 5.0, "Forget": True},  # every hostile within 5 m (aoe_param1) stunned
+    #   MIND_BLAST_DURATION 3 s, rank-adjusted; its threat on the caster set to 1 (Reborn)
     # The party's (stage 6)
     3071: {"RapidShot": True},  # Rapid Shot (talent_modal): aims faster by a twentieth of a second a point of
     #   dexterity above 10 (RAPIDSHOT_AIM_SPEED_FACTOR, at most RAPIDSHOT_AIM_SPEED_MAX 2 s); no critical hits while
@@ -117,7 +129,7 @@ EFFECTS = {
 # The talents that take their target out of the fight for a while: a stun lasts its seconds rank-adjusted
 # (effect_duration), a knockdown as long as the engine's animations (no rank adjustment).
 DISABLES = {603: "Stun", 617: "Knockdown", 1: "Stun", 3024: "Knockdown", 90016: "Knockdown", 90015: "Pin",
-            90048: "Stun"}
+            90048: "Stun", MIND_BLAST: "Stun"}
 THREAT = (808, 3041, 3016, 3023)  # Threaten, Taunt, Disengage, Feign Death: their point is threat (stage 4)
 NAMES = {14: "Powerful", 808: "Threaten", 17: "Bravery", 3021: "Death Blow", 19: "Precise Striking", 3041: "Taunt",
          3016: "Disengage", 20: "Perfect Strike", 603: "Dirty Fighting", 21: "Combat Movement",
@@ -126,7 +138,8 @@ NAMES = {14: "Powerful", 808: "Threaten", 17: "Bravery", 3021: "Death Blow", 19:
          3: "Critical Strike", 4: "Sunder Armor", 3024: "Pommel Strike", 28: "Indomitable", 3074: "Shield Block", 500: "Aim",
          33: "Defensive Fire", 803: "Pinning Shot", 3072: "Shattering Shot", 100075: "Stealth",
          6: "Dual Weapon Training", 3071: "Rapid Shot", 90017: "Growl", 90050: "Fortitude", 90016: "Charge",
-         90048: "Mabari Howl", 90049: "Combat Training", 90015: "Overwhelm", 90047: "Shred"}
+         90048: "Mabari Howl", 90049: "Combat Training", 90015: "Overwhelm", 90047: "Shred", SHOCK: "Shock",
+         MIND_BLAST: "Mind Blast", LIGHTNING: "Lightning"}
 BRAVERY, DEATH_BLOW, EVASION = 17, 3021, 3069
 # A human knocked down (Shield Bash) is out of the fight while the engine plays the fall (mh_c.rct_kbck: 1.2 and
 # 1.37 s; which one, or how the engine blends it, is not in the data), lies for the effect's RandomFloat() seconds
@@ -153,7 +166,7 @@ def passive_properties(row: dict) -> dict[str, float]:
     return out
 
 
-def talents(tables: dict, ids: tuple[int, ...] = STAGE + ENEMY + PARTY) -> dict[int, dict]:
+def talents(tables: dict, ids: tuple[int, ...] = STAGE + ENEMY + PARTY + SPELLS) -> dict[int, dict]:
     """Each talent's table row, read: Name, Use (SUSTAINED, PASSIVE, ACTIVATED), Cost, Cooldown, Upkeep, Fatigue,
     Prereq (ability), Level, Attribute (1 strength, 2 dexterity...) and Value it needs, Passive {property: value},
     Effect (EFFECTS)."""
@@ -333,6 +346,8 @@ def talent_row(i: int, talent: dict, player: dict) -> list[float]:
         own["Defense"] = round((strength - stats.BASE_ATTRIBUTE) * 0.6, 3)
         own["Armour"] = round(float(player.get("Armour") or 0.0) * 0.3, 3)
     mul = e.get("DamageMul", 1.0) * (1.0 + e.get("StrengthDamage", 0.0) * (strength - stats.BASE_ATTRIBUTE))
+    if e.get("SpellDamage"):  # a spell's damage factor: (100 + spellpower) x it
+        mul = e["SpellDamage"]
     return [float(i), float(talent["Use"]), talent["Cost"], talent["Cooldown"], talent["Upkeep"], talent["Fatigue"],
             float(e.get("AttackBonus", 0.0)), float(seconds), own.get("Attack", 0.0), own.get("Penetration", 0.0),
             own.get("Speed", own.get("AttackSpeed", 0.0)), round(crit, 3), own.get("Defense", e.get("Defense", 0.0)),
