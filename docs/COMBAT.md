@@ -705,6 +705,48 @@ fights each (the player, the mabari and the Teyrna):
 | The east hall's five | won 60% | won 83% |
 | The panicked servant's four (a war dog among them) | | won 100% |
 
+## Controls
+
+The original's PC controls (`tools/unreal/controls.py`), from its own key
+bindings (`Documents/BioWare/Dragon Age/Settings/KeyBindings.ini`) and how its
+mouse works:
+
+| Input | What it does |
+| --- | --- |
+| W, S | Run forward, back. |
+| Q, E | Strafe. Was A and D. E no longer talks: in the original, talking is a click. |
+| A, D | Turn the camera. |
+| Right button held | Turn the camera. |
+| Right click | An order at the cursor. |
+| Left click | Select (taking control of a party member: next). It no longer attacks. |
+| / | Swap weapon sets. Was Q. |
+| F | Attack the nearest hostile: a shortcut the original lacks, kept. |
+
+What a right click does with what's under the cursor:
+- **The cursor** shows all the time. The conversation hides it; KeepCursor
+  puts it back outside talk.
+- **A creature within a metre of the clicked point** counts as clicked, so its
+  feet or a thin limb will do.
+- **A hostile**: the hero walks into reach and attacks it until it falls. His
+  attacks and talents go for it while it is in reach (`PreferTarget`).
+- **Someone else**: the hero walks up and talks to them (their `Interact`).
+- **A door**: the hero walks up and opens it (`TryUse`).
+- **The ground**: the hero walks there by the nav mesh.
+- **The movement keys** drop the order.
+
+A cast in these graphs that fails ends its function, so each cast lives in a
+function of its own (`PickClicked`, `PickDoorOf`).
+
+Checked in Play (silent, `py playtest.py clickcheck`, 2026-10-26):
+- the cursor shows;
+- a right click with the cursor on a night soldier set him as the hero's
+  target, and the hero closed from 8 m and killed him;
+- a click on the floor walked the hero to the spot;
+- in the day castle, an order to talk to a Howe guard walked the hero up and
+  opened the conversation.
+
+No script errors.
+
 ## Pause and party orders
 
 Real-time with pause (`tools/unreal/pause.py`), with the original's keys

@@ -1,0 +1,5 @@
+(fn CommandAt (Where What)
+  (Funzionedichiamata|CancelOrders)
+  (Funzionedichiamata|PickNpcNear :Where Where)
+  (Funzionedichiamata|PickClicked :What What)
+  (Funzionedichiamata|CommandRoute :Where Where :What What))

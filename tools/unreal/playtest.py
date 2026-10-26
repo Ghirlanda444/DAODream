@@ -15,6 +15,7 @@ run are printed at the end.
     python playtest.py ranged night                                        Play: an archer shoots; the player's bow
     python playtest.py partytalents night                                  Play: the Teyrna and the mabari's talents
     python playtest.py pausecheck night                                    Play: pause, queued actions, party orders
+    python playtest.py clickcheck day --tag ""                             Play: right clicks: move, attack, talk
 
 Characters are named by their tag (NpcTags in extracted/ue/areas/<area>.json). Hidden ones (waiting for a
 plot) are shown for the pictures. The editor must be open with its MCP server running (docs/UNREAL_SETUP.md);
@@ -938,6 +939,106 @@ OUT["ordered"] = (s1.get_name() if s1 else None, s2.get_name() if s2 else None)
         run.finish()
 
 
+def click_check(args):
+    """Play at night: the original's mouse. The cursor shows; A and D turn the view. A right click
+    (Command: the cursor put on the spot's screen point first; CommandAt when the viewport cannot take the
+    cursor) on the floor 6 m off walks the hero there; on a hostile (--tag) woken 8 m off, the hero walks into
+    reach and keeps attacking it; on a character with a conversation, the hero walks up and talks."""
+    run = Run("clickcheck", args.area)
+    run.start(simulate=False)
+    try:
+        g = run.g
+        for _ in range(8):
+            g.converse(seconds=90)
+            if not g.talking().get("bTalking"):
+                break
+        click = MGR + """
+pc = unreal.GameplayStatics.get_player_controller(w, 0)
+pawn = unreal.GameplayStatics.get_player_pawn(w, 0)
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+where = %s
+what = acts.get(%r)
+screen = pc.project_world_location_to_screen(where, False)
+ok = screen is not None and (screen.x > 0 or screen.y > 0)
+OUT["screen"] = (round(screen.x), round(screen.y)) if screen is not None else None
+OUT["cursor"] = pc.get_editor_property("show_mouse_cursor")
+used = "CommandAt"
+if ok:
+    pc.set_mouse_location(int(screen.x), int(screen.y))
+    hit = pc.get_hit_result_under_cursor_by_channel(unreal.TraceTypeQuery.TRACE_TYPE_QUERY1, False)
+    under = [v for v in (hit.to_tuple() if hit else ()) if isinstance(v, unreal.Actor)]
+    OUT["under_cursor"] = under[0].get_name() if under else None
+    # a real right click when the cursor is on what is meant (the target, or for the floor anything not a creature)
+    ok = bool(under) and (under[0] == what if what else under[0].get_class().get_name() != "BP_DlgNPC_C")
+if ok:
+    m.call_method("Command")
+    used = "Command"
+else:
+    m.call_method("CommandAt", (where, what))
+OUT["used"] = used
+OUT["order"] = (m.get_editor_property("bMoving"), str(m.get_editor_property("HeroTarget")), str(m.get_editor_property("HeroUse")))
+"""
+        where = lambda a: 'acts[%r].get_actor_location()' % a
+        # 1. the floor 6 m off
+        x, y, z = g.loc("BP_ThirdPersonCharacter_C_0")
+        spot = "unreal.Vector(%f, %f, %f)" % (x + 600, y, z - 95)
+        print("move", pyrun.run(click % (spot, ""), 60), flush=True)
+        for k in range(3):
+            time.sleep(2.0)
+            print("  hero", g.loc("BP_ThirdPersonCharacter_C_0"), "goal", (x + 600, y),
+                  pyrun.run(MGR + 'OUT["moving"] = m.get_editor_property("bMoving")', 60), flush=True)
+        run.shot("moved")
+        # 2. a hostile 8 m off (--tag "" skips it)
+        foe = run.npc(args.tag) if args.tag else None
+        if foe:
+            fx, fy, fz = g.loc(foe)
+            g.go(fx + 800, fy, fz, wait=0.5)
+            pyrun.run(NPC % run.npc("gen00fl_dog") + 'a.call_method("KnockOut")\n', 60)  # the hero's own fight
+            pyrun.run(NPC % foe + 'a.call_method("SetPlotActive", (True,))\n', 60)
+            print("attack", pyrun.run(click % (where(foe), foe), 60), flush=True)
+        for k in range(4 if foe else 0):
+            time.sleep(2.0)
+            print("  ", pyrun.run(MGR + """
+t = [a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor) if a.get_name() == %r][0]
+OUT.update({"metres": round(t.get_distance_to(unreal.GameplayStatics.get_player_pawn(w, 0)) / 100.0, 1),
+            "foe_health": round(t.get_editor_property("Health"), 1), "attacks": m.get_editor_property("Hits") + m.get_editor_property("Misses"),
+            "target": str(m.get_editor_property("HeroTarget"))[-20:]})
+if m.get_editor_property("PlayerHealth") < 60.0:
+    m.call_method("HurtPlayer", (m.get_editor_property("PlayerHealth") - m.get_editor_property("PlayerMaxHealth"),))
+if 0.0 < t.get_editor_property("Health") < 40.0:  # kept up: the attacks go on
+    t.call_method("TakeHit", (-200.0,))
+""" % foe, 60), flush=True)
+            if k == 1:
+                run.shot("attacking")
+        # 3. someone to talk to: the nearest visible, friendly character with a conversation
+        near = pyrun.run(MGR + """
+pawn = unreal.GameplayStatics.get_player_pawn(w, 0)
+best = None
+for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor):
+    if a.get_class().get_name() != "BP_DlgNPC_C" or a.get_editor_property("bHidden") or a.get_editor_property("bHostile") \\
+            or a.get_editor_property("bInParty") or a.get_editor_property("bDead") or not a.get_editor_property("ConversationName"):
+        continue
+    d = a.get_distance_to(pawn)
+    if best is None or d < best[0]:
+        best = (d, a.get_name(), a.get_editor_property("DisplayName"))
+OUT["best"] = best
+""", 60).get("best")
+        print("talk to", near, flush=True)
+        if near:
+            tx, ty, tz = g.loc(near[1])
+            g.go(tx + 600, ty, tz, wait=0.5)
+            print("talk", pyrun.run(click % (where(near[1]), near[1]), 60), flush=True)
+            for k in range(4):
+                time.sleep(2.0)
+                t = g.talking()
+                print("  talking", t.get("bTalking"), flush=True)
+                if t.get("bTalking"):
+                    run.shot("talking")
+                    break
+    finally:
+        run.finish()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--sound", action="store_true", help="play the game's sound (tests are silent otherwise)")
@@ -1005,6 +1106,10 @@ def main():
     s.add_argument("--tags", nargs="+", default=["bhn200cr_howe_panicked1", "bhn200cr_howe_panicked2"])
     s.add_argument("--slot", type=int, default=1, help="the talent slot F2's member is ordered to use (0-based)")
     s.set_defaults(fn=pause_check)
+    s = sub.add_parser("clickcheck", help=click_check.__doc__)
+    s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
+    s.add_argument("--tag", default="bhn200cr_howe_panicked1", help="the hostile to right-click")
+    s.set_defaults(fn=click_check)
     s = sub.add_parser("party", help=party.__doc__)
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("--seconds", type=int, default=120)

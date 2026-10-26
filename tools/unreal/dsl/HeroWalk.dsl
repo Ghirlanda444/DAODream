@@ -1,0 +1,5 @@
+(fn HeroWalk (Goal Dt)
+  (Funzionedichiamata|HeroRepath :Goal Goal :Dt Dt)
+  (Funzionedichiamata|HeroNext :Goal Goal)
+  (bind (_x _y _z) (Matematica|Vettore|BreakVector (Utility|Operatori|Sottrai (Variabili|Predefinito|OttieniNextPoint) (Trasformazione|GetActorLocation (Gioco|GetPlayerPawn 0)))))
+  (Pedina|Input|AddMovementInput (Gioco|GetPlayerPawn 0) :WorldDirection (Matematica|Vettore|Normalize (Matematica|Vettore|MakeVector _x _y 0.0)) :ScaleValue 1.0))
