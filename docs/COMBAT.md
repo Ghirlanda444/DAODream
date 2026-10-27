@@ -963,16 +963,27 @@ do; closing it resumes unless the game was paused before.
   empty row starts as Enemy / Any / Attack. A new target resets the condition
   to Any.
 - **The lists**: the game's own, those its menu offers the player (the
-  tables' `0x2a1af533` column) with the talk table's names, kept to what the
-  Unreal side runs:
-  - targets: Self and Enemy;
-  - conditions: any, nearest visible, health and mana or stamina levels (the
-    target's or its own), being attacked in melee or at range, surrounded by
-    two to four enemies, the target at short, medium or long range, the
-    target using melee or ranged attacks (58 in all; magic attacks are left
-    out until spells hit as attacks);
-  - actions: Attack, and the member's talents (a sustained one as Activate
-    mode).
+  tables' `0x2a1af533` column) with the talk table's names:
+  - targets: Self, Ally, Enemy, Hero, each other party member by name (the
+    table's Follower entry) and the controlled party member;
+  - conditions: all 168 the menu offers, in 31 kinds (status, health,
+    lowest or highest health, clustered, nearest visible of a race, class or
+    gender, attacking or the target of the hero or the one in control, buffs,
+    armour, rank, being attacked or using an attack type, counts of enemies,
+    allies and the dead, flanks, surrounded, range bands, its own health or
+    stamina); a kind is offered for the targets its table says it suits;
+  - actions: Attack (on enemies), Wait, Use ability (the member's talents),
+    Activate and Deactivate mode, Jump to tactic n, and on the hero's tab the
+    weapon sets. The items (Use item, the poultices and lyrium potions) wait
+    for the inventory.
+- **Presets** (Load a preset): the game's (`tacticsuserpresets`: Defender,
+  Scrapper, Archer, Healer, Damager, Supporter, Controller, Debilitator, War
+  Dog), those for the member's class (its trait, below). One fills the slots
+  as the game's loader does (`Chargen_LoadPresetsTable`): its rows in order,
+  one using a talent only if the member knows it.
+- **Behaviour**: the six of `aibehaviors` (Default, Passive, Aggressive,
+  Ranged, Cautious, Defensive), kept on the member (`Behavior`; the hero's
+  `PBehavior`).
 - **Slots** (`tactics.slots`, `Chargen_SetNumTactics`): `exptable` Tactics,
   2 at levels 1 and 2, 3 from level 3, + 1, 2, 4 or 6 with Combat Tactics.
   Skills aren't ported yet, so nobody has the bonus.
@@ -1006,6 +1017,77 @@ the Teyrna and the mabari in the party:
   her tactics;
 - closing resumed the game. When she left the party she got her AI table
   back, and rejoining brought back the edited rows;
+- no script errors.
+
+### Tactics in full
+
+`tools/unreal/tactics_run.py` (graphs from `tactics_run_dsl.py`), the port of
+`ai_conditions_h` that `tactics.pick_target` makes in daotools. In the
+original each condition is a search that names a creature, and the row acts on
+it; so here:
+
+- **The lists** (`TrGather`, once a round for whoever runs its tactics): its
+  group's five nearest living members (`_AI_GetAllies`: the party, or Howe's
+  men for one of them), the five nearest hostiles (`_AI_GetEnemies`; a party
+  member's end at the first one more than 30 m from the one in control, 15 m
+  for a behaviour that does not chase), every hostile in sight, those within
+  reach and the dead among the five nearest creatures. Distances are along the
+  ground. Bystanders are on neither side; the castle's guards fight Howe's men
+  but are not in the party's group.
+- **The search** (`TacPick`, one function per kind of condition): the nearest
+  of the row's list for which the condition holds ("Ally: Health < 50%" is the
+  nearest party member under half health); lowest or highest health; the
+  furthest of the right rank, as the script's loop leaves it; a cluster of n
+  hostiles within 5 m of one another; a party member's "Enemy: Any" and
+  "nearest visible" are its own target while it has one. Heal leaves out the
+  unwounded. Flanks never hold for people and dogs: their appearances have no
+  flank arcs (only big monsters do).
+- **What a creature is**, for the conditions: its side, health, stamina, the
+  one it attacks, its attack type (melee, ranged, magic with a staff), its
+  statuses (stunned, knocked down, rooted, slowed, and the groups "can't
+  attack", "immobilized", "movement impaired"), and the export's traits
+  (`NpcTraits`, `PlayerTraits`: class, race, gender, rank, armour type).
+- **The act**: an attack or talent on a hostile makes it the foe (out of reach,
+  the round goes to walking there); a talent on a friend goes to it; Wait
+  spends the round; Deactivate turns a mode off; Jump goes on from a later row.
+- **Out of reach**: a party member not fighting anything in reach runs its rows
+  each attack interval all the same, so a healer heals while the others fight.
+- **Heal** (Creation): (100 + spellpower) x 0.4 health, at once, on its target.
+  No one in the prologue knows it; the mages who join later do.
+- **Behaviours**: AttackOnCombatStart off (Default, Passive, Cautious,
+  Defensive) keeps the party out of the fight until the one in control attacks
+  or one of them is hurt, and that holds until no hostile is left within reach;
+  DefaultAttack off leaves a member without a new target unless one attacks it
+  (AttackBack); ChaseEnemy sets the 30 or 15 m; AvoidNearbyEnemies and
+  AvoidMeleeEnemies step 5 m away from a hostile too close. PreferRange and
+  PreferMelee need a second weapon set (only the hero has one: the Switch
+  actions); AvoidAOE waits for ground effects.
+
+The enemy AI's rows run through the same search, so Howe's men now aim their
+talents as the original does (a row may pick another hostile than the one in
+hand). The simulator (`daotools simulate`) has no positions and keeps its
+simpler `tactics.choose`, the conditions read against the foe in hand.
+
+Checked in Play (silent, `py playtest.py tacruncheck night`, 2026-10-27), the
+main hall's battle with the Teyrna and the mabari in the party:
+- before anyone was hurt the party waited; once the hero was hit both members
+  took targets within half a second;
+- the Teyrna, given Heal and the row "Ally: Health < 50%: Heal" for the test
+  (three of Howe's men kept standing so the fight went on), cast it each of the
+  three times the mabari was brought under half health: its cooldown restarted
+  and he came back up while still being hit (her spellpower is 1: 40.4 a
+  heal);
+- with the rest of the hall and the castle's guards woken, the game paused,
+  every condition for every target type it suits (2,586 rows) was asked of the
+  Blueprints for the Teyrna, the mabari, the hero, Gilmore and two of Howe's
+  men, and of daotools for the same moment: the same creature every time (the
+  first runs found 3D distances, ties ordered differently and clusters sought
+  among the five nearest only; all three fixed);
+- on her tab the targets named the mabari, the actions offered Wait,
+  Deactivate and Jump, the row showed Heal, the presets were her class's three
+  (warrior: Defender, Scrapper, Archer); Archer filled her two slots with Rapid
+  Shot and Shattering Shot on an enemy in medium or heavy armour, as daotools'
+  loader does; Passive, picked, reached her;
 - no script errors.
 
 ## Pause and party orders
@@ -1267,9 +1349,10 @@ Movers still don't push against each other or the player.
 
 ## Not there yet
 
-the archers' bow model (with the weapon art, all weapons together); the tactics screen's
-presets and behaviours, its targets other than Self and Enemy (Ally, Hero, the one in control),
-and the conditions and actions not run yet (statuses, armour, ranks, flanks, potions, weapon
-sets, jumps); skills (Combat Tactics' extra slots); the spells of
-other mages (only the night mage's are in); injuries; proper animations (the attack is a generic punch, the fall and
-getting up are instant). The plan: `docs/COMBAT_DESIGN.md`.
+the archers' bow model (with the weapon art, all weapons together); items in the tactics
+(Use item, the poultices and lyrium potions: with the inventory and loot); a second weapon set
+for party members (Prefer Range and Prefer Melee, the Switch actions); ground effects (Avoid AoE);
+the hero's tactics out of reach (a healer hero: not in the Human Noble origin); custom presets;
+skills (Combat Tactics' extra slots); the spells of other mages (only the night mage's and Heal
+are in); injuries; proper animations (the attack is a generic punch, the fall and getting up are
+instant). The plan: `docs/COMBAT_DESIGN.md`.

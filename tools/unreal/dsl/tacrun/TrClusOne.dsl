@@ -1,0 +1,2 @@
+(fn TrClusOne (K J)
+  (Variabili|Predefinito|ImpostaPkN (Matematica|Intero|SelectInt (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniPkN) 1) (Variabili|Predefinito|OttieniPkN) (Utility|Operatori|Minoreuguale(<=) (Trasformazione|GetHorizontalDistanceTo (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniEnAll) K) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniEnAll) J)) 500.0))))

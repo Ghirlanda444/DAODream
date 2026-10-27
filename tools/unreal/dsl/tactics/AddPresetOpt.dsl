@@ -1,0 +1,5 @@
+(fn AddPresetOpt (K)
+  (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ORBoolean (Matematica|Booleano|ORBoolean (Utility|Operatori|Uguale(==) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniTPresets) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica K 6) 1)) (Matematica|Conversioni|ToFloat(Integer) (Variabili|Predefinito|OttieniMClass))) (Utility|Operatori|Uguale(==) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniTPresets) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica K 6) 2)) (Matematica|Conversioni|ToFloat(Integer) (Variabili|Predefinito|OttieniMClass)))) (Utility|Operatori|Uguale(==) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniTPresets) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica K 6) 3)) (Matematica|Conversioni|ToFloat(Integer) (Variabili|Predefinito|OttieniMClass))))
+    (:then
+      (Utilità|Array|Add (Variabili|Predefinito|OttieniOptIds) K)
+      (Utilità|Array|Add (Variabili|Predefinito|OttieniOptNames) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniTPresetNames) K)))))

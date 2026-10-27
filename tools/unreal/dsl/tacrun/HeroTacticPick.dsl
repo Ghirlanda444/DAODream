@@ -1,0 +1,4 @@
+(fn HeroTacticPick (I)
+  (Funzionedichiamata|TacPick :Tgt (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniPTactics) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica I 6) 0)) :Base (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniPTactics) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica I 6) 1)) :Param (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniPTactics) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica I 6) 2)) :Cmd (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniPTactics) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica I 6) 3)) :Sub (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniPTactics) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica I 6) 4)))
+  (Variabili|Predefinito|ImpostaHTWho (Variabili|Predefinito|OttieniPkWho))
+  (Variabili|Predefinito|ImpostaHTCond (Utilità|IsValid (Variabili|Predefinito|OttieniPkWho))))

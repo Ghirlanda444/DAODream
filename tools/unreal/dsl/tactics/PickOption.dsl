@@ -3,4 +3,6 @@
   (Funzionedichiamata|PickTarget :K K)
   (Funzionedichiamata|PickCond :K K)
   (Funzionedichiamata|PickBase :K K)
-  (Funzionedichiamata|PickAct :K K))
+  (Funzionedichiamata|PickAct :K K)
+  (Funzionedichiamata|PickPreset :K K)
+  (Funzionedichiamata|PickBehav :K K))

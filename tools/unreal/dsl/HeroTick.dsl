@@ -1,4 +1,5 @@
 (fn HeroTick (Dt)
+  (Funzionedichiamata|MayAttackTick)
   (Funzionedichiamata|PlayerBleedTick :Dt Dt)
   (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ORBoolean (Variabili|Predefinito|OttieniTalking) (Matematica|Booleano|ORBoolean (Variabili|Predefinito|OttieniPlayerDown) (Variabili|Predefinito|OttieniGameOver)))
     (:then

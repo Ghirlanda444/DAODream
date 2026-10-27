@@ -5,6 +5,12 @@
   (Variabili|Predefinito|ImpostaTBaseNames (Classe|BPPlotManager|OttieniTBaseNames (Variabili|Predefinito|OttieniMgr)))
   (Variabili|Predefinito|ImpostaTConds (Classe|BPPlotManager|OttieniTConds (Variabili|Predefinito|OttieniMgr)))
   (Variabili|Predefinito|ImpostaTCondNames (Classe|BPPlotManager|OttieniTCondNames (Variabili|Predefinito|OttieniMgr)))
+  (Variabili|Predefinito|ImpostaTCmds (Classe|BPPlotManager|OttieniTCommands (Variabili|Predefinito|OttieniMgr)))
+  (Variabili|Predefinito|ImpostaTCmdNames (Classe|BPPlotManager|OttieniTCommandNames (Variabili|Predefinito|OttieniMgr)))
+  (Variabili|Predefinito|ImpostaTPresets (Classe|BPPlotManager|OttieniTPresets (Variabili|Predefinito|OttieniMgr)))
+  (Variabili|Predefinito|ImpostaTPresetRows (Classe|BPPlotManager|OttieniTPresetRows (Variabili|Predefinito|OttieniMgr)))
+  (Variabili|Predefinito|ImpostaTPresetNames (Classe|BPPlotManager|OttieniTPresetNames (Variabili|Predefinito|OttieniMgr)))
+  (Variabili|Predefinito|ImpostaTBehavNames (Classe|BPPlotManager|OttieniTBehaviorNames (Variabili|Predefinito|OttieniMgr)))
   (Variabili|Predefinito|ImpostaAttackName "Attack")
   (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Maggiore(>) (Utilità|Array|Length (Classe|BPPlotManager|OttieniTCommandNames (Variabili|Predefinito|OttieniMgr))) 0)
     (:then

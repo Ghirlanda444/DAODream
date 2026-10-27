@@ -5,5 +5,6 @@
       (Funzionedichiamata|TabName :K K)
       (Funzionedichiamata|LoadRows)
       (Funzionedichiamata|LoadTalents)
+      (Funzionedichiamata|LoadSetup)
       (Funzionedichiamata|ClosePick)
       (Funzionedichiamata|Redraw))))

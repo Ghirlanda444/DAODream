@@ -22,6 +22,7 @@ run are printed at the end.
     python playtest.py magecheck night                                     Play: the mage's staff and spells
     python playtest.py alliescheck night                                   Play: the main hall's battle with its allies
     python playtest.py screencheck night                                   Play: the tactics screen
+    python playtest.py tacruncheck night                                   Play: tactics picked as the original, Heal, presets
 
 Characters are named by their tag (NpcTags in extracted/ue/areas/<area>.json). Hidden ones (waiting for a
 plot) are shown for the pictures. The editor must be open with its MCP server running (docs/UNREAL_SETUP.md);
@@ -1521,6 +1522,267 @@ OUT["party_hp"] = {"player": round(m.get_editor_property("PlayerHealth")), **{n[
         run.finish()
 
 
+SNAP = MGR + """
+def nm(a):
+    return a.get_name() if a else None
+def hidden(a):
+    try:
+        return bool(a.get_editor_property("hidden"))
+    except Exception:
+        return False
+pawn = unreal.GameplayStatics.get_player_pawn(w, 0)
+acts = [a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor) if a.get_class().get_name() == "BP_DlgNPC_C"]
+snap = {}
+for a in acts + [pawn]:
+    if hidden(a):
+        continue
+    m.call_method("TrPeek", (a,))
+    g = m.get_editor_property
+    loc = g("PkLoc")
+    snap[a.get_name()] = {"Side": g("PkSide"), "Pos": [loc.x / 100.0, loc.y / 100.0], "Health": g("PkHp"),
+                          "MaxHealth": g("PkMax"), "Stamina": g("PkSta"), "Dead": not g("PkAlive"),
+                          "Target": nm(g("PkTgt")), "Attack": g("PkAtk"), "Class": g("PkClass"), "Race": g("PkRace"),
+                          "Gender": g("PkGender"), "Rank": g("PkRank"), "Armor": g("PkArmor"),
+                          "Status": [s for s, on in ((4, g("PkStun")), (16, g("PkKnock")), (7, g("PkRoot")), (9, g("PkSlow"))) if on],
+                          "Index": a.get_editor_property("NIndex") if a is not pawn else -1}
+OUT["snap"] = snap
+OUT["pawn"] = pawn.get_name()
+"""
+PICKS = MGR + """
+def nm(a):
+    return a.get_name() if a else None
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+me = acts[%r]
+m.call_method("TrGather", (me,))
+g = m.get_editor_property
+OUT["me"] = {"hated": nm(g("TMeHated")), "ctrl": nm(g("TCtrl")), "dead": g("DeadN"), "chase": g("TMeChase"),
+             "party": g("TMeParty"), "allies": [nm(x) for x in g("AllyL")], "enemies": [nm(x) for x in g("EnL")]}
+picks = []
+for r in %r:
+    m.call_method("TacPick", tuple(float(x) for x in r))
+    picks.append(nm(g("PkWho")))
+OUT["picks"] = picks
+"""
+
+
+def compare_picks(a, mom, dog, allies, foes):
+    """Every condition of the menu, for each target type, asked of the Blueprints (TacPick) and of daotools
+    (tactics.pick_target) for the same moment (the game paused): the creatures they name, and those that differ."""
+    import sys
+    sys.path.insert(0, os.path.join(game.ROOT, "tools"))
+    from daotools import tactics as ai
+    pyrun.run(MGR + 'm.call_method("TogglePause")', 60)
+    time.sleep(0.5)
+    s = pyrun.run(SNAP, 120)
+    snap, pawn = s["snap"], s["pawn"]
+    nt = len(a["TacticTargetNames"])
+    tids = [int(a["TacticTargets"][2 * j]) for j in range(nt)]
+    valid = {int(a["TacticBases"][k * (nt + 1)]): a["TacticBases"][k * (nt + 1) + 1:(k + 1) * (nt + 1)]
+             for k in range(len(a["TacticBases"]) // (nt + 1))}
+    follower = next(c["Index"] for n, c in snap.items() if n == dog)
+    rows = []
+    for k in range(len(a["TacticConds"]) // 3):
+        base, param = int(a["TacticConds"][3 * k + 1]), a["TacticConds"][3 * k + 2]
+        for j, t in enumerate(tids):
+            if valid.get(base, [0] * nt)[j]:
+                rows.append([100 + follower if t == 6 else t, base, param, 4, 0])
+    rows += [[2, 2, -90, 4, ai.HEAL], [1, 2, -100, 4, ai.HEAL], [5, 2, -100, 4, ai.HEAL]]
+    mes = [mom, dog, pawn, allies[0], foes[0], foes[-1]]
+    total, wrong = 0, []
+    for me in mes:
+        if me not in snap:
+            continue
+        r = pyrun.run(PICKS % (me, rows), 300)
+        info = r["me"]
+        world = {"Creatures": {n: dict(c, Party=c["Side"] == 0, Fighting=True, Status=set(c["Status"]))
+                               for n, c in snap.items() if c["Side"] >= 0},
+                 "Hero": pawn, "Controlled": info["ctrl"], "Dead": info["dead"],
+                 "Followers": {c["Index"]: n for n, c in snap.items() if c["Side"] == 0 and n != pawn}}
+        world["Creatures"][me].update(Hated=info["hated"], Chase=info["chase"])
+        for row, got in zip(rows, r["picks"]):
+            want = ai.pick_target(dict(zip(("Target", "Base", "Param", "Command", "Sub"), row)), me, world)
+            total += 1
+            if want != got:
+                wrong.append((me[-6:], row, "blueprints", got and got[-6:], "daotools", want and want[-6:]))
+        print("  %s: allies %s, enemies %s, hated %s" % (me[-6:], [x and x[-6:] for x in info["allies"]],
+                                                         [x and x[-6:] for x in info["enemies"]], info["hated"] and info["hated"][-6:]), flush=True)
+    print("TACPICK %d rows, %d differ" % (total, len(wrong)), flush=True)
+    for w in wrong[:25]:
+        print("  ", w)
+    pyrun.run(MGR + 'm.call_method("TogglePause")', 60)
+
+    return total, wrong
+
+
+def tacrun_check(args):
+    """Play at night: the tactics as the original runs them. The main hall's battle (as alliescheck), the Teyrna and
+    the mabari in the party. Before it: the party waits to be allowed to attack (PartyMayAttack). In it, the game
+    paused: every condition of the menu, for each target type, asked of the Blueprints (TacPick) for the Teyrna, the
+    mabari, the hero, Gilmore and two of Howe's men, and of daotools (tactics.pick_target) for the same moment
+    (TrPeek's snapshot of everyone); the two must name the same creature. Then the Teyrna is given Heal (for the
+    test) and the row "Ally: Health < 50 percent: Heal"; the mabari is hurt: she heals him (Howe's men kept standing so
+    the fight goes on; the castle's guards are woken after). Last, the screen: the Teyrna's
+    tab, a preset loaded (Archer, the rows the game's loader takes) and a behaviour picked."""
+    import sys
+    sys.path.insert(0, os.path.join(game.ROOT, "tools"))
+    from daotools import abilities, stats, tactics as ai
+    run = Run("tacruncheck", args.area)
+    a = json.load(open(os.path.join(game.ROOT, "extracted", "ue", "areas", game.AREAS[args.area][1] + ".json"), encoding="utf-8"))
+    run.start(simulate=False)
+    try:
+        g = run.g
+        for _ in range(8):
+            g.converse(seconds=90)
+            if not g.talking().get("bTalking"):
+                break
+        foes = [run.npc(t) for t in a["NpcTags"] if any(fnmatch.fnmatch(t, p) for p in args.foes)]
+        allies = [run.npc(t) for t in args.allies]
+        x, y, z = g.loc(foes[0])
+        g.go(x + 900, y, z, wait=0.5)
+        for _ in range(6):
+            g.converse(seconds=60)
+            if not g.talking().get("bTalking"):
+                break
+        g.go(x + 900, y, z, wait=0.3)
+        mom, dog = run.npc("bhn100cr_mother"), run.npc("gen00fl_dog")
+        for k, n in enumerate((mom, dog)):
+            pyrun.run(NPC % n + 'a.call_method("SetPlotActive", (True,))\na.call_method("SetInParty", (True,))\n'
+                      'a.set_actor_location(unreal.Vector(%f, %f, %f), False, True)\n' % (x + 1000, y + 150 * (k * 2 - 1), z), 60)
+        party = MGR + """
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+def nm(a):
+    return a.get_name()[-6:] if a else None
+OUT.update({"may_attack": m.get_editor_property("PartyMayAttack"), "player_hp": round(m.get_editor_property("PlayerHealth")),
+            "targets": {n[-6:]: nm(acts[n].get_editor_property("Target")) for n in %r}})
+if m.get_editor_property("PlayerHealth") < 60.0:
+    m.call_method("HurtPlayer", (m.get_editor_property("PlayerHealth") - m.get_editor_property("PlayerMaxHealth"),))
+""" % [mom, dog]
+        print("before the battle", json.dumps(pyrun.run(party, 60)), flush=True)
+        wake = MGR + """
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+for name in %r:
+    acts[name].call_method("SetPlotActive", (True,))
+"""
+        first = foes[:3]  # three of Howe's men first: the castle's guards would end it in seconds, ten would kill the hero
+        last = "for name in %r:\n    acts[name].call_method('TakeHit', (-3000.0,))\n" % first  # they last
+        pyrun.run(wake % first + last, 60)
+        for k in range(8):
+            time.sleep(0.5)
+            print("  woken +%.1f s" % (k * 0.5 + 0.5), json.dumps(pyrun.run(party, 60)), flush=True)
+        run.shot("hall")
+
+        # --- a heal: the Teyrna given Heal, the mabari hurt; Howe's men kept standing so the fight goes on -----
+        tables = stats.load_tables(args.game, overrides=os.path.join(game.ROOT, "extracted", "mods", "da_reborn", "erf"))
+        heal = abilities.talent_row(ai.HEAL, abilities.talents(tables)[ai.HEAL], {"Level": 2, "Attributes": {}})
+        r = pyrun.run(NPC % mom + """
+t = list(a.get_editor_property("NTalents"))
+k = next((i for i in range(len(t) // 18) if t[18 * i] == 0), 5)
+t = t[:18 * k] + %r + t[18 * k + 18:]
+rows = list(a.get_editor_property("NTactics"))
+a.call_method("SetNpcTalents", (t, rows, 0))
+a.call_method("SetTacticRows", ([2.0, 2.0, -50.0, 4.0, %f, 100.0] + rows[:-6],))
+OUT["slot"] = k
+OUT["spellpower"] = a.get_editor_property("SpellPower")
+OUT["row1"] = [round(x) for x in list(a.get_editor_property("NTactics"))[:6]]
+""" % (heal, ai.HEAL), 60)
+        print("Teyrna given Heal", r, flush=True)
+        amount = (100.0 + r["spellpower"]) * heal[15]
+        hurt = MGR + """
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+d, t = acts[%r], acts[%r]
+d.call_method("TakeHit", (d.get_editor_property("Health") - d.get_editor_property("MaxHealth") * 0.45,))
+OUT.update({"hp": round(d.get_editor_property("Health"), 1), "ready": list(t.get_editor_property("NReady"))[%d]})
+""" % (dog, mom, r["slot"])
+        watch = MGR + """
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+d, t = acts[%r], acts[%r]
+now = unreal.GameplayStatics.get_time_seconds(w)
+if 0.0 < d.get_editor_property("Health") < 15.0:  # the mabari kept up: Heal is read from its cooldown, not his health
+    d.call_method("TakeHit", (-10.0,))
+if m.get_editor_property("PlayerHealth") < 60.0:
+    m.call_method("HurtPlayer", (m.get_editor_property("PlayerHealth") - m.get_editor_property("PlayerMaxHealth"),))
+OUT.update({"dog_hp": round(d.get_editor_property("Health"), 1), "ready": list(t.get_editor_property("NReady"))[%d],
+            "stamina": round(t.get_editor_property("NStamina")), "in_combat": now - m.get_editor_property("LastCombat") < 4.0,
+            "howe_standing": sum(1 for n in %r if not acts[n].get_editor_property("bDead"))})
+""" % (dog, mom, r["slot"], first)
+        healed = 0
+        for k in range(3):
+            h = pyrun.run(hurt, 60)
+            before = h["hp"]
+            for j in range(12):
+                time.sleep(0.4)
+                r = pyrun.run(watch, 60)
+                if r["ready"] > h["ready"]:  # she cast it again: its cooldown restarted
+                    healed += 1
+                    print("  Heal cast: the mabari %.1f -> %.1f (Heal gives %.1f)" % (before, r["dog_hp"], amount), json.dumps(r), flush=True)
+                    if healed == 1:
+                        run.shot("healed")
+                    break
+            else:
+                print("  no heal within 5 s", json.dumps(r), flush=True)
+            time.sleep(6.0)  # its cooldown
+        print("HEALS %d of 3" % healed, flush=True)
+
+        # --- the castle's guards join; the Blueprints' choices against daotools' ------------------------------
+        pyrun.run(MGR + ("acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}\n"
+                         "for n in %r:\n    acts[n].call_method('TakeHit', (2900.0,))\n") % first, 60)  # their own health again
+        pyrun.run(wake % (foes[3:] + allies), 60)
+        time.sleep(2.0)
+        compare_picks(a, mom, dog, allies, foes)
+
+        # --- the screen: a preset and a behaviour for the Teyrna ---------------------------------------------
+        screen = MGR + """
+tac = m.get_editor_property("Tac")
+def txt(n):
+    return str(tac.get_editor_property(n).get_text())
+OUT.update({"tabs": [txt("MemT%d" % k) for k in range(4)], "picker": txt("PickTitle"),
+            "options": list(tac.get_editor_property("OptNames")), "behav": txt("BehavT"),
+            "rows": [" | ".join(txt("%sT%d" % (c, r)) for c in ("Tgt", "Cnd", "Act")) for r in range(4)]})
+"""
+        pyrun.run(MGR + ("acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}\n"
+                         "for n in %r:\n    acts[n].call_method('GetUp')\n    acts[n].call_method('TakeHit', (-500.0,))\n") % [mom, dog], 60)
+        for _ in range(4):  # in case someone spoke
+            g.converse(seconds=30)
+            if not g.talking().get("bTalking"):
+                break
+        pyrun.run(MGR + 'm.call_method("ToggleTactics")', 60)
+        r = pyrun.run(screen, 60)
+        print("screen", json.dumps(r)[:300], flush=True)
+        tab = next(k for k, n in enumerate(r["tabs"]) if "eleanor" in n.lower() or "teyrna" in n.lower())
+
+        def act(label, *calls):
+            body = "".join('tac.call_method(%r, %r)\n' % c for c in calls)
+            r = pyrun.run(MGR + 'tac = m.get_editor_property("Tac")\n' + body + screen.split(MGR, 1)[1], 60)
+            print(label, json.dumps(r, default=str)[:700], flush=True)
+            return r
+
+        act("her tab", ("ShowMember", (tab,)))
+        r = act("presets", ("ClickPreset", ()))
+        run.shot("presets")
+        k = next(i for i, n in enumerate(r["options"]) if n.lower().startswith("archer"))
+        act("Archer loaded", ("PickOption", (k,)))
+        mine = pyrun.run(NPC % mom + """
+t = list(a.get_editor_property("NTalents"))
+OUT.update({"rows": [[round(v) for v in a.get_editor_property("NTactics")[6 * i:6 * i + 6]] for i in range(6)],
+            "known": [int(t[18 * i]) for i in range(len(t) // 18) if t[18 * i]], "slots": a.get_editor_property("TacticSlots")})
+""", 60)
+        n = len(a["TacticPresetNames"])
+        p = a["TacticPresets"][6 * a["TacticPresetNames"].index(next(x for x in a["TacticPresetNames"] if x.lower().startswith("archer"))):][:6]
+        prow = [dict(zip(ai.FIELDS, a["TacticPresetRows"][6 * (int(p[4]) + j):6 * (int(p[4]) + j) + 6])) for j in range(int(p[5]))]
+        want = [[round(r[f]) for f in ai.FIELDS] for r in ai.preset_rows(prow, mine["known"], mine["slots"], {4: 4, 5: 2, 6: 2, 7: 4})]
+        print("PRESET", "matches" if mine["rows"][:len(want)] == want else "DIFFERS", "her rows", mine["rows"][:len(want) + 1],
+              "daotools", want, flush=True)
+        r = act("behaviours", ("ClickBehav", ()))
+        run.shot("behaviours")
+        k = next(i for i, n in enumerate(r["options"]) if n.lower().startswith("passive"))
+        act("Passive picked", ("PickOption", (k,)))
+        print("BEHAVIOR", pyrun.run(NPC % mom + 'OUT["behavior"] = a.get_editor_property("Behavior")', 60), flush=True)
+        run.shot("her_tab")
+        pyrun.run(MGR + 'm.call_method("ToggleTactics")', 60)
+    finally:
+        run.finish()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--sound", action="store_true", help="play the game's sound (tests are silent otherwise)")
@@ -1617,6 +1879,12 @@ def main():
     s.add_argument("--foes", nargs="+", default=["bhn200cr_howe_main_hall*", "bhn200cr_howe_mage"])
     s.add_argument("--allies", nargs="+", default=["bhn100cr_gilmore", "bhn200cr_guard_main_hall1", "bhn200cr_guard_main_hall2"])
     s.set_defaults(fn=allies_check)
+    s = sub.add_parser("tacruncheck", help=tacrun_check.__doc__)
+    s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
+    s.add_argument("--foes", nargs="+", default=["bhn200cr_howe_main_hall*", "bhn200cr_howe_mage"])
+    s.add_argument("--allies", nargs="+", default=["bhn100cr_gilmore", "bhn200cr_guard_main_hall1", "bhn200cr_guard_main_hall2"])
+    s.add_argument("--game", default="E:/Steam/steamapps/common/Dragon Age Ultimate Edition")
+    s.set_defaults(fn=tacrun_check)
     s = sub.add_parser("party", help=party.__doc__)
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("--seconds", type=int, default=120)

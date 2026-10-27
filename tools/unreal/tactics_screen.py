@@ -42,7 +42,7 @@ WBP_CLASS = WBP + "_C"
 UMG = "UMGToolSet.UMGToolSet"
 F, I, B, STR = "float", "int", "bool", "string"
 TEXT, BUTTON, HBOX = "/Script/UMG.TextBlock", "/Script/UMG.Button", "/Script/UMG.HorizontalBox"
-ROWS, OPTS, TABS = 12, 24, 4
+ROWS, OPTS, TABS = 12, 32, 4
 
 VARIABLES = {
     NPC: [("AiTactics", F, "ARRAY"), ("PartyTactics", F, "ARRAY"), ("TacticSlots", I), ("bPartyRows", B)],
@@ -58,7 +58,10 @@ VARIABLES = {
           ("Tmp", F), ("MName", STR), ("STgt", STR), ("SCnd", STR), ("SAct", STR), ("AttackName", STR),
           ("TTargets", F, "ARRAY"), ("TTargetNames", STR, "ARRAY"), ("TBases", F, "ARRAY"), ("TBaseNames", STR, "ARRAY"),
           ("TConds", F, "ARRAY"), ("TCondNames", STR, "ARRAY"), ("TalIds", F, "ARRAY"), ("TalUse", F, "ARRAY"),
-          ("TalNames", STR, "ARRAY"), ("OptIds", I, "ARRAY"), ("OptNames", STR, "ARRAY")] + [
+          ("TalNames", STR, "ARRAY"), ("OptIds", I, "ARRAY"), ("OptNames", STR, "ARRAY"),
+          ("TCmds", F, "ARRAY"), ("TCmdNames", STR, "ARRAY"), ("TPresets", F, "ARRAY"), ("TPresetRows", F, "ARRAY"),
+          ("TPresetNames", STR, "ARRAY"), ("TBehavNames", STR, "ARRAY"), ("OptCmd", F, "ARRAY"), ("OptSub", F, "ARRAY"),
+          ("MClass", I), ("MBeh", I), ("PresetIdx", I), ("Added", I), ("CmdId", F), ("SCmd", STR), ("JumpName", STR)] + [
         (n, TEXT, "ARRAY") for n in ("TgtTs", "CndTs", "ActTs", "NumTs", "OptTs", "MemTs")] + [
         ("RowBs", HBOX, "ARRAY"), ("OptBs", BUTTON, "ARRAY"), ("MemBs", BUTTON, "ARRAY")],
 }
@@ -72,18 +75,23 @@ FUNCTIONS = {
          "ToggleTactics": [], "OpenTactics": [], "TacMake": [], "TacShow": [], "CloseTactics": []},
     AL: {"GiveNpcParty": [("Npc", NPC_CLASS), ("K", I)]},
     WBP: dict([("Open", [("InMgr", PM_CLASS)]), ("MemberOffer", [("A", NPC_CLASS)]), ("SetTargetRow", [("V", F)]),
-               ("SetAct", [("V", I)]), ("ClickCell", [("R", I), ("C", I)])] +
+               ("ClickCell", [("R", I), ("C", I)]), ("MatchCmd", [("C", F), ("K", I)]),
+               ("AddOpt", [("Name", STR), ("Cmd", F), ("Sub", F)])] +
               [(n, [("K", I)]) for n in ("TabName", "DrawTab", "ShowMember", "HeroTal", "NpcTal", "MatchTI",
-                                         "AddTargetOpt", "AddBaseOpt", "AddCondOpt", "AddActOpt", "DrawOpt",
-                                         "PickOption", "PickTarget", "PickCond", "PickBase", "CountOne", "PickAct")] +
+                                         "AddTargetOpt", "AddBaseOpt", "AddCondOpt", "DrawOpt",
+                                         "PickOption", "PickTarget", "PickCond", "PickBase", "CountOne", "PickAct",
+                                         "AddMemberOpt", "AddCmdOpts", "AddCmdKind", "AddTalOpt", "AddJumpOpt",
+                                         "AddPresetOpt", "AddBehavOpt", "PickPreset", "PickBehav")] +
               [(n, [("R", I)]) for n in ("DrawRow", "RowVis", "FindTarget", "FindCond", "FindAct", "InitIfEmpty",
-                                         "ClearRow", "MoveUp")] +
-              [(n, [("R", I), ("K", I)]) for n in ("MatchTarget", "MatchCond", "MatchAct")] +
-              [(n, [("J", I)]) for n in ("ZeroCell", "SwapCell")] +
+                                         "ClearRow", "MoveUp", "FindMemberTgt", "ActDetail")] +
+              [(n, [("R", I), ("K", I)]) for n in ("MatchTarget", "MatchCond", "MatchAct", "MatchMemberTgt")] +
+              [(n, [("J", I)]) for n in ("ZeroCell", "SwapCell", "ZeroAt", "PresetRow")] +
               [(n, []) for n in ("Collect", "CollectOnce", "LoadMenu", "ListMembers", "DrawTabs", "LoadRows",
                                  "LoadTalents", "HeroTalents", "NpcTalents", "Redraw", "FindTI", "FillPick",
                                  "FillTargets", "FillBases", "FillConds", "FillActs", "DrawPick", "ClosePick",
-                                 "CountBase", "BaseNext", "Done", "SwapRows", "Commit", "CloseScreen")]),
+                                 "CountBase", "BaseNext", "Done", "SwapRows", "Commit", "CloseScreen", "LoadSetup",
+                                 "SetupHero", "SetupNpc", "DrawSetup", "FillPresets", "FillBehavs", "ClickPreset",
+                                 "ClickBehav", "FillPreset", "SetBehOf")]),
 }
 GRAPHS = [
     (NPC, ["SetPartyTactics", "CopyPartyTactic", "SetTacticRows", "JoinRows", "LeaveRows", "PartyRowsTick",
@@ -126,6 +134,10 @@ OUT["exists"] = EAL.does_asset_exist("/Game/Cousland/Combat/WBP_Tactics")
     for k in range(TABS):
         w("Mem%d" % k, "Button", "Tabs")
         w("MemT%d" % k, "TextBlock", "Mem%d" % k)
+    w("SetupBox", "HorizontalBox", "Main")
+    for b in ("PresetB", "BehavB"):
+        w(b, "Button", "SetupBox")
+        w(b[:-1] + "T", "TextBlock", b)
     w("Body", "HorizontalBox", "Main")
     w("RowList", "VerticalBox", "Body")
     for r in range(ROWS):
@@ -154,7 +166,7 @@ OUT["exists"] = EAL.does_asset_exist("/Game/Cousland/Combat/WBP_Tactics")
         umg("AddWidget", args)
         added += 1
     for name, cls, parent in tree:
-        if cls.endswith(("TextBlock", "Button", "HorizontalBox")) and name not in ("Tabs", "Body", "Foot"):
+        if cls.endswith(("TextBlock", "Button", "HorizontalBox")) and name not in ("Tabs", "Body", "Foot", "SetupBox"):
             umg("ToggleWidgetAsVariable", {"widgetBlueprint": {"refPath": WBP},
                                            "widget": {"refPath": WBP + ":WidgetTree." + name}, "bIsVariable": True})
     print("widgets added", added)
@@ -196,6 +208,11 @@ for k in range(TABS):
     text("MemT%%d" %% k, 15, INK, "Member")
     button("Mem%%d" %% k, (0.28, 0.2, 0.12))
     pad("Mem%%d" %% k, 0, 0, 8, 0)
+pad("SetupBox", 0, 0, 0, 10)
+for b, label in (("Preset", "Load a preset"), ("Behav", "Behaviour: Default")):
+    text(b + "T", 14, INK, label)
+    button(b + "B", (0.24, 0.18, 0.11))
+    pad(b + "B", 0, 0, 10, 0)
 fill("Body", 1.0)
 fill("RowList", 2.7)
 fill("Picker", 1.0)
@@ -261,7 +278,8 @@ def bind():
     0 target / 1 condition / 2 action), Up MoveUp, X ClearRow, an option PickOption, a tab ShowMember, Close
     CloseScreen."""
     g = {"refPath": WBP + ":EventGraph"}
-    wiring = [("Close", "CloseScreen", {})] + [("Mem%d" % k, "ShowMember", {"K": k}) for k in range(TABS)] + [
+    wiring = [("Close", "CloseScreen", {}), ("PresetB", "ClickPreset", {}), ("BehavB", "ClickBehav", {})] + [
+        ("Mem%d" % k, "ShowMember", {"K": k}) for k in range(TABS)] + [
         ("Opt%d" % k, "PickOption", {"K": k}) for k in range(OPTS)]
     for r in range(ROWS):
         wiring += [("Tgt%d" % r, "ClickCell", {"R": r, "C": 0}), ("Cnd%d" % r, "ClickCell", {"R": r, "C": 1}),

@@ -4,7 +4,7 @@ from pathlib import Path
 
 OUT = Path(__file__).resolve().parent / "dsl" / "tactics"
 OUT.mkdir(exist_ok=True)
-ROWS, OPTS, TABS = 12, 24, 4
+ROWS, OPTS, TABS = 12, 32, 4
 
 
 def V(n):  # one of the widget's own variables
@@ -35,6 +35,14 @@ def sub(a, b):
     return "(Utility|Operatori|Sottrai %s %s)" % (a, b)
 
 
+def div(a, b):
+    return "(Utility|Operatori|Dividi %s %s)" % (a, b)
+
+
+def NOT(a):
+    return "(Matematica|Booleano|NOTBoolean %s)" % a
+
+
 def eq(a, b):
     return "(Utility|Operatori|Uguale(==) %s %s)" % (a, b)
 
@@ -47,12 +55,18 @@ def gt(a, b):
     return "(Utility|Operatori|Maggiore(>) %s %s)" % (a, b)
 
 
-def AND(a, b):
-    return "(Matematica|Booleano|ANDBoolean %s %s)" % (a, b)
+def AND(*xs):
+    out = xs[0]
+    for x in xs[1:]:
+        out = "(Matematica|Booleano|ANDBoolean %s %s)" % (out, x)
+    return out
 
 
-def OR(a, b):
-    return "(Matematica|Booleano|ORBoolean %s %s)" % (a, b)
+def OR(*xs):
+    out = xs[0]
+    for x in xs[1:]:
+        out = "(Matematica|Booleano|ORBoolean %s %s)" % (out, x)
+    return out
 
 
 def length(a):
@@ -129,7 +143,9 @@ fn("Open", ["InMgr"], S("Mgr", "InMgr"), call("CollectOnce"), call("LoadMenu"), 
 fn("LoadMenu", [],
    *[S(a, "(Classe|BPPlotManager|Ottieni%s %s)" % (b, M)) for a, b in (
        ("TTargets", "TTargets"), ("TTargetNames", "TTargetNames"), ("TBases", "TBases"), ("TBaseNames", "TBaseNames"),
-       ("TConds", "TConds"), ("TCondNames", "TCondNames"))],
+       ("TConds", "TConds"), ("TCondNames", "TCondNames"), ("TCmds", "TCommands"), ("TCmdNames", "TCommandNames"),
+       ("TPresets", "TPresets"), ("TPresetRows", "TPresetRows"), ("TPresetNames", "TPresetNames"),
+       ("TBehavNames", "TBehaviorNames"))],
    S("AttackName", '"Attack"'),
    branch(gt(length("(Classe|BPPlotManager|OttieniTCommandNames %s)" % M), 0),
           [S("AttackName", get("(Classe|BPPlotManager|OttieniTCommandNames %s)" % M, 0))]))
@@ -149,11 +165,23 @@ fn("DrawTab", ["K"],
 
 # --- a member: its rows, its slots, its talents --------------------------------------------------------------------
 fn("ShowMember", ["K"], branch(lt("K", add(length(V("Members")), 1)), [
-    S("MemberIdx", "K"), call("TabName", K="K"), call("LoadRows"), call("LoadTalents"), call("ClosePick"), call("Redraw")]))
+    S("MemberIdx", "K"), call("TabName", K="K"), call("LoadRows"), call("LoadTalents"), call("LoadSetup"),
+    call("ClosePick"), call("Redraw")]))
 NPC = get(V("Members"), sub(V("MemberIdx"), 1))
 fn("LoadRows", [], branch(eq(V("MemberIdx"), 0),
                           [S("Rows", "(Classe|BPPlotManager|OttieniPTactics %s)" % M), S("Slots", "(Classe|BPPlotManager|OttieniPSlots %s)" % M)],
                           [S("Rows", "(Classe|BPDlgNPC|OttieniNTactics %s)" % NPC), S("Slots", "(Classe|BPDlgNPC|OttieniTacticSlots %s)" % NPC)]))
+PTR = "(Classe|BPPlotManager|OttieniPTraits %s)" % M
+NTR = "(Classe|BPDlgNPC|OttieniNTraits %s)" % NPC
+fn("LoadSetup", [], S("MClass", 0), branch(eq(V("MemberIdx"), 0), [call("SetupHero")], [call("SetupNpc")]))
+fn("SetupHero", [], S("MBeh", "(Classe|BPPlotManager|OttieniPBehavior %s)" % M), call("DrawSetup"),
+   branch(gt(length(PTR), 0), [S("MClass", "(Matematica|Float|Truncate %s)" % get(PTR, 0))]))
+fn("SetupNpc", [], S("MBeh", "(Classe|BPDlgNPC|OttieniBehavior %s)" % NPC), call("DrawSetup"),
+   branch(gt(length(NTR), 0), [S("MClass", "(Matematica|Float|Truncate %s)" % get(NTR, 0))]))
+fn("DrawSetup", [], text(W("PresetT"), '"Load a preset"'),
+   branch(AND("(Utility|Operatori|Maggioreuguale(>=) %s 0)" % V("MBeh"), lt(V("MBeh"), length(V("TBehavNames")))),
+          [text(W("BehavT"), '(Utilità|Stringa|Append "Behaviour: " %s)' % get(V("TBehavNames"), V("MBeh")))],
+          [text(W("BehavT"), '"Behaviour"')]))
 fn("LoadTalents", [], "(Utilità|Array|Clear %s)" % V("TalIds"), "(Utilità|Array|Clear %s)" % V("TalUse"),
    "(Utilità|Array|Clear %s)" % V("TalNames"),
    branch(eq(V("MemberIdx"), 0), [call("HeroTalents")], [call("NpcTalents")]))
@@ -179,7 +207,11 @@ fn("DrawRow", ["R"], call("RowVis", R="R"), call("FindTarget", R="R"), call("Fin
    text(get(V("TgtTs"), "R"), V("STgt")), text(get(V("CndTs"), "R"), V("SCnd")), text(get(V("ActTs"), "R"), V("SAct")))
 fn("RowVis", ["R"], branch(lt("R", SHOWN), [vis(get(V("RowBs"), "R"), True)], [vis(get(V("RowBs"), "R"), False)]))
 fn("FindTarget", ["R"], S("STgt", '(Utilità|Stringa|SelectString "?" "(empty)" %s)' % CH),
-   loop(last(V("TTargetNames")), call("MatchTarget", R="R", K="_index")))
+   loop(last(V("TTargetNames")), call("MatchTarget", R="R", K="_index"), done=[call("FindMemberTgt", R="R")]))
+fn("FindMemberTgt", ["R"], branch(AND(CH, "(Utility|Operatori|Maggioreuguale(>=) %s 100.0)" % row(0)),
+                                  [loop(last(V("Members")), call("MatchMemberTgt", R="R", K="_index"))]))
+fn("MatchMemberTgt", ["R", "K"], branch(eq(add("(Matematica|Conversioni|ToFloat(Integer) (Classe|BPDlgNPC|OttieniNIndex %s))" % get(V("Members"), "K"), 100.0), row(0)),
+                                        [S("STgt", "(Classe|BPDlgNPC|OttieniDisplayName %s)" % get(V("Members"), "K"))]))
 fn("MatchTarget", ["R", "K"], branch(AND(CH, eq(get(V("TTargets"), mul("K", 2)), row(0))),
                                      [S("STgt", get(V("TTargetNames"), "K"))]))
 fn("FindCond", ["R"], S("SCnd", '(Utilità|Stringa|SelectString "(other)" "" %s)' % CH),
@@ -187,11 +219,18 @@ fn("FindCond", ["R"], S("SCnd", '(Utilità|Stringa|SelectString "(other)" "" %s)
 fn("MatchCond", ["R", "K"], branch(AND(AND(CH, eq(get(V("TConds"), add(mul("K", 3), 1)), row(1))),
                                        eq(get(V("TConds"), add(mul("K", 3), 2)), row(2))),
                                    [S("SCnd", get(V("TCondNames"), "K"))]))
-fn("FindAct", ["R"], S("SAct", '(Utilità|Stringa|SelectString %s (Utilità|Stringa|SelectString "?" "" %s) %s)' % (
-    V("AttackName"), CH, AND(CH, eq(row(3), 2.0)))),
-   loop(last(V("TalNames")), call("MatchAct", R="R", K="_index")))
-fn("MatchAct", ["R", "K"], branch(AND(AND(CH, OR(eq(row(3), 4.0), eq(row(3), 5.0))), eq(get(V("TalIds"), "K"), row(4))),
-                                  [S("SAct", get(V("TalNames"), "K"))]))
+CS = add(length(V("TTargetNames")), 1)  # a command's stride: its id, then a flag per target
+fn("FindAct", ["R"], S("SCmd", '"?"'), loop(sub(div(length(V("TCmds")), CS), 1),
+                                            call("MatchCmd", C=row(3), K="_index"),
+                                            done=[S("SAct", '(Utilità|Stringa|SelectString %s "" %s)' % (V("SCmd"), CH)),
+                                                  call("ActDetail", R="R")]))
+fn("MatchCmd", ["C", "K"], branch(eq(get(V("TCmds"), mul("K", CS)), "C"), [S("SCmd", get(V("TCmdNames"), "K"))]))
+fn("ActDetail", ["R"], branch(AND(CH, eq(row(3), 10.0)), [
+    S("SAct", '(Utilità|Stringa|Append (Utilità|Stringa|Append %s " ") (Utilità|Stringa|ToString(Integer) (Matematica|Float|Truncate %s)))' % (V("SCmd"), row(4)))],
+    [loop(last(V("TalNames")), call("MatchAct", R="R", K="_index"))]))
+fn("MatchAct", ["R", "K"], branch(AND(AND(CH, OR(eq(row(3), 4.0), eq(row(3), 5.0), eq(row(3), 6.0))), eq(get(V("TalIds"), "K"), row(4))),
+                                  [S("SAct", '(Utilità|Stringa|SelectString (Utilità|Stringa|Append "Deactivate: " %s) %s %s)' % (
+                                      get(V("TalNames"), "K"), get(V("TalNames"), "K"), eq(row(3), 6.0)))]))
 
 # --- clicking a field: the picker -----------------------------------------------------------------------------------
 fn("ClickCell", ["R", "C"], S("EditRow", "R"), call("InitIfEmpty", R="R"), call("FindTI"),
@@ -201,12 +240,21 @@ fn("InitIfEmpty", ["R"], branch("(Utility|Operatori|Minoreuguale(<=) %s 0.0)" % 
     set_cell(0, 3.0, "R"), set_cell(1, 16.0, "R"), set_cell(2, 0.0, "R"), set_cell(3, 2.0, "R"), set_cell(4, 0.0, "R"),
     set_cell(5, 100.0, "R"), call("Commit"), call("DrawRow", R="R")]))
 fn("FindTI", [], S("TI", 0), loop(last(V("TTargetNames")), call("MatchTI", K="_index")))
-fn("MatchTI", ["K"], branch(eq(get(V("TTargets"), mul("K", 2)), row(0, V("EditRow"))), [S("TI", "K")]))
+fn("MatchTI", ["K"], branch(eq(get(V("TTargets"), mul("K", 2)),
+                                 "(Matematica|Float|SelectFloat 6.0 %s %s)" % (row(0, V("EditRow")), "(Utility|Operatori|Maggioreuguale(>=) %s 100.0)" % row(0, V("EditRow")))),
+                              [S("TI", "K")]))
 fn("FillPick", [], "(Utilità|Array|Clear %s)" % V("OptIds"), "(Utilità|Array|Clear %s)" % V("OptNames"),
-   call("FillTargets"), call("FillBases"), call("FillConds"), call("FillActs"), call("DrawPick"))
+   "(Utilità|Array|Clear %s)" % V("OptCmd"), "(Utilità|Array|Clear %s)" % V("OptSub"),
+   call("FillTargets"), call("FillBases"), call("FillConds"), call("FillActs"), call("FillPresets"), call("FillBehavs"),
+   call("DrawPick"))
 fn("FillTargets", [], branch(eq(V("Stage"), 1), [loop(last(V("TTargetNames")), call("AddTargetOpt", K="_index"), "")]))
-fn("AddTargetOpt", ["K"], "(Utilità|Array|Add %s (Matematica|Float|Truncate %s))" % (V("OptIds"), get(V("TTargets"), mul("K", 2))),
-   "(Utilità|Array|Add %s %s)" % (V("OptNames"), get(V("TTargetNames"), "K")))
+fn("AddTargetOpt", ["K"], branch(eq(get(V("TTargets"), mul("K", 2)), 6.0),
+                                [loop(last(V("Members")), call("AddMemberOpt", K="_index"))], [
+    "(Utilità|Array|Add %s (Matematica|Float|Truncate %s))" % (V("OptIds"), get(V("TTargets"), mul("K", 2))),
+    "(Utilità|Array|Add %s %s)" % (V("OptNames"), get(V("TTargetNames"), "K"))]))
+fn("AddMemberOpt", ["K"], branch(eq("K", sub(V("MemberIdx"), 1)), els=[
+    "(Utilità|Array|Add %s %s)" % (V("OptIds"), add("(Classe|BPDlgNPC|OttieniNIndex %s)" % get(V("Members"), "K"), 100)),
+    "(Utilità|Array|Add %s (Classe|BPDlgNPC|OttieniDisplayName %s))" % (V("OptNames"), get(V("Members"), "K"))]))
 BS = add(length(V("TTargetNames")), 1)  # a base's stride: its id, then a flag per target
 fn("FillBases", [], branch(eq(V("Stage"), 2), [loop(last(V("TBaseNames")), call("AddBaseOpt", K="_index"), "")]))
 fn("AddBaseOpt", ["K"], branch(gt(get(V("TBases"), add(add(mul("K", BS), 1), V("TI"))), 0.0), [
@@ -215,12 +263,36 @@ fn("AddBaseOpt", ["K"], branch(gt(get(V("TBases"), add(add(mul("K", BS), 1), V("
 fn("FillConds", [], branch(eq(V("Stage"), 3), [loop(last(V("TCondNames")), call("AddCondOpt", K="_index"), "")]))
 fn("AddCondOpt", ["K"], branch(eq(get(V("TConds"), add(mul("K", 3), 1)), V("BaseId")), [
     "(Utilità|Array|Add %s K)" % V("OptIds"), "(Utilità|Array|Add %s %s)" % (V("OptNames"), get(V("TCondNames"), "K"))]))
-fn("FillActs", [], branch(eq(V("Stage"), 4), [
-    "(Utilità|Array|Add %s -1)" % V("OptIds"), "(Utilità|Array|Add %s %s)" % (V("OptNames"), V("AttackName")),
-    loop(last(V("TalNames")), call("AddActOpt", K="_index"), "")]))
-fn("AddActOpt", ["K"], "(Utilità|Array|Add %s K)" % V("OptIds"), "(Utilità|Array|Add %s %s)" % (V("OptNames"), get(V("TalNames"), "K")))
-fn("DrawPick", [], text(W("PickTitle"), '(Utilità|Stringa|SelectString "Target" (Utilità|Stringa|SelectString "Condition" (Utilità|Stringa|SelectString "Action" "Click a field to change it" %s) %s) %s)' % (
-    eq(V("Stage"), 4), OR(eq(V("Stage"), 2), eq(V("Stage"), 3)), eq(V("Stage"), 1))),
+fn("FillActs", [], branch(eq(V("Stage"), 4), [loop(sub(div(length(V("TCmds")), CS), 1),
+                                                    call("AddCmdOpts", K="_index"))]))
+fn("AddOpt", ["Name", "Cmd", "Sub"], "(Utilità|Array|Add %s %s)" % (V("OptIds"), length(V("OptNames"))),
+   "(Utilità|Array|Add %s Name)" % V("OptNames"), "(Utilità|Array|Add %s Cmd)" % V("OptCmd"), "(Utilità|Array|Add %s Sub)" % V("OptSub"))
+fn("AddCmdOpts", ["K"], S("CmdId", get(V("TCmds"), mul("K", CS))),
+   branch(gt(get(V("TCmds"), add(add(mul("K", CS), 1), V("TI"))), 0.0), [call("AddCmdKind", K="K")]))
+fn("AddCmdKind", ["K"], branch(OR(eq(V("CmdId"), 2.0), eq(V("CmdId"), 3.0)), [call("AddOpt", Name=get(V("TCmdNames"), "K"), Cmd=V("CmdId"), Sub=0.0)], [
+    branch(OR(eq(V("CmdId"), 4.0), eq(V("CmdId"), 5.0), eq(V("CmdId"), 6.0)), [loop(last(V("TalNames")), call("AddTalOpt", K="_index"))], [
+        branch(eq(V("CmdId"), 10.0), [S("JumpName", get(V("TCmdNames"), "K")), loop(sub(V("Slots"), 1), call("AddJumpOpt", K="_index"))], [
+            branch(eq(V("MemberIdx"), 0), [call("AddOpt", Name=get(V("TCmdNames"), "K"), Cmd=V("CmdId"), Sub=0.0)])])])]))
+fn("AddTalOpt", ["K"], branch(OR(AND(eq(V("CmdId"), 4.0), NOT(eq(get(V("TalUse"), "K"), 2.0))),
+                                  AND(OR(eq(V("CmdId"), 5.0), eq(V("CmdId"), 6.0)), eq(get(V("TalUse"), "K"), 2.0))), [
+    call("AddOpt", Name='(Utilità|Stringa|SelectString (Utilità|Stringa|Append "Deactivate: " %s) %s %s)' % (
+        get(V("TalNames"), "K"), get(V("TalNames"), "K"), eq(V("CmdId"), 6.0)), Cmd=V("CmdId"), Sub=get(V("TalIds"), "K"))]))
+fn("AddJumpOpt", ["K"], branch(eq("K", V("EditRow")), els=[
+    call("AddOpt", Name='(Utilità|Stringa|Append (Utilità|Stringa|Append %s " ") (Utilità|Stringa|ToString(Integer) %s))' % (V("JumpName"), add("K", 1)),
+         Cmd=10.0, Sub="(Matematica|Conversioni|ToFloat(Integer) %s)" % add("K", 1))]))
+# presets for the member's class, and behaviours
+fn("FillPresets", [], branch(eq(V("Stage"), 5), [loop(last(V("TPresetNames")), call("AddPresetOpt", K="_index"))]))
+PR = lambda n: get(V("TPresets"), add(mul("K", 6), n))
+fn("AddPresetOpt", ["K"], branch(OR(eq(PR(1), "(Matematica|Conversioni|ToFloat(Integer) %s)" % V("MClass")),
+                                    eq(PR(2), "(Matematica|Conversioni|ToFloat(Integer) %s)" % V("MClass")),
+                                    eq(PR(3), "(Matematica|Conversioni|ToFloat(Integer) %s)" % V("MClass"))), [
+    "(Utilità|Array|Add %s K)" % V("OptIds"), "(Utilità|Array|Add %s %s)" % (V("OptNames"), get(V("TPresetNames"), "K"))]))
+fn("FillBehavs", [], branch(eq(V("Stage"), 6), [loop(last(V("TBehavNames")), call("AddBehavOpt", K="_index"))]))
+fn("AddBehavOpt", ["K"], "(Utilità|Array|Add %s K)" % V("OptIds"), "(Utilità|Array|Add %s %s)" % (V("OptNames"), get(V("TBehavNames"), "K")))
+fn("ClickPreset", [], S("Stage", 5), call("FillPick"))
+fn("ClickBehav", [], S("Stage", 6), call("FillPick"))
+fn("DrawPick", [], text(W("PickTitle"), '(Utilità|Stringa|SelectString "Behaviour" (Utilità|Stringa|SelectString "Preset (fills the slots)" (Utilità|Stringa|SelectString "Target" (Utilità|Stringa|SelectString "Condition" (Utilità|Stringa|SelectString "Action" "Click a field to change it" %s) %s) %s) %s) %s)' % (
+    eq(V("Stage"), 4), OR(eq(V("Stage"), 2), eq(V("Stage"), 3)), eq(V("Stage"), 1), eq(V("Stage"), 5), eq(V("Stage"), 6))),
    loop(OPTS - 1, call("DrawOpt", K="_index")))
 fn("DrawOpt", ["K"], branch(lt("K", length(V("OptNames"))),
                             [vis(get(V("OptBs"), "K"), True), text(get(V("OptTs"), "K"), get(V("OptNames"), "K"))],
@@ -232,7 +304,7 @@ fn("ClosePick", [], S("Stage", 0), "(Utilità|Array|Clear %s)" % V("OptIds"), "(
 OK = lambda stage: AND(eq(V("StageNow"), stage), lt("K", length(V("OptIds"))))
 OPT = get(V("OptIds"), "K")
 fn("PickOption", ["K"], S("StageNow", V("Stage")), call("PickTarget", K="K"), call("PickCond", K="K"),
-   call("PickBase", K="K"), call("PickAct", K="K"))
+   call("PickBase", K="K"), call("PickAct", K="K"), call("PickPreset", K="K"), call("PickBehav", K="K"))
 fn("PickTarget", ["K"], branch(OK(1), [call("SetTargetRow", V="(Matematica|Conversioni|ToFloat(Integer) %s)" % OPT), call("Done")]))
 fn("SetTargetRow", ["V"], branch(eq(row(0, V("EditRow")), "V"), els=[set_cell(0, "V"), set_cell(1, 16.0), set_cell(2, 0.0)]))
 fn("PickCond", ["K"], branch(OK(3), [set_cell(1, get(V("TConds"), add(mul(OPT, 3), 1))),
@@ -243,10 +315,24 @@ fn("CountOne", ["K"], branch(eq(get(V("TConds"), add(mul("K", 3), 1)), V("BaseId
 fn("BaseNext", [], branch(eq(V("NB"), 1), [set_cell(1, get(V("TConds"), add(mul(V("LastCK"), 3), 1))),
                                            set_cell(2, get(V("TConds"), add(mul(V("LastCK"), 3), 2))), call("Done")],
                           [S("Stage", 3), call("FillPick")]))
-fn("PickAct", ["K"], branch(OK(4), [call("SetAct", V=OPT), call("Done")]))
-fn("SetAct", ["V"], branch(lt("V", 0), [set_cell(3, 2.0), set_cell(4, 0.0)],
-                           [set_cell(3, "(Matematica|Float|SelectFloat 5.0 4.0 %s)" % eq(get(V("TalUse"), "V"), 2.0)),
-                            set_cell(4, get(V("TalIds"), "V"))]))
+fn("PickAct", ["K"], branch(OK(4), [set_cell(3, get(V("OptCmd"), "K")), set_cell(4, get(V("OptSub"), "K")), call("Done")]))
+# a preset (Chargen_LoadPresetsTable): its rows in order, one using a talent only when the member knows it, as many
+# as its slots; the rest emptied
+fn("PickPreset", ["K"], branch(OK(5), [S("PresetIdx", OPT), loop(last(V("Rows")), call("ZeroAt", J="_index"),
+                                                                 done=[call("FillPreset")])]))
+fn("ZeroAt", ["J"], "(Utilità|Array|SetArrayElem %s J 0.0)" % V("Rows"))
+PP = lambda n: get(V("TPresets"), add(mul(V("PresetIdx"), 6), n))
+fn("FillPreset", [], S("Added", 0), loop(sub("(Matematica|Float|Truncate %s)" % PP(5), 1), call("PresetRow", J="_index"),
+                                         done=[call("Done")]))
+PRW = lambda n: get(V("TPresetRows"), add(mul(add("(Matematica|Float|Truncate %s)" % PP(4), "J"), 6), n))
+fn("PresetRow", ["J"], branch(AND(lt(V("Added"), V("Slots")),
+                                  OR(NOT(OR(eq(PRW(3), 4.0), eq(PRW(3), 5.0), eq(PRW(3), 6.0))),
+                                     "(Utilità|Array|ContainsItem %s %s)" % (V("TalIds"), PRW(4)))), [
+    *["(Utilità|Array|SetArrayElem %s %s %s)" % (V("Rows"), add(mul(V("Added"), 6), n), PRW(n)) for n in range(6)],
+    S("Added", add(V("Added"), 1))]))
+fn("PickBehav", ["K"], branch(OK(6), [S("MBeh", OPT), call("SetBehOf"), call("DrawSetup"), call("ClosePick")]))
+fn("SetBehOf", [], branch(eq(V("MemberIdx"), 0), ["(Classe|BPPlotManager|SetPBehavior %s :B %s)" % (M, V("MBeh"))],
+                          ["(Classe|BPDlgNPC|SetBehavior %s :B %s)" % (NPC, V("MBeh"))]))
 fn("Done", [], call("ClosePick"), call("Commit"), call("Redraw"))
 
 # --- clearing, moving, saving, closing ------------------------------------------------------------------------------

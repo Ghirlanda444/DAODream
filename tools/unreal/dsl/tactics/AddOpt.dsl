@@ -1,0 +1,5 @@
+(fn AddOpt (Name Cmd Sub)
+  (Utilità|Array|Add (Variabili|Predefinito|OttieniOptIds) (Utilità|Array|Length (Variabili|Predefinito|OttieniOptNames)))
+  (Utilità|Array|Add (Variabili|Predefinito|OttieniOptNames) Name)
+  (Utilità|Array|Add (Variabili|Predefinito|OttieniOptCmd) Cmd)
+  (Utilità|Array|Add (Variabili|Predefinito|OttieniOptSub) Sub))

@@ -81,11 +81,12 @@ Each phase ends with something you can see running.
       attacks; the party's talents and tactics; pause with orders to the party;
       the original's PC controls (clicking orders, taking control, the tactical
       camera); the night mage's spells; the castle's guards as allies, the
-      immortal ones never dying; the tactics screen (`\`), the game's own
-      targets, conditions and actions in each member's slots, and a game over.
-      Still to come: the weapons and animations (every attack is a punch), the
-      other spells and their effects, the tactics screen's presets and
-      behaviours, skills, injuries
+      immortal ones never dying; the tactics screen (`\`) with the game's
+      targets (allies and party members too), all its conditions, actions,
+      presets and behaviours, run as the original searches for a target;
+      Heal; and a game over. Still to come: the weapons and animations (every
+      attack is a punch), the other spells and their effects, items in the
+      tactics (with loot), skills, injuries
 
 ## Phase 4: The siege
 

@@ -1,5 +1,6 @@
 (fn StunPlayer (Seconds bFall)
   (Variabili|Predefinito|ImpostaPStunUntil (Matematica|Float|Max(Float) (Variabili|Predefinito|OttieniPStunUntil) (Utility|Operatori|Aggiungi (Utility|Operatori|Aggiungi (Utilità|Testo|GetGameTimeinSeconds) Seconds) (Matematica|Float|SelectFloat (Matematica|Casuale|RandomFloat) 0.0 bFall))))
   (Variabili|Predefinito|ImpostaPStunned "true")
+  (Variabili|Predefinito|ImpostaPFall bFall)
   (Input|DisableInput (Gioco|GetPlayerPawn 0) (Gioco|GetPlayerController 0))
   (Funzionedichiamata|ShowMsg :Txt (Utilità|Stringa|SelectString "Knocked down" "Stunned" bFall)))

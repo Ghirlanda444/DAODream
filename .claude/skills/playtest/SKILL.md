@@ -64,6 +64,11 @@ Compile success, a read-back graph or a variable value are not enough.
     the mabari in the party: the tabs and rows shown, a condition picked through the lists, an action set to
     Attack, a member's row retargeted, moved up and cleared, each read back from the tactics; the member
     leaving and rejoining the party (AI table, then the edited slots).
+  - `py playtest.py tacruncheck night`: Play, the tactics as the original runs them, in the main hall's battle:
+    the party waiting until someone is hurt; every menu condition asked of the Blueprints (TacPick) and of
+    daotools (tactics.pick_target) for the same paused moment (they must name the same creature); the Teyrna
+    given Heal healing the hurt mabari (read from her Heal cooldown); a preset and a behaviour picked on the
+    screen. `compare_picks` alone works on any running fight.
   - `py playtest.py alliescheck night`: Play, the main hall's battle with its allies (the conversation
     played through first): Howe's men there and the castle's (Gilmore and the two immortal guards) woken
     together, the Teyrna and the mabari in the party; whom Howe's men attack, everyone's health, how many
