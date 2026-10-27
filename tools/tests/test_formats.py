@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from daotools import abilities, ambient, area, balance, cnv, cutscene, fields as F, fsb, kit, mfdecode, plo, plotlogic, simulate, stats, tactics, threat, toolset, unreal
+from daotools import abilities, ambient, area, balance, cnv, cutscene, fields as F, fsb, kit, mfdecode, plo, plotlogic, simulate, stats, tactics, threat, toolset, treasure, unreal
 from daotools.cli import main
 from daotools.erf import ERF, ERFError, is_erf
 from daotools.gda import GDA, column_hash
@@ -1291,8 +1291,8 @@ class SimulateTests(unittest.TestCase):
         self.assertEqual(m["TacticBaseNames"], ["Health", "Self, HP", "Attacked"])
         self.assertEqual(m["TacticBases"], [2.0, 1.0, 1.0, 1.0, 33.0, 0.0, 1.0, 1.0, 22.0, 1.0, 0.0, 0.0])
         self.assertEqual(m["TacticConds"], [4.0, 2.0, -50.0, 101.0, 22.0, 1.0, 300.0, 33.0, -50.0])
-        self.assertEqual(m["TacticCommandNames"], ["Attack", "Wait"])  # no items yet, nothing off the menu
-        self.assertEqual(m["TacticCommands"], [2.0, 0.0, 0.0, 1.0, 3.0, 1.0, 1.0, 1.0])
+        self.assertEqual(m["TacticCommandNames"], ["Attack", "Wait", "Poultice"])  # nothing off the menu
+        self.assertEqual(m["TacticCommands"], [2.0, 0.0, 0.0, 1.0, 3.0, 1.0, 1.0, 1.0, 15.0, 1.0, 1.0, 1.0])
         self.assertEqual(m["TacticPresets"], [1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 9.0, 17.0, 0.0, 0.0, 1.0, 0.0])
         self.assertEqual(m["TacticPresetRows"], [3.0, 16.0, 0.0, 2.0, 0.0, 100.0])
         self.assertEqual(m["TacticPresetNames"], ["Tank", "War Dog"])
@@ -1458,6 +1458,78 @@ class SimulateTests(unittest.TestCase):
                 break
         self.assertAlmostEqual(damage, p.max_health * 0.2 + 1.0)
 
+
+
+class TreasureTests(unittest.TestCase):
+    TABLES = {
+        "categories": {8: "TS_Ferelden", 1: "TS_Generic"},
+        "ranks": {1: {"TS_LowTable": "Critter", "TS_HighTable": "Critter", "TS_ItemNum": 0.25, "TS_HighChance": 0.0,
+                      "TS_EquipmentChance": 0.0, "nReactiveTier": 1, "nLevelScale": -3},
+                  3: {"TS_LowTable": "Lieutenant", "TS_HighTable": "Boss", "TS_ItemNum": 1.5, "TS_HighChance": 0.02,
+                      "TS_EquipmentChance": 0.2, "nReactiveTier": 3, "nLevelScale": 0}},
+        "tables": {"ts_fereldencrecritter": [("gen_im_copper", 1), ("gen_im_qck_health_101", 1)],
+                   "ts_fereldencrelieutenant": [("gen_im_copper", 5), ("gen_im_gem_gar", 3)],
+                   "ts_fereldencreboss": [("gen_im_gem_sap", 1)],
+                   "ts_genericplccritter": [("gen_im_trash_private", 1)]},
+        "bitm": {2: {"DoNotDrop": 0, "Type": 2, "StackSize": 1}, 13: {"DoNotDrop": 1, "Type": 3, "StackSize": 1},
+                 113: {"Type": 1, "StackSize": 99}},
+        "difficulty": {1: {"ReactiveLimit": 12, "ReactiveChance": 0.75}}}
+
+    def test_tables_and_draws(self):
+        t = self.TABLES
+        self.assertEqual(treasure.table_name(t, 8, 3, False, True), "ts_fereldencreboss")
+        self.assertEqual(treasure.table_name(t, 1, 1, True, False), "ts_genericplccritter")
+        # a fraction is a chance of one more; a container always holds one
+        counts = [treasure.item_num(1.5, False, random.Random(k)) for k in range(400)]
+        self.assertEqual(set(counts) <= {0, 1, 2}, True)
+        self.assertTrue(0 in [treasure.item_num(0.25, False, random.Random(k)) for k in range(50)])
+        self.assertEqual(min(treasure.item_num(0.25, True, random.Random(k)) for k in range(50)), 1)
+        # copper: 6 x level^2 x size, 80-120%
+        self.assertTrue(all(38 <= treasure.scaled_money(2, 2, random.Random(k)) <= 57 for k in range(50)))
+        self.assertTrue(all(2 <= treasure.stack(3, random.Random(k)) <= 3 for k in range(50)))
+        self.assertEqual(treasure.level_of(t, 0, 3, 2), 2)
+        self.assertEqual(treasure.level_of(t, 0, 1, 2), 1)
+        # a creature's money and other items exclude each other
+        for k in range(200):
+            money, items = treasure.generate(t, 8, 3, 2, False, random.Random(k), hostile=False)
+            self.assertFalse(money and any(ref != "gen_im_copper" for ref, _ in items))
+        # what it carries counts: a creature with a backpack gets no money from its draws
+        for k in range(200):
+            money, items = treasure.generate(t, 8, 3, 2, False, random.Random(k), carried=[("gen_im_qck_injury_101", 1)])
+            self.assertEqual(items[0], ("gen_im_qck_injury_101", 1))
+        money, items = treasure.generate(t, 1, 1, 1, True, random.Random(3))
+        self.assertEqual(items, [("gen_im_trash_private", 1)])
+        self.assertEqual(treasure.generate(t, 8, 0, 1, False, random.Random(1)), (0, []))
+
+    def test_reactive_and_equipment(self):
+        t = self.TABLES
+        # a party with potions enough gets none; one with none gets them now and then, health first
+        self.assertIsNone(treasure.reactive(t, 1, (12, 12), 2, 1, random.Random(1)))
+        got = [treasure.reactive(t, 1, (0, 0), 2, 1, random.Random(k)) for k in range(400)]
+        self.assertTrue(0.12 < sum(1 for g in got if g) / 400 < 0.26)  # (1 - 0) / 4 x 0.75 x 1
+        self.assertTrue({g for g in got if g} <= {"gen_im_qck_health_101", "gen_im_qck_mana_101"})
+        self.assertEqual(treasure.equipment_drop(t, 1, [2], random.Random(1)), None)  # no chance at rank 1
+        drops = [treasure.equipment_drop(t, 3, [2, 13], random.Random(k)) for k in range(500)]
+        self.assertNotIn(1, drops)  # an ambient shield never drops
+        self.assertTrue(0.05 < drops.count(0) / 500 < 0.16)
+
+    def test_items_and_potions(self):
+        uti = {"TemplateResRef": "gen_im_qck_health_101", "LocalizedName": {"strref": 1, "text": "Lesser Health Poultice"},
+               "BaseItem": 113, "Cost": 100, "AbilityID": 200010, "PropertiesList": [{"PropertyID": 6116}]}
+        info = treasure.item_info(uti, self.TABLES)
+        self.assertEqual((info["Name"], info["Kind"], info["Stack"], info["Value"], info["Power"]),
+                         ("Lesser Health Poultice", treasure.KIND_HEALTH, 99, 100, 1.0))
+        self.assertEqual(treasure.potion_effect(200011, 10.0, False), (120.0, 0.0))
+        self.assertEqual(treasure.potion_effect(200031, 10.0, False), (0.0, 0.0))
+        self.assertEqual(treasure.potion_effect(200031, 10.0, True), (0.0, 105.0))
+        inv = [({"Kind": 1, "Value": 100}, 2), ({"Kind": 2, "Value": 300}, 1), ({"Kind": 1, "Value": 250}, 1),
+               ({"Kind": 1, "Value": 100}, 0)]
+        self.assertEqual(treasure.pick_potion(inv, 1, True), 2)
+        self.assertEqual(treasure.pick_potion(inv, 1, False), 0)
+        self.assertEqual(treasure.pick_potion(inv, 2, False), 1)
+        self.assertIsNone(treasure.pick_potion(inv, 3, True))
+        self.assertEqual(treasure.disable_device(14.0, 1, True), 14.0)
+        self.assertEqual(treasure.disable_device(18.0, 2, False), -1.0)
 
 class AmbientTests(unittest.TestCase):
     # Made-up rows in the shape of ambient_anim_patterns and anim_base.

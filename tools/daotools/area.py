@@ -29,7 +29,7 @@ import hashlib
 import random
 from pathlib import Path
 
-from . import abilities, ambient, tactics
+from . import abilities, ambient, tactics, treasure
 
 FORMAT = "DAODream.Area 1"
 WALL_HEIGHT = 3.0  # m above the highest neighbouring floor
@@ -784,7 +784,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
          creature_stats=None, player: dict | None = None, ambient_tables: dict | None = None,
          trigger_templates: dict[str, dict] | None = None, extra_creatures: list[tuple[str, str]] = (),
          lights: list[float] | None = None, fill: float = 0.0, fill_tint=FILL_COLOUR,
-         fixtures: dict | None = None, soften: float | None = None, tactic_menu: dict | None = None) -> dict:
+         fixtures: dict | None = None, soften: float | None = None, tactic_menu: dict | None = None,
+         loot=None, placeable_tmpl: dict[str, dict] | None = None) -> dict:
     """The runtime area file. `solids` (kit.solids, from the layout's rooms) replaces
     the navigation grid's walls with the level kit's walls, props, blockers and
     ceilings; `lights` (kit.lights) are the rooms' point lights, and `fill` above 0
@@ -796,6 +797,8 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     numbers (see stats.py). `ambient_tables` (ambient.load_tables) adds what each
     creature does on its own (see ambient.py); creatures with ambient behaviour are
     kept even without a conversation or team.
+    `loot` (treasure.Export) adds what creatures and containers drop (`placeable_tmpl`: the placeable
+    templates, for the containers).
     `door_models` (template -> the door model's min and max along its width and its
     height, metres; see kit.door_models) places and sizes doors like the game: the
     door's origin is its hinge and the panel runs along its local X."""
@@ -815,6 +818,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     npc_spell = []  # per creature: spellpower, a staff in hand (1/0)
     npc_tactics, npc_party_tactics, npc_tactic_slots = [], [], []
     npc_traits = []  # per creature, tactics.traits(): class, race, gender, rank, armour type
+    npc_loot, npc_bag = [], []  # per creature, treasure.LOOT_FIELDS, and [first, count] of its Bag rows
     npc_ambient, npc_ambient_prefix = [], []
     creatures = list(are_root.get("CreatureList") or [])
     waypoints = {w.get("Tag"): w for w in are_root.get("WaypointList") or []}
@@ -886,6 +890,10 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
             npc_party_tactics.extend(tactics.flat_rows(st.get("PartyTactics")))
             npc_tactic_slots.append(int(st.get("TacticSlots") or 0))
             npc_traits.extend(st.get("Traits") or [0.0] * 5)
+        if loot is not None:
+            level = int(st["Level"]) if creature_stats is not None else 0
+            npc_loot.extend(loot.fields(int(utc.get("TreasureCategory") or 0), int(utc.get("Rank") or 0), level, False))
+            npc_bag.extend(loot.carried(utc.get("ItemList") or [], utc.get("Equip_ItemList") or []))
         chest = npc_chest[-1] if creature_stats is not None else ""
         coat = mabari_coat(str(c.get("TemplateResRef", "")), key)
         beast = beast_look(str(c.get("TemplateResRef", "")))
@@ -900,6 +908,38 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
             npc_variety.extend(variety(key, chest) if crowd else [0.0] * VARIETY)
         npc_pose.extend([*ue_point(c["XPosition"], c["YPosition"], c["ZPosition"]),
                          ue_yaw(c["XOrientation"], c["YOrientation"], c["ZOrientation"], c["WOrientation"])])
+
+    box_tags, box_names, box_pose, box_info, box_keys, box_loot, box_bag = [], [], [], [], [], [], []
+    for d in are_root.get("PlaceableList") or [] if loot is not None else []:
+        t = (placeable_tmpl or {}).get(str(d.get("TemplateResRef") or "").lower())
+        if t is None or is_door(d.get("Tag") or "", str(d.get("TemplateResRef") or "")):
+            continue
+        app = int(t.get("Appearance") or 0)
+        chest = loot.tables["placeable_types"].get(app) in treasure.CHEST_TYPES
+        items = d.get("ItemList") or t.get("ItemList") or []
+        if not chest and not items:
+            continue
+        get = lambda k: d.get(k, t.get(k))  # the instance's value, else its template's
+        box_tags.append(d.get("Tag") or "")
+        box_names.append(_text(t.get("LocName")))
+        box_pose.extend([*ue_point(d["XPosition"], d["YPosition"], d["ZPosition"]),
+                         ue_yaw(d["XOrientation"], d["YOrientation"], d["ZOrientation"], d["WOrientation"])])
+        locked = 1 if chest and int(d.get("InitialState") or 0) == treasure.LOCKED else 0
+        # [look (CONTAINER_LOOKS), locked, lock level (PickLock), key required, usable, active]
+        box_info.extend([float(loot.look(app)), float(locked), float(get("PickLock") or 0),
+                         float(1 if get("KeyRequired") else 0), float(1 if get("Useable") else 0),
+                         float(1 if d.get("Active", 1) else 0)])
+        box_keys.append(str(get("KeyName") or ""))
+        rank = int(get("Rank") or 0) if chest else 0
+        box_loot.extend(loot.fields(int(get("TreasureCategory") or 0), rank, 0, True))
+        box_bag.extend(loot.carried(items, []))
+    loot_keys = {}
+    if loot is not None:
+        loot_keys = {"NpcLoot": npc_loot, "NpcBag": npc_bag, "ContainerTags": box_tags, "ContainerNames": box_names,
+                     "ContainerPose": box_pose, "ContainerInfo": box_info, "ContainerKeys": box_keys,
+                     "ContainerLoot": box_loot, "ContainerBag": box_bag, **loot.keys()}
+        if loot.missing:
+            warnings.append("loot: item templates not found: " + ", ".join(sorted(loot.missing)))
 
     door_tags, door_pose, door_state, door_size_wh, door_active = [], [], [], [], []
     for d in are_root.get("PlaceableList") or []:
@@ -1018,6 +1058,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "NpcPartyTactics": npc_party_tactics,
         "NpcTacticSlots": npc_tactic_slots,
         "NpcTraits": npc_traits,
+        **loot_keys,
         # Per creature, VARIETY floats: skin, hair and clothes dye for crowd looks (variety), a mabari's coat.
         "NpcVariety": npc_variety,
         "Player": player or {},

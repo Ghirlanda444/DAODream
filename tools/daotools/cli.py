@@ -30,7 +30,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import abilities, ambient, area, balance, cnv, cutscene, fsb, gda, kit, mfdecode, origin, plo, plotlogic, simulate, stats, tactics, threat, toolset, unreal
+from . import abilities, ambient, area, balance, cnv, cutscene, fsb, gda, kit, mfdecode, origin, plo, plotlogic, simulate, stats, tactics, threat, toolset, treasure, unreal
 from .erf import ERF, ERFError, is_erf
 from .gda import GDA
 from .fields import NAMES
@@ -406,7 +406,7 @@ def cmd_unreal_area(args) -> int:
             kit.pull(args.game, models, args.kit)
         door_models = kit.door_models(doors, gda_records, kit.load_kit(args.kit, models))
         print(f"doors: {len(door_models)} door templates sized from their models", file=sys.stderr)
-    creature_stats, player, ambient_tables, tactic_menu = None, None, None, None
+    creature_stats, player, ambient_tables, tactic_menu, loot = None, None, None, None, None
     if args.game:
         ambient_tables = ambient.load_tables(args.game)
         tables = stats.load_tables(args.game, overrides=args.mod_tables)
@@ -523,6 +523,15 @@ def cmd_unreal_area(args) -> int:
         player["Traits"] = tactics.traits(cls, 3, gender, stats.RANK_PLAYER, chest_label(equip))
         talk = TalkTables([TalkTable.open(p) for p in _find_talk_tables(args.game, "en-us")])
         tactic_menu = tactics.menu(ai_tables, talk.get)
+        # loot (treasure.py): the treasure tables, with the rebalance mod's autoscale; placeable_types' labels
+        # pick a container's look
+        loot_tables = treasure.load_tables(args.game, overrides=args.mod_tables)
+        with ERF.open(Path(args.game) / "packages" / "core" / "data" / "2da.erf") as erf:
+            labels = {int(r["ID"]): str(r.get("Label") or "") for r in
+                      GDA(GFF4(erf.read("placeable_types.gda")), ["ID", "Label"]).records()}
+        loot = treasure.Export(loot_tables, items, args.area_level, talk.get, labels)
+        hero_items = (json.loads(Path(args.player_template).read_text(encoding="utf-8"))["root"].get("ItemList")
+                      if args.player_template else []) or []
         print(f"talents: {', '.join(table[i]['Name'] for i in known if i in table) or 'none'}; fatigue "
               f"{player['Fatigue']}%", file=sys.stderr)
         print(f"player: {player['Attributes']}, {player['Health']} health, attack {player['Attack']}, defense {player['Defense']} "
@@ -534,7 +543,17 @@ def cmd_unreal_area(args) -> int:
                     extra_creatures=[tuple(x.split("@", 1)) for x in args.add_creature or []], lights=lights,
                     fill=args.fill_lights,
                     fill_tint=area.WARM_FILL_COLOUR if args.warm_fills else area.FILL_COLOUR, fixtures=fixtures,
-                    soften=0.3 if args.warm_fills else None, tactic_menu=tactic_menu)
+                    soften=0.3 if args.warm_fills else None, tactic_menu=tactic_menu, loot=loot,
+                    placeable_tmpl=area.placeable_templates(args.pull) if loot is not None else None)
+    if loot is not None:  # the hero's starting backpack and his lockpicking (a rogue's cunning above 10)
+        bag = loot.carried(hero_items, [])
+        out["PlayerItems"] = [x for k in range(int(bag[0]), int(bag[0] + bag[1]))
+                              for x in loot.bag[3 * k:3 * k + 2]]
+        loot_keys = loot.keys()  # the hero's items may have joined the catalogue
+        out.update({k: loot_keys[k] for k in ("ItemTags", "ItemNames", "ItemDescs", "ItemStats", "Bag")})
+        out["PlayerSpellPower"] = float(player.get("SpellPower") or 0.0)
+        out["PlayerLockpick"] = treasure.disable_device(float(player["Attributes"].get("Cun", 10.0)), 0,
+                                                        bool(player.get("Rogue")))
     s = out["Summary"]
     print(f"{out['Area']}: {s['Floors']} floor boxes, {s['Walls']} grid walls, {s['Solids']} kit solids "
           f"({s['DoorwaysCut']} doorways cut, {s['DoorFrames']} door frames, "

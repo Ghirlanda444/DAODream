@@ -34,8 +34,7 @@ Ser Gilmore's) leaves them empty, for the player to fill on the tactics screen.
 The tactics screen (menu): the game's own lists, as its GUI shows them: the target types, base conditions,
 conditions and commands it offers the player (their 0x2a1af533 column: 1 for the player's menu, 0 for the enemy AI's
 rows) with their names (StrRef, in the talk table); its presets (tacticsuserpresets: a name, the classes it is for
-and a table of rows, loaded as the hero's is) and behaviours (aibehaviors). Items wait for the inventory
-(MENU_LATER).
+and a table of rows, loaded as the hero's is) and behaviours (aibehaviors).
 
 Who a row is aimed at (pick_target, ai_conditions_h): each base condition is a search that returns a creature or
 nothing. The target type gives the list it searches: Self; Ally (the five nearest living creatures of its group, not
@@ -93,9 +92,9 @@ ENGAGE_LONG, ENGAGE_CLOSE = 30.0, 15.0  # AI_FOLLOWER_ENGAGE_DISTANCE_*: from th
 RING = 2.5  # metres: the melee ring (CountAround, AroundOffer in Unreal)
 CLUSTER_RADIUS = 5.0  # the cluster's centre must be within 5 m of a creature (and its spread, the spell's area)
 HEAL = 10104  # ABILITY_SPELL_HEAL: only on the wounded (_AI_IsTargetValidForBeneficialAbility)
-# The screen leaves out what the Unreal side cannot run yet: items (Use item, the poultices and lyrium potions: the
-# inventory) and moves to a placeable.
-MENU_LATER = (7, 8, 15, 16, 17, 18)
+# The screen leaves out what the Unreal side cannot run: using a placeable.
+MENU_LATER = (8,)
+USE_ITEM, HEALTH_MOST, HEALTH_LEAST, LYRIUM_MOST, LYRIUM_LEAST = 7, 15, 16, 17, 18  # AI_COMMAND_USE_*
 BEHAVIOR_FLAGS = ("AttackBack", "ChaseEnemy", "AttackOnCombatStart", "PreferRange", "PreferMelee",
                   "AvoidNearbyEnemies", "AvoidMeleeEnemies", "DefaultAttack", "AvoidAOE")
 _BEHAVIOR_NAME, _BEHAVIOR_TEXT = "0xa77dbfd8", "0x50a903b6"  # aibehaviors: name and description StrRefs
