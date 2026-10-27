@@ -7,4 +7,5 @@
   (Funzionedichiamata|ShowPartyBar)
   (Variabili|Predefinito|ImpostaIdleAnim "/Game/Cousland/Anims/A_Fallen.A_Fallen")
   (Componenti|Animazione|PlayAnimation (Variabili|Predefinito|OttieniMesh) "/Game/Cousland/Anims/A_Fallen.A_Fallen" "true")
-  (Classe|BPPlotManager|MemberDown (Variabili|Predefinito|OttieniMgr)))
+  (Classe|BPPlotManager|MemberDown (Variabili|Predefinito|OttieniMgr))
+  (Funzionedichiamata|DropLoot))

@@ -5,4 +5,8 @@
     (:else
       (Utilità|ControlloDiFlusso|Ramo (Utilità|IsValid (Variabili|Predefinito|OttieniPickDoor))
         (:then
-          (Classe|BPDoor|TryUse (Variabili|Predefinito|OttieniPickDoor)))))))
+          (Classe|BPDoor|TryUse (Variabili|Predefinito|OttieniPickDoor)))
+        (:else
+          (Utilità|ControlloDiFlusso|Ramo (Utilità|IsValid (Variabili|Predefinito|OttieniPickBox))
+            (:then
+              (Funzionedichiamata|OpenBox :Box (Variabili|Predefinito|OttieniPickBox)))))))))

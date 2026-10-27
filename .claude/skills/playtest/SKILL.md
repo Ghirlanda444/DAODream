@@ -69,6 +69,10 @@ Compile success, a read-back graph or a variable value are not enough.
     daotools (tactics.pick_target) for the same paused moment (they must name the same creature); the Teyrna
     given Heal healing the hurt mabari (read from her Heal cooldown); a preset and a behaviour picked on the
     screen. `compare_picks` alone works on any running fight.
+  - `py playtest.py lootcheck night`: Play, loot: the starting poultices, the containers spawned, one opened
+    and emptied, a locked chest refusing, the knight felled and his bag looted, the inventory window and a
+    poultice drunk, the Teyrna drinking one from her tactics, the screen's item actions, and GenLoot rolled
+    1,000 times against daotools treasure.generate.
   - `py playtest.py alliescheck night`: Play, the main hall's battle with its allies (the conversation
     played through first): Howe's men there and the castle's (Gilmore and the two immortal guards) woken
     together, the Teyrna and the mabari in the party; whom Howe's men attack, everyone's health, how many

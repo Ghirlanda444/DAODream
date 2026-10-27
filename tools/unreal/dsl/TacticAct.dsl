@@ -25,4 +25,8 @@
     (:else
   (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Uguale(==) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTactics) (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniRB) 3)) 6.0)
     (:then
-      (Funzionedichiamata|ModeOff :Ability (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTactics) (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniRB) 4))))))))))))))))
+      (Funzionedichiamata|ModeOff :Ability (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTactics) (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniRB) 4))))
+    (:else
+  (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ORBoolean (Utility|Operatori|Uguale(==) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTactics) (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniRB) 3)) 7.0) (Matematica|Booleano|ANDBoolean (Utility|Operatori|Maggioreuguale(>=) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTactics) (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniRB) 3)) 15.0) (Utility|Operatori|Minoreuguale(<=) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTactics) (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniRB) 3)) 18.0)))
+    (:then
+      (Funzionedichiamata|TacItemRow :Cmd (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTactics) (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniRB) 3)) :Sub (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNTactics) (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniRB) 4))))))))))))))))))

@@ -1,0 +1,4 @@
+(fn GenEquip ()
+  (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ANDBoolean (Matematica|Booleano|ANDBoolean (Matematica|Booleano|ANDBoolean (Matematica|Booleano|NOTBoolean (Utility|Operatori|Maggiore(>) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniGLoot) 8) 0.5)) (Utility|Operatori|Uguale(==) (Variabili|Predefinito|OttieniGMoney) 0)) (Utility|Operatori|Maggiore(>) (Utilità|Array|Length (Variabili|Predefinito|OttieniGEquip)) 0)) (Utility|Operatori|Minoreuguale(<=) (Matematica|Casuale|RandomFloat) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniGLoot) 4)))
+    (:then
+      (Funzionedichiamata|GAdd :Item (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniGEquip) (Matematica|Casuale|RandomIntegerinRange 0 (Utility|Operatori|Sottrai (Utilità|Array|Length (Variabili|Predefinito|OttieniGEquip)) 1))) :N 1))))

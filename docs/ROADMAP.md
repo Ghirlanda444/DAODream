@@ -84,9 +84,11 @@ Each phase ends with something you can see running.
       immortal ones never dying; the tactics screen (`\`) with the game's
       targets (allies and party members too), all its conditions, actions,
       presets and behaviours, run as the original searches for a target;
-      Heal; and a game over. Still to come: the weapons and animations (every
-      attack is a punch), the other spells and their effects, items in the
-      tactics (with loot), skills, injuries
+      Heal; loot (the original's treasure tables, containers, the bags fallen
+      creatures leave), the party's inventory and money, poultices and lyrium
+      potions by hand and by tactics (`docs/LOOT.md`); and a game over. Still to
+      come: the weapons and animations (every attack is a punch), equipping
+      what is looted, the other spells and their effects, skills, injuries
 
 ## Phase 4: The siege
 

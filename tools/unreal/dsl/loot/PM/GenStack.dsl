@@ -1,0 +1,5 @@
+(fn GenStack (Size)
+  (Variabili|Predefinito|ImpostaGSf (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica (Matematica|Casuale|RandomFloat) 0.2) 0.8))
+  (Variabili|Predefinito|ImpostaGSn (Matematica|Intero|Max(Integer) 1 (Matematica|Float|Truncate (Utility|Operatori|Moltiplica (Variabili|Predefinito|OttieniGSf) Size))))
+  (Variabili|Predefinito|ImpostaGSn (Matematica|Intero|SelectInt (Utility|Operatori|Aggiungi (Variabili|Predefinito|OttieniGSn) 1) (Variabili|Predefinito|OttieniGSn) (Utility|Operatori|Minore(<) (Matematica|Conversioni|ToFloat(Integer) (Variabili|Predefinito|OttieniGSn)) (Utility|Operatori|Moltiplica Size (Variabili|Predefinito|OttieniGSf)))))
+  (Variabili|Predefinito|ImpostaGSn (Matematica|Intero|SelectInt 1 (Variabili|Predefinito|OttieniGSn) (Utility|Operatori|Minoreuguale(<=) Size 1.0))))

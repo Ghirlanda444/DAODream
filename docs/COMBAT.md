@@ -1349,8 +1349,8 @@ Movers still don't push against each other or the player.
 
 ## Not there yet
 
-the archers' bow model (with the weapon art, all weapons together); items in the tactics
-(Use item, the poultices and lyrium potions: with the inventory and loot); a second weapon set
+the archers' bow model (with the weapon art, all weapons together); equipping looted gear (loot and
+the potions: `docs/LOOT.md`); a second weapon set
 for party members (Prefer Range and Prefer Melee, the Switch actions); ground effects (Avoid AoE);
 the hero's tactics out of reach (a healer hero: not in the Human Noble origin); custom presets;
 skills (Combat Tactics' extra slots); the spells of other mages (only the night mage's and Heal

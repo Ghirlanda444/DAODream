@@ -81,10 +81,10 @@ FUNCTIONS = {
                                          "AddTargetOpt", "AddBaseOpt", "AddCondOpt", "DrawOpt",
                                          "PickOption", "PickTarget", "PickCond", "PickBase", "CountOne", "PickAct",
                                          "AddMemberOpt", "AddCmdOpts", "AddCmdKind", "AddTalOpt", "AddJumpOpt",
-                                         "AddPresetOpt", "AddBehavOpt", "PickPreset", "PickBehav")] +
+                                         "AddPresetOpt", "AddBehavOpt", "PickPreset", "PickBehav", "AddInvOpt")] +
               [(n, [("R", I)]) for n in ("DrawRow", "RowVis", "FindTarget", "FindCond", "FindAct", "InitIfEmpty",
                                          "ClearRow", "MoveUp", "FindMemberTgt", "ActDetail")] +
-              [(n, [("R", I), ("K", I)]) for n in ("MatchTarget", "MatchCond", "MatchAct", "MatchMemberTgt")] +
+              [(n, [("R", I), ("K", I)]) for n in ("MatchTarget", "MatchCond", "MatchAct", "MatchMemberTgt", "MatchItemAb")] +
               [(n, [("J", I)]) for n in ("ZeroCell", "SwapCell", "ZeroAt", "PresetRow")] +
               [(n, []) for n in ("Collect", "CollectOnce", "LoadMenu", "ListMembers", "DrawTabs", "LoadRows",
                                  "LoadTalents", "HeroTalents", "NpcTalents", "Redraw", "FindTI", "FillPick",

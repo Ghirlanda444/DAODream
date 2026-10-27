@@ -1,6 +1,7 @@
 (fn CommandThing (Where What)
   (Funzionedichiamata|PickDoorOf :What What)
-  (Utilità|ControlloDiFlusso|Ramo (Utilità|IsValid (Variabili|Predefinito|OttieniPickDoor))
+  (Funzionedichiamata|PickBoxOf :What What)
+  (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ORBoolean (Utilità|IsValid (Variabili|Predefinito|OttieniPickDoor)) (Utilità|IsValid (Variabili|Predefinito|OttieniPickBox)))
     (:then
       (Variabili|Predefinito|ImpostaHeroUse What))
     (:else

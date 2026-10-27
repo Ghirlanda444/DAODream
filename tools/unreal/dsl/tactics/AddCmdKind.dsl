@@ -16,6 +16,16 @@
     (:LoopBody
       (Funzionedichiamata|AddJumpOpt :K _index))))
     (:else
+        (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Uguale(==) (Variabili|Predefinito|OttieniCmdId) 7.0)
+    (:then
+        (Utilities|FlowControl|ForLoop :FirstIndex 0 :LastIndex (Utility|Operatori|Sottrai (Utilità|Array|Length (Classe|BPPlotManager|OttieniInv (Variabili|Predefinito|OttieniMgr))) 1)
+    (:LoopBody
+      (Funzionedichiamata|AddInvOpt :K _index))))
+    (:else
+        (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ORBoolean (Utility|Operatori|Uguale(==) (Variabili|Predefinito|OttieniCmdId) 11.0) (Utility|Operatori|Uguale(==) (Variabili|Predefinito|OttieniCmdId) 12.0))
+    (:then
         (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Uguale(==) (Variabili|Predefinito|OttieniMemberIdx) 0)
     (:then
-      (Funzionedichiamata|AddOpt :Name (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniTCmdNames) K) :Cmd (Variabili|Predefinito|OttieniCmdId) :Sub 0.0))))))))))
+      (Funzionedichiamata|AddOpt :Name (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniTCmdNames) K) :Cmd (Variabili|Predefinito|OttieniCmdId) :Sub 0.0))))
+    (:else
+      (Funzionedichiamata|AddOpt :Name (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniTCmdNames) K) :Cmd (Variabili|Predefinito|OttieniCmdId) :Sub 0.0))))))))))))

@@ -23,6 +23,7 @@ run are printed at the end.
     python playtest.py alliescheck night                                   Play: the main hall's battle with its allies
     python playtest.py screencheck night                                   Play: the tactics screen
     python playtest.py tacruncheck night                                   Play: tactics picked as the original, Heal, presets
+    python playtest.py lootcheck night                                     Play: containers, bags, the inventory, potions
 
 Characters are named by their tag (NpcTags in extracted/ue/areas/<area>.json). Hidden ones (waiting for a
 plot) are shown for the pictures. The editor must be open with its MCP server running (docs/UNREAL_SETUP.md);
@@ -1783,6 +1784,211 @@ OUT.update({"rows": [[round(v) for v in a.get_editor_property("NTactics")[6 * i:
         run.finish()
 
 
+LOOT_STATE = MGR + """
+def nm(a):
+    return a.get_name() if a else None
+names = list(m.get_editor_property("ItemNames"))
+inv = list(m.get_editor_property("Inv")); invn = list(m.get_editor_property("InvN"))
+OUT.update({"money": m.get_editor_property("Money"), "inventory": [(names[i], n) for i, n in zip(inv, invn)],
+            "loot_open": m.get_editor_property("LootOpen"), "inv_open": m.get_editor_property("InvOpen"),
+            "player_hp": round(m.get_editor_property("PlayerHealth"), 1)})
+"""
+BOXES = MGR + """
+names = list(m.get_editor_property("ItemNames"))
+boxes = [a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor) if a.get_class().get_name() == "BP_Container_C"]
+OUT["boxes"] = [{"name": b.get_name(), "title": b.get_editor_property("CName"), "look": b.get_editor_property("Look"),
+                 "locked": b.get_editor_property("Locked"), "usable": b.get_editor_property("Usable"),
+                 "money": b.get_editor_property("LMoney"),
+                 "items": [(names[i], n) for i, n in zip(b.get_editor_property("LItems"), b.get_editor_property("LCounts"))],
+                 "at": [round(v) for v in (b.get_actor_location().x, b.get_actor_location().y, b.get_actor_location().z)]} for b in boxes]
+"""
+
+
+def loot_check(args):
+    """Play at night: loot and the inventory. The hero's starting poultices; the containers the loader spawned
+    (their looks, locks, what they hold); one opened (OpenBox: the loot window) and emptied (Take all); a locked
+    chest refusing a warrior; the knight felled, his bag where he fell; the inventory window (I) and a poultice
+    drunk from it; the Teyrna drinking one from her tactics (Self: Health < 50%: Use health poultice) in a fight;
+    the tactics screen offering the item actions. Last, the treasure rolls: GenLoot run many times for a soldier, the
+    knight and a container, against daotools treasure.generate."""
+    import random as rnd
+    import sys
+    sys.path.insert(0, os.path.join(game.ROOT, "tools"))
+    from daotools import treasure
+    run = Run("lootcheck", args.area)
+    a = json.load(open(os.path.join(game.ROOT, "extracted", "ue", "areas", game.AREAS[args.area][1] + ".json"), encoding="utf-8"))
+    run.start(simulate=False)
+    try:
+        g = run.g
+        for _ in range(8):
+            g.converse(seconds=90)
+            if not g.talking().get("bTalking"):
+                break
+        print("start", json.dumps(pyrun.run(LOOT_STATE, 60)), flush=True)
+        boxes = pyrun.run(BOXES, 60)["boxes"]
+        print("containers %d (the export has %d active)" % (len(boxes), sum(1 for k in range(len(a["ContainerTags"])) if a["ContainerInfo"][6 * k + 5] > 0)), flush=True)
+        for b in boxes:
+            print("  ", json.dumps(b)[:300], flush=True)
+        # an unlocked container holding something, and a locked one
+        open_one = next((b for b in boxes if b["usable"] and not b["locked"] and (b["items"] or b["money"])), None)
+        locked = next((b for b in boxes if b["locked"]), None)
+        if open_one:
+            x, y, z = open_one["at"]
+            g.go(x + 150, y, z, wait=0.5)
+            r = pyrun.run(MGR + """
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+m.call_method("OpenBox", (acts[%r],))
+tac = m.get_editor_property("WLoot")
+OUT["window"] = [str(tac.get_editor_property(n).get_text()) for n in ("Title", "MoneyT", "ItT0", "ItT1", "ItT2")]
+""" % open_one["name"] + LOOT_STATE.split(MGR, 1)[1], 60)
+            print("opened", open_one["title"], json.dumps(r), flush=True)
+            run.shot("loot_window")
+            r = pyrun.run(MGR + 'm.get_editor_property("WLoot").call_method("ClickAll")\n' + LOOT_STATE.split(MGR, 1)[1], 60)
+            print("took all", json.dumps(r), flush=True)
+        if locked:
+            x, y, z = locked["at"]
+            r = pyrun.run(MGR + """
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+m.call_method("OpenBox", (acts[%r],))
+""" % locked["name"] + LOOT_STATE.split(MGR, 1)[1], 60)
+            print("locked", locked["title"], "-> window open:", r.get("loot_open"), flush=True)
+        # the knight felled: his bag
+        knight = run.npc("bhn200cr_howe_knight")
+        kx, ky, kz = g.loc(knight)
+        g.go(kx + 300, ky, kz, wait=0.5)
+        pyrun.run(NPC % knight + 'a.call_method("SetPlotActive", (True,))\na.call_method("TakeHit", (5000.0,))', 60)
+        time.sleep(1.5)
+        bags = [b for b in pyrun.run(BOXES, 60)["boxes"] if b["look"] == 5]
+        print("bags", json.dumps(bags), flush=True)
+        if bags:
+            r = pyrun.run(MGR + """
+acts = {a.get_name(): a for a in unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)}
+m.call_method("OpenBox", (acts[%r],))
+""" % bags[-1]["name"] + LOOT_STATE.split(MGR, 1)[1], 60)
+            run.shot("knight_bag")
+            pyrun.run(MGR + 'm.get_editor_property("WLoot").call_method("ClickAll")', 60)
+            print("after the bag", json.dumps(pyrun.run(LOOT_STATE, 60)), flush=True)
+        # the inventory window; a poultice drunk
+        pyrun.run(MGR + 'm.call_method("HurtPlayer", (m.get_editor_property("PlayerMaxHealth") * 0.5,))\nm.call_method("ToggleInventory")', 60)
+        r = pyrun.run(MGR + """
+inv = m.get_editor_property("WInv")
+OUT["rows"] = [str(inv.get_editor_property("RowT%d" % k).get_text()) for k in range(6)]
+OUT["money"] = str(inv.get_editor_property("MoneyT").get_text())
+""", 60)
+        print("inventory window", json.dumps(r), flush=True)
+        run.shot("inventory")
+        k = next(i for i, t in enumerate(r["rows"]) if "Health Poultice" in t)
+        # hurt and drink at once: out of combat the hero regenerates quickly
+        r = pyrun.run(MGR + """
+names = list(m.get_editor_property("ItemNames"))
+def state():
+    return {"player_hp": round(m.get_editor_property("PlayerHealth"), 1),
+            "inventory": [(names[i], n) for i, n in zip(m.get_editor_property("Inv"), m.get_editor_property("InvN"))]}
+m.call_method("HurtPlayer", (m.get_editor_property("PlayerMaxHealth") * 0.5,))
+OUT["before"] = state()
+m.get_editor_property("WInv").call_method("ClickRow", (%d,))
+OUT["after"] = state()
+""" % k, 60)
+        before, after = r["before"], r["after"]
+        print("POULTICE: health %.1f -> %.1f (lesser: 50 + spellpower), %s -> %s" % (
+            before["player_hp"], after["player_hp"], dict(before["inventory"]).get("Lesser Health Poultice"),
+            dict(after["inventory"]).get("Lesser Health Poultice")), flush=True)
+        pyrun.run(MGR + 'm.call_method("ToggleInventory")', 60)
+        # the Teyrna drinks from her tactics
+        mom = run.npc("bhn100cr_mother")
+        foe = run.npc("bhn200cr_howe_main_hall2")  # still standing: the hall is not reached in this test
+        fx, fy, fz = g.loc(foe)
+        g.go(fx + 500, fy, fz, wait=0.5)
+        pyrun.run(NPC % mom + 'a.call_method("SetPlotActive", (True,))\na.call_method("SetInParty", (True,))\n'
+                  'a.set_actor_location(unreal.Vector(%f, %f, %f), False, True)\n' % (fx + 500, fy + 150, fz), 60)
+        time.sleep(1.0)
+        for _ in range(5):  # once her party rows are in (PartyRowsTick)
+            r = pyrun.run(NPC % mom + """
+rows = list(a.get_editor_property("NTactics"))
+if a.get_editor_property("bPartyRows") and rows[3] != 16.0:
+    a.call_method("SetTacticRows", ([1.0, 2.0, -50.0, 16.0, 0.0, 100.0] + rows[:-6],))
+OUT["row0"] = [round(x) for x in list(a.get_editor_property("NTactics"))[:6]]
+""", 60)
+            if r.get("row0", [0, 0, 0, 0])[3] == 16:
+                break
+            time.sleep(1.0)
+        print("her first row", r, flush=True)
+        pyrun.run(NPC % foe + 'a.call_method("SetPlotActive", (True,))\na.call_method("TakeHit", (-3000.0,))', 60)
+        time.sleep(2.0)
+        drank = None
+        for k in range(10):
+            r = pyrun.run(NPC % mom + """
+m = a.get_editor_property("Mgr")
+if a.get_editor_property("Health") > a.get_editor_property("MaxHealth") * 0.45:
+    a.call_method("TakeHit", (a.get_editor_property("Health") - a.get_editor_property("MaxHealth") * 0.4,))
+names = list(m.get_editor_property("ItemNames"))
+OUT.update({"hp": round(a.get_editor_property("Health"), 1), "max": a.get_editor_property("MaxHealth"),
+            "poultices": sum(n for i, n in zip(m.get_editor_property("Inv"), m.get_editor_property("InvN")) if "Health Poultice" in names[i]),
+            "cooldowns": len(m.get_editor_property("CdWho"))})
+""", 60)
+            print("  teyrna", json.dumps(r), flush=True)
+            if drank is None:
+                drank = r
+            elif r["poultices"] < drank["poultices"]:
+                print("TEYRNA DRANK A POULTICE (%d -> %d)" % (drank["poultices"], r["poultices"]), flush=True)
+                break
+            time.sleep(1.0)
+        # the screen's item actions
+        pyrun.run(MGR + 'm.call_method("ToggleTactics")', 60)
+        r = pyrun.run(MGR + """
+tac = m.get_editor_property("Tac")
+tabs = [str(tac.get_editor_property("MemT%d" % k).get_text()) for k in range(4)]
+tac.call_method("ShowMember", (([i for i, t in enumerate(tabs) if "Eleanor" in t] or [0])[0],))
+tac.call_method("ClickCell", (0, 2))
+OUT["actions"] = list(tac.get_editor_property("OptNames"))
+OUT["row1"] = " | ".join(str(tac.get_editor_property("%sT0" % c).get_text()) for c in ("Tgt", "Cnd", "Act"))
+""", 60)
+        print("screen", json.dumps(r), flush=True)
+        run.shot("tactics_items")
+        pyrun.run(MGR + 'm.get_editor_property("Tac").call_method("ClosePick")\nm.call_method("ToggleTactics")', 60)
+        # the rolls, against daotools
+        tables = treasure.load_tables(args.game, overrides=os.path.join(game.ROOT, "extracted", "mods", "da_reborn", "erf"))
+        for tag in ("bhn200cr_howe_main_hall1", "bhn200cr_howe_knight"):
+            i = a["NpcTags"].index(tag)
+            fields = a["NpcLoot"][9 * i:9 * i + 9]
+            bs, bn = a["NpcBag"][2 * i:2 * i + 2]
+            r = pyrun.run(MGR + """
+money = 0; counts = []; got = {}
+names = list(m.get_editor_property("ItemNames"))
+for _ in range(1000):
+    m.call_method("GenLoot", (%r, 0, %d, %d, True))
+    mon = m.get_editor_property("GMoney")
+    money += 1 if mon > 0 else 0
+    its = list(m.get_editor_property("GItems")); cs = list(m.get_editor_property("GCounts"))
+    counts.append(sum(cs))
+    for it, c in zip(its, cs):
+        got[names[it]] = got.get(names[it], 0) + 1
+OUT.update({"money_rate": money / 1000.0, "mean_items": sum(counts) / 1000.0, "items": sorted(got.items(), key=lambda x: -x[1])[:8]})
+""" % (fields, int(bs), int(bn)), 300)
+            # daotools for the same creature: its carried items (Bag rows), the party's potions as they are now
+            st = pyrun.run(MGR + 'OUT.update({"inv": list(m.get_editor_property("Inv")), "n": list(m.get_editor_property("InvN"))})', 60)
+            kind = lambda it: a["ItemStats"][6 * it]
+            party = (sum(n for it, n in zip(st["inv"], st["n"]) if kind(it) == 1), sum(n for it, n in zip(st["inv"], st["n"]) if kind(it) == 2))
+            bag = [(int(a["Bag"][3 * k]), int(a["Bag"][3 * k + 1]), int(a["Bag"][3 * k + 2])) for k in range(int(bs), int(bs + bn))]
+            carried = sum(c for _, c, how in bag if how != 2)
+            potions = any(kind(it) in (1, 2) for it, _, how in bag if how != 2)
+            rng = rnd.Random(1)
+            money, items = 0, 0
+            for _ in range(3000):
+                mn, its = treasure.generate(tables, 8, int(round(a["NpcRank"][i])), int(fields[7]), False, rng, party_potions=party,
+                                            hostile=True, carries_potions=potions,
+                                            carried=[(a["ItemTags"][it], c) for it, c, how in bag if how != 2])
+                money += 1 if mn else 0
+                items += sum(n for _, n in its) - carried
+                if rng.random() <= fields[4] and not mn:  # an equipped piece (GenEquip)
+                    items += 1 if any(how == 2 for _, _, how in bag) else 0
+            items = items / 3000.0 + carried
+            print("ROLLS %s: blueprints: money %.2f of the time, %.2f items; daotools: money %.2f, %.2f items (party potions %s)" % (
+                tag, r["money_rate"], r["mean_items"], money / 3000.0, items, party), json.dumps(r["items"]), flush=True)
+    finally:
+        run.finish()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--sound", action="store_true", help="play the game's sound (tests are silent otherwise)")
@@ -1885,6 +2091,10 @@ def main():
     s.add_argument("--allies", nargs="+", default=["bhn100cr_gilmore", "bhn200cr_guard_main_hall1", "bhn200cr_guard_main_hall2"])
     s.add_argument("--game", default="E:/Steam/steamapps/common/Dragon Age Ultimate Edition")
     s.set_defaults(fn=tacrun_check)
+    s = sub.add_parser("lootcheck", help=loot_check.__doc__.replace("%", " percent"))
+    s.add_argument("area", choices=game.AREAS, nargs="?", default="night")
+    s.add_argument("--game", default="E:/Steam/steamapps/common/Dragon Age Ultimate Edition")
+    s.set_defaults(fn=loot_check)
     s = sub.add_parser("party", help=party.__doc__)
     s.add_argument("area", choices=game.AREAS)
     s.add_argument("--seconds", type=int, default=120)

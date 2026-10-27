@@ -4,6 +4,8 @@
   (Classe|BPDlgNPC|SetSpell Npc :InSpell (Variabili|Predefinito|OttieniNpcSpell) :K (Utility|Operatori|Moltiplica K 2))
   (Classe|BPDlgNPC|SetNpcTalents Npc :InTalents (Variabili|Predefinito|OttieniNpcTalents) :InTactics (Variabili|Predefinito|OttieniNpcTactics) :K K)
   (Classe|BPDlgNPC|SetTraits Npc :InTraits (Variabili|Predefinito|OttieniNpcTraits) :K K)
+  (Classe|BPDlgNPC|SetLootInfo Npc :InLoot (Variabili|Predefinito|OttieniNpcLoot) :InBag (Variabili|Predefinito|OttieniNpcBag) :K K)
+  (Classe|BPDlgNPC|SetBagInfo Npc :InBag (Variabili|Predefinito|OttieniNpcBag) :K K)
   (Utilità|ControlloDiFlusso|Ramo (Utility|Operatori|Minore(<) K (Utilità|Array|Length (Variabili|Predefinito|OttieniNpcInterval)))
     (:then
       (Classe|BPDlgNPC|SetInterval Npc :InInterval (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniNpcInterval) K)))))

@@ -20,4 +20,8 @@
     (:then
       (Funzionedichiamata|HeroModeOff :I I))
     (:else
-      (Funzionedichiamata|HeroTacticTalent :I I))))))))))))
+  (Utilità|ControlloDiFlusso|Ramo (Matematica|Booleano|ORBoolean (Utility|Operatori|Uguale(==) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniPTactics) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica I 6) 3)) 7.0) (Matematica|Booleano|ANDBoolean (Utility|Operatori|Maggioreuguale(>=) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniPTactics) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica I 6) 3)) 15.0) (Utility|Operatori|Minoreuguale(<=) (Utilità|Array|Ottieni(unacopia) (Variabili|Predefinito|OttieniPTactics) (Utility|Operatori|Aggiungi (Utility|Operatori|Moltiplica I 6) 3)) 18.0)))
+    (:then
+      (Funzionedichiamata|HeroItem :I I))
+    (:else
+      (Funzionedichiamata|HeroTacticTalent :I I))))))))))))))

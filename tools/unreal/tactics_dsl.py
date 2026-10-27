@@ -227,7 +227,10 @@ fn("FindAct", ["R"], S("SCmd", '"?"'), loop(sub(div(length(V("TCmds")), CS), 1),
 fn("MatchCmd", ["C", "K"], branch(eq(get(V("TCmds"), mul("K", CS)), "C"), [S("SCmd", get(V("TCmdNames"), "K"))]))
 fn("ActDetail", ["R"], branch(AND(CH, eq(row(3), 10.0)), [
     S("SAct", '(Utilità|Stringa|Append (Utilità|Stringa|Append %s " ") (Utilità|Stringa|ToString(Integer) (Matematica|Float|Truncate %s)))' % (V("SCmd"), row(4)))],
-    [loop(last(V("TalNames")), call("MatchAct", R="R", K="_index"))]))
+    [branch(AND(CH, eq(row(3), 7.0)), [loop(last("(Classe|BPPlotManager|OttieniItemNames %s)" % M), call("MatchItemAb", R="R", K="_index"))],
+            [loop(last(V("TalNames")), call("MatchAct", R="R", K="_index"))])]))
+fn("MatchItemAb", ["R", "K"], branch(eq(get("(Classe|BPPlotManager|OttieniItemStats %s)" % M, add(mul("K", 6), 1)), row(4)),
+                                     [S("SAct", '(Utilità|Stringa|Append "Use item: " %s)' % get("(Classe|BPPlotManager|OttieniItemNames %s)" % M, "K"))]))
 fn("MatchAct", ["R", "K"], branch(AND(AND(CH, OR(eq(row(3), 4.0), eq(row(3), 5.0), eq(row(3), 6.0))), eq(get(V("TalIds"), "K"), row(4))),
                                   [S("SAct", '(Utilità|Stringa|SelectString (Utilità|Stringa|Append "Deactivate: " %s) %s %s)' % (
                                       get(V("TalNames"), "K"), get(V("TalNames"), "K"), eq(row(3), 6.0)))]))
@@ -272,7 +275,17 @@ fn("AddCmdOpts", ["K"], S("CmdId", get(V("TCmds"), mul("K", CS))),
 fn("AddCmdKind", ["K"], branch(OR(eq(V("CmdId"), 2.0), eq(V("CmdId"), 3.0)), [call("AddOpt", Name=get(V("TCmdNames"), "K"), Cmd=V("CmdId"), Sub=0.0)], [
     branch(OR(eq(V("CmdId"), 4.0), eq(V("CmdId"), 5.0), eq(V("CmdId"), 6.0)), [loop(last(V("TalNames")), call("AddTalOpt", K="_index"))], [
         branch(eq(V("CmdId"), 10.0), [S("JumpName", get(V("TCmdNames"), "K")), loop(sub(V("Slots"), 1), call("AddJumpOpt", K="_index"))], [
-            branch(eq(V("MemberIdx"), 0), [call("AddOpt", Name=get(V("TCmdNames"), "K"), Cmd=V("CmdId"), Sub=0.0)])])])]))
+            branch(eq(V("CmdId"), 7.0), [loop(last("(Classe|BPPlotManager|OttieniInv %s)" % M), call("AddInvOpt", K="_index"))], [
+                branch(OR(eq(V("CmdId"), 11.0), eq(V("CmdId"), 12.0)),
+                       [branch(eq(V("MemberIdx"), 0), [call("AddOpt", Name=get(V("TCmdNames"), "K"), Cmd=V("CmdId"), Sub=0.0)])],
+                       [call("AddOpt", Name=get(V("TCmdNames"), "K"), Cmd=V("CmdId"), Sub=0.0)])])])])]))
+# Use item: each kind of potion the party carries, once
+INV = lambda k: get("(Classe|BPPlotManager|OttieniInv %s)" % M, k)
+IST = lambda item, n: get("(Classe|BPPlotManager|OttieniItemStats %s)" % M, add(mul(item, 6), n))
+fn("AddInvOpt", ["K"], branch(AND(OR(eq(IST(INV("K"), 0), 1.0), eq(IST(INV("K"), 0), 2.0)),
+                                  NOT("(Utilità|Array|ContainsItem %s %s)" % (V("OptSub"), IST(INV("K"), 1)))), [
+    call("AddOpt", Name='(Utilità|Stringa|Append "Use item: " %s)' % get("(Classe|BPPlotManager|OttieniItemNames %s)" % M, INV("K")),
+         Cmd=7.0, Sub=IST(INV("K"), 1))]))
 fn("AddTalOpt", ["K"], branch(OR(AND(eq(V("CmdId"), 4.0), NOT(eq(get(V("TalUse"), "K"), 2.0))),
                                   AND(OR(eq(V("CmdId"), 5.0), eq(V("CmdId"), 6.0)), eq(get(V("TalUse"), "K"), 2.0))), [
     call("AddOpt", Name='(Utilità|Stringa|SelectString (Utilità|Stringa|Append "Deactivate: " %s) %s %s)' % (

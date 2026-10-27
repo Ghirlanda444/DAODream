@@ -482,7 +482,11 @@ fn("HeroTacticUse", ["I"], call("HeroAim"),
        branch(eq(prow(3), 3.0), [S("HTDone", '"true"')], [
            branch(eq(prow(3), 10.0), [call("HeroJump", I="I")], [
                branch(OR(eq(prow(3), 11.0), eq(prow(3), 12.0)), [call("HeroSwitchSet", I="I")], [
-                   branch(eq(prow(3), 6.0), [call("HeroModeOff", I="I")], [call("HeroTacticTalent", I="I")])])])])]))
+                   branch(eq(prow(3), 6.0), [call("HeroModeOff", I="I")], [
+                       branch(OR(eq(prow(3), 7.0), AND(ge(prow(3), 15.0), le(prow(3), 18.0))), [call("HeroItem", I="I")],
+                              [call("HeroTacticTalent", I="I")])])])])])]))
+# a poultice, a lyrium potion or an item from the party's stock (loot_dsl.py: TacItem)
+fn("HeroItem", ["I"], call("TacItem", Me=P, Cmd=prow(3), Sub=prow(4)), branch(V("BF"), [S("HTDone", '"true"')]))
 fn("HeroJump", ["I"], S("HTStop", eq(prow(4), -1.0)),
    S("HTNext", "(Matematica|Float|Max(Float) %s %s)" % (V("HTNext"), self_(0, sub(prow(4), 1.0), 0.0, gt(prow(4), add(F("I"), 1.0))))))
 fn("HeroSwitchSet", ["I"], branch(OR(AND(eq(prow(3), 11.0), V("BowOn")), AND(eq(prow(3), 12.0), NOT(V("BowOn")))),
@@ -529,7 +533,9 @@ fn("TacticAct", ["I"],
            branch(eq(nrow(3), 9.0), [call("TacticMove", Sub=nrow(4))], [
                branch(eq(nrow(3), 2.0), [S("TacDone", '"true"'), call("TacAim")], [
                    branch(eq(nrow(3), 3.0), [S("TacDone", '"true"'), S("TacSlot", -2)], [
-                       branch(eq(nrow(3), 6.0), [call("ModeOff", Ability=nrow(4))])])])])])]),
+                       branch(eq(nrow(3), 6.0), [call("ModeOff", Ability=nrow(4))], [
+                           branch(OR(eq(nrow(3), 7.0), AND(ge(nrow(3), 15.0), le(nrow(3), 18.0))),
+                                  [call("TacItemRow", Cmd=nrow(3), Sub=nrow(4))])])])])])])]),
    bp="NPC")
 fn("ModeOff", ["Ability"], S("TFound", -1), loop(5, call("FindOne", K="_index", Ability="Ability"), done=[call("ModeOffGo")]),
    bp="NPC")

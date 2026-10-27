@@ -1,0 +1,7 @@
+(fn ShowLoot (Box)
+  (Variabili|Predefinito|ImpostaLootBox Box)
+  (Funzionedichiamata|LootMake)
+  (Funzionedichiamata|CloseLootUI)
+  (Interfacciautente|Viewport|AddtoViewport (Variabili|Predefinito|OttieniWLoot))
+  (Classe|WBPLoot|Open (Variabili|Predefinito|OttieniWLoot) :InMgr (Variabili|Ottieniunriferimentoasestesso) :InBox Box)
+  (Variabili|Predefinito|ImpostaLootOpen "true"))

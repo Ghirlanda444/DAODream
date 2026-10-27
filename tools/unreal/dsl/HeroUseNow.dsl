@@ -2,5 +2,6 @@
   (Variabili|Predefinito|ImpostaPickNpc)
   (Funzionedichiamata|PickClicked :What (Variabili|Predefinito|OttieniHeroUse))
   (Funzionedichiamata|PickDoorOf :What (Variabili|Predefinito|OttieniHeroUse))
+  (Funzionedichiamata|PickBoxOf :What (Variabili|Predefinito|OttieniHeroUse))
   (Variabili|Predefinito|ImpostaHeroUse)
   (Funzionedichiamata|UseRoute))

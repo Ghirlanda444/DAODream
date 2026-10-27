@@ -1,0 +1,5 @@
+(fn Open (InMgr InBox)
+  (Variabili|Predefinito|ImpostaMgr InMgr)
+  (Variabili|Predefinito|ImpostaBox InBox)
+  (Funzionedichiamata|CollectOnce)
+  (Funzionedichiamata|Redraw))

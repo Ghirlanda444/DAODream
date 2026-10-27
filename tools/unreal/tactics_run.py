@@ -70,7 +70,7 @@ FUNCTIONS = {
                                  "TrAtkSelf", "TrAtkEn", "TrAtkEnA", "TrAtkAl", "TrAtkAlE", "TrAtkMem", "TrTryBand",
                                  "TrTryRgd")]
              + [(n, [("I", I)]) for n in ("HeroTacticPick", "HeroTacticRow", "HeroTacticUse", "HeroJump", "HeroSwitchSet",
-                                         "HeroTacticTalent", "HeroModeOff")]
+                                         "HeroTacticTalent", "HeroModeOff", "HeroItem")]
              + [(n, [("Follower", NPC_CLASS)]) for n in ("AssignByBid", "BidChoose", "BidAttack", "BidReach", "BidKeep")]
              + [(n, []) for n in ("TrPeekPlayer", "TrCtrl", "TrCutEn5", "TrCutAlly5", "TrCountDead", "TrEngage", "TrList",
                                   "TrHealFilter", "TrPostHeal", "TrHated", "TrOwnChk", "TrOwn", "TrMember", "TrBuffOwn",
