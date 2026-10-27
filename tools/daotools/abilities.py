@@ -38,7 +38,9 @@ PARTY = DOG + (RAPID_SHOT,)
 # The spells (stage 3): Howe's mage at night (package 57, Spellcaster - Nuker, level 1) knows Shock, Mind Blast and
 # Lightning, and his tactics table (aip_caster_nuker_1) uses the three; Fireball comes at level 2.
 SHOCK, MIND_BLAST, LIGHTNING = 14000, 12006, 14001
-SPELLS = (SHOCK, MIND_BLAST, LIGHTNING)
+# Heal (Creation), for the party's healers: no one in the prologue knows it; the tactics' Ally target is for them.
+HEAL = 10104
+SPELLS = (SHOCK, MIND_BLAST, LIGHTNING, HEAL)
 SUSTAINED, PASSIVE, ACTIVATED = 2, 3, 4  # abi_base usetype
 CHARGEN_TALENT_POINTS = 2  # sys_chargen_h: PROPERTY_SIMPLE_TALENT_POINTS
 # Creature properties (properties.gda) the passive and scripted effects change, by name.
@@ -107,6 +109,7 @@ EFFECTS = {
     LIGHTNING: {"SpellDamage": 0.3, "Element": "Electricity"},  # one target (LIGHTNING_DAMAGE_FACTOR)
     SHOCK: {"SpellDamage": 0.4, "Element": "Electricity", "Cone": 10.0},  # everyone in a cone 10 m long
     #   (abi_base aoe_param1 35 degrees, aoe_param2 10 m; SHOCK_DAMAGE_FACTOR)
+    HEAL: {"SpellDamage": 0.4, "Heal": True},  # (100 + spellpower) x 0.4 health back, at once (HEAL_HEALTH_FRACTION)
     MIND_BLAST: {"Stun": 3.0, "Radius": 5.0, "Forget": True},  # every hostile within 5 m (aoe_param1) stunned
     #   MIND_BLAST_DURATION 3 s, rank-adjusted; its threat on the caster set to 1 (Reborn)
     # The party's (stage 6)
@@ -139,7 +142,7 @@ NAMES = {14: "Powerful", 808: "Threaten", 17: "Bravery", 3021: "Death Blow", 19:
          33: "Defensive Fire", 803: "Pinning Shot", 3072: "Shattering Shot", 100075: "Stealth",
          6: "Dual Weapon Training", 3071: "Rapid Shot", 90017: "Growl", 90050: "Fortitude", 90016: "Charge",
          90048: "Mabari Howl", 90049: "Combat Training", 90015: "Overwhelm", 90047: "Shred", SHOCK: "Shock",
-         MIND_BLAST: "Mind Blast", LIGHTNING: "Lightning"}
+         MIND_BLAST: "Mind Blast", LIGHTNING: "Lightning", HEAL: "Heal"}
 BRAVERY, DEATH_BLOW, EVASION = 17, 3021, 3069
 # A human knocked down (Shield Bash) is out of the fight while the engine plays the fall (mh_c.rct_kbck: 1.2 and
 # 1.37 s; which one, or how the engine blends it, is not in the data), lies for the effect's RandomFloat() seconds

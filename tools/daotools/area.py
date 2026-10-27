@@ -814,6 +814,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
     npc_talents = []
     npc_spell = []  # per creature: spellpower, a staff in hand (1/0)
     npc_tactics, npc_party_tactics, npc_tactic_slots = [], [], []
+    npc_traits = []  # per creature, tactics.traits(): class, race, gender, rank, armour type
     npc_ambient, npc_ambient_prefix = [], []
     creatures = list(are_root.get("CreatureList") or [])
     waypoints = {w.get("Tag"): w for w in are_root.get("WaypointList") or []}
@@ -884,6 +885,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
             npc_tactics.extend(tactics.flat_rows(st.get("Tactics")))
             npc_party_tactics.extend(tactics.flat_rows(st.get("PartyTactics")))
             npc_tactic_slots.append(int(st.get("TacticSlots") or 0))
+            npc_traits.extend(st.get("Traits") or [0.0] * 5)
         chest = npc_chest[-1] if creature_stats is not None else ""
         coat = mabari_coat(str(c.get("TemplateResRef", "")), key)
         beast = beast_look(str(c.get("TemplateResRef", "")))
@@ -1015,6 +1017,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         # NpcTactics) and how many slots it has (tactics.slots); zeros for the rest.
         "NpcPartyTactics": npc_party_tactics,
         "NpcTacticSlots": npc_tactic_slots,
+        "NpcTraits": npc_traits,
         # Per creature, VARIETY floats: skin, hair and clothes dye for crowd looks (variety), a mabari's coat.
         "NpcVariety": npc_variety,
         "Player": player or {},
@@ -1024,6 +1027,7 @@ def area(are_root: dict, layout_root: dict, templates: dict[str, dict], *, start
         "PlayerTalents": [x for row in (player or {}).get("TalentRows", []) for x in row],
         "PlayerTactics": tactics.flat_rows((player or {}).get("Tactics")),
         "PlayerTacticSlots": int((player or {}).get("TacticSlots") or 0),
+        "PlayerTraits": list((player or {}).get("Traits") or []),
         # The tactics screen's lists (tactics.menu): Tactic{Targets,Bases,Conds,Commands} and their names.
         **(tactic_menu or {}),
         "PlayerPassives": (player or {}).get("Passives", []),

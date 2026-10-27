@@ -464,6 +464,9 @@ def cmd_unreal_area(args) -> int:
             st["TalentRows"] = [abilities.talent_row(i, table[i], st) for i in known
                                 if i in table and table[i]["Use"] != abilities.PASSIVE][:tactics.MAX_TALENTS]
             st["Tactics"] = ai_tables["tactics"].get(int(utc.get("PackageAI") or 0), [])
+            st["Traits"] = tactics.traits(cls_id, int(utc.get("Race") or 0),
+                                          int((utc.get("Appearance Data") or {}).get("Gender") or 0), rank,
+                                          chest_label(fighting))
             if tag in area.FOLLOWERS:
                 st["PartyTactics"] = tactics.follower_tactics(ai_tables, package, int(st["Level"]), known)
                 st["TacticSlots"] = tactics.slots(ai_tables, int(st["Level"]), known)
@@ -515,6 +518,9 @@ def cmd_unreal_area(args) -> int:
         player["Passives"] = [i for i in known if i in table and table[i]["Use"] == abilities.PASSIVE]
         player["Tactics"] = tactics.hero_tactics(ai_tables, cls, int(player["Level"]), known)
         player["TacticSlots"] = tactics.slots(ai_tables, int(player["Level"]), known)
+        hm = json.loads(Path(args.player_template).read_text(encoding="utf-8"))["root"] if args.player_template else {}
+        gender = int((hm.get("Appearance Data") or {}).get("Gender") or 1)  # the template's; male without one
+        player["Traits"] = tactics.traits(cls, 3, gender, stats.RANK_PLAYER, chest_label(equip))
         talk = TalkTables([TalkTable.open(p) for p in _find_talk_tables(args.game, "en-us")])
         tactic_menu = tactics.menu(ai_tables, talk.get)
         print(f"talents: {', '.join(table[i]['Name'] for i in known if i in table) or 'none'}; fatigue "

@@ -1255,33 +1255,110 @@ class SimulateTests(unittest.TestCase):
         self.assertEqual(tactics.choose([shot, attack], me, foe, lambda a, m: True, random.Random(1)), (tactics.USE_ABILITY, 1))
 
     def test_tactics_menu(self):
-        # the screen's lists: the player's menu entries the Unreal side runs, named from the talk table
+        # the screen's lists: the player's menu entries, named from the talk table; its presets and behaviours
         tables = {"menu": {
-            "targets": [{"ID": 1, "label": "Self", "StrRef": 11, "Type": 1}, {"ID": 2, "label": "Ally", "Type": 2},
-                        {"ID": 3, "label": "Enemy", "StrRef": 13, "Type": 4}],
+            "targets": [{"ID": 1, "label": "Self", "StrRef": 11, "Type": 1, tactics.IN_MENU: 1},
+                        {"ID": 2, "label": "Ally", "Type": 2, tactics.IN_MENU: 1},
+                        {"ID": 3, "label": "Enemy", "StrRef": 13, "Type": 4, tactics.IN_MENU: 1},
+                        {"ID": 7, "label": "Enemy: Most Hated", "Type": 64, tactics.IN_MENU: 0}],
             "bases": [{"ID": 2, "label": "HP Level", "StrRef": 20, "ValidForTarget": 7, tactics.IN_MENU: 1},
                       {"ID": 33, "label": "Self, HP", "ValidForTarget": 70, tactics.IN_MENU: 0},
                       {"ID": 22, "label": "Attacked", "ValidForTarget": 1, tactics.IN_MENU: 1},
-                      {"ID": 31, "label": "Surrounded", "ValidForTarget": 1, tactics.IN_MENU: 1},
+                      {"ID": 13, "label": "CUT", "ValidForTarget": 8, tactics.IN_MENU: 0},
                       {"ID": 4, "label": "Clustered", "ValidForTarget": 4, tactics.IN_MENU: 1}],
-            "conditions": [{"ID": 4, "label": "HP < 50%", "StrRef": 30, "ConditionBase": 2, "ConditionParameter": -50, tactics.IN_MENU: 1},
-                           {"ID": 50, "label": "Highest", "ConditionBase": 2, "ConditionParameter": 1, tactics.IN_MENU: 0},
-                           {"ID": 101, "label": "Melee", "ConditionBase": 22, "ConditionParameter": 1, tactics.IN_MENU: 1},
-                           {"ID": 103, "label": "Magic", "ConditionBase": 22, "ConditionParameter": 4, tactics.IN_MENU: 1},
-                           {"ID": 153, "label": "No enemies", "ConditionBase": 31, "ConditionParameter": 0, tactics.IN_MENU: 1},
-                           {"ID": 300, "label": "Self < 50%", "ConditionBase": 33, "ConditionParameter": -50, tactics.IN_MENU: 1},
-                           {"ID": 24, "label": "Clustered 2", "ConditionBase": 4, "ConditionParameter": 2, tactics.IN_MENU: 1}],
-            "commands": [{"ID": 2, "label": "Attack", "StrRef": 40}, {"ID": 3, "label": "Wait"},
-                         {"ID": 4, "label": "Use Ability"}]}}
-        names = {11: "Self", 13: "Enemy", 20: "Health", 30: "Health < 50%", 40: "Attack"}
+            "conditions": [{"ID": 4, "StrRef": 30, "ConditionBase": 2, "ConditionParameter": -50, tactics.IN_MENU: 1},
+                           {"ID": 50, "StrRef": 31, "ConditionBase": 2, "ConditionParameter": 1, tactics.IN_MENU: 0},
+                           {"ID": 101, "StrRef": 32, "ConditionBase": 22, "ConditionParameter": 1, tactics.IN_MENU: 1},
+                           {"ID": 57, "label": "CUT", "ConditionBase": 13, tactics.IN_MENU: 1},
+                           {"ID": 58, "StrRef": 33, "ConditionBase": 13, tactics.IN_MENU: 1},
+                           {"ID": 300, "StrRef": 34, "ConditionBase": 33, "ConditionParameter": -50, tactics.IN_MENU: 1}],
+            "commands": [{"ID": 2, "label": "Attack", "StrRef": 40, "ValidForTarget": 68, tactics.IN_MENU: 1},
+                         {"ID": 3, "label": "Wait", "StrRef": 41, "ValidForTarget": 7, tactics.IN_MENU: 1},
+                         {"ID": 15, "label": "Poultice", "StrRef": 42, "ValidForTarget": 7, tactics.IN_MENU: 1},
+                         {"ID": 9, "label": "Move", "StrRef": 43, "ValidForTarget": 7, tactics.IN_MENU: 0}]},
+            "presets": {1: [{"Target": 3, "Base": 16, "Param": 0, "Command": 2, "Sub": 0, "Chance": 100.0}], 9: []},
+            "preset_info": {1: {"label": "Tank", "StrRef": 50, "Classes": [1, 0, 0]},
+                            9: {"label": "War Dog", "StrRef": 0, "Classes": [17, 0, 0]}},
+            "behaviors": [{"ID": 0, "label": "DEFAULT", "0xa77dbfd8": 60, "0x50a903b6": 61, "AttackBack": 1,
+                           "ChaseEnemy": 1, "DefaultAttack": 1, "AvoidAOE": 1}],
+            "buffs": [10202]}
+        names = {11: "Self", 13: "Enemy", 20: "Health", 30: "Health < 50%", 31: "Highest", 32: "Melee", 33: "x",
+                 34: "Self < 50%", 40: "Attack", 41: "Wait", 42: "Poultice", 43: "Move", 50: "Tank", 60: "Default",
+                 61: "Fights"}
         m = tactics.menu(tables, names.get)
-        self.assertEqual(m["TacticTargets"], [1.0, 1.0, 3.0, 4.0])
-        self.assertEqual(m["TacticTargetNames"], ["Self", "Enemy"])
+        self.assertEqual(m["TacticTargets"], [1.0, 1.0, 2.0, 2.0, 3.0, 4.0])
+        self.assertEqual(m["TacticTargetNames"], ["Self", "Ally", "Enemy"])
         self.assertEqual(m["TacticBaseNames"], ["Health", "Self, HP", "Attacked"])
-        self.assertEqual(m["TacticBases"], [2.0, 1.0, 1.0, 33.0, 0.0, 1.0, 22.0, 1.0, 0.0])
+        self.assertEqual(m["TacticBases"], [2.0, 1.0, 1.0, 1.0, 33.0, 0.0, 1.0, 1.0, 22.0, 1.0, 0.0, 0.0])
         self.assertEqual(m["TacticConds"], [4.0, 2.0, -50.0, 101.0, 22.0, 1.0, 300.0, 33.0, -50.0])
-        self.assertEqual(m["TacticCondNames"], ["Health < 50%", "Melee", "Self < 50%"])
-        self.assertEqual(m["TacticCommandNames"], ["Attack", "Use Ability"])
+        self.assertEqual(m["TacticCommandNames"], ["Attack", "Wait"])  # no items yet, nothing off the menu
+        self.assertEqual(m["TacticCommands"], [2.0, 0.0, 0.0, 1.0, 3.0, 1.0, 1.0, 1.0])
+        self.assertEqual(m["TacticPresets"], [1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 9.0, 17.0, 0.0, 0.0, 1.0, 0.0])
+        self.assertEqual(m["TacticPresetRows"], [3.0, 16.0, 0.0, 2.0, 0.0, 100.0])
+        self.assertEqual(m["TacticPresetNames"], ["Tank", "War Dog"])
+        self.assertEqual(m["TacticBehaviors"], [0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0])
+        self.assertEqual((m["TacticBehaviorNames"], m["TacticBehaviorTexts"], m["TacticBuffs"]),
+                         (["Default"], ["Fights"], [10202.0]))
+        # what the conditions ask of a creature: class, race, gender, rank, armour type
+        self.assertEqual(tactics.traits(1, 3, 1, 2, "Armor - Heavy"), [1.0, 3.0, 1.0, 2.0, 4.0])
+        self.assertEqual(tactics.traits(2, 3, 2, 2, None)[4], 1.0)
+        self.assertEqual(tactics.traits(2, 3, 2, 2, "Clothing")[4], 0.0)
+
+    def test_pick_target(self):
+        # who a row is aimed at: the nearest creature of its list for which the condition holds
+        def c(side, x, hp=100.0, **kw):
+            return {"Side": side, "Pos": (x, 0.0), "Health": hp, "MaxHealth": 100.0, "Stamina": 100.0, **kw}
+        world = {"Creatures": {
+            "hero": c(0, 0.0, 80.0, Party=True, Target="foe1", Class=1),
+            "eleanor": c(0, 4.0, 40.0, Party=True, Target="foe2", Attack=tactics.RANGED, Class=3),
+            "dog": c(0, 2.0, 30.0, Party=True, Target="foe1"),
+            "guard": c(0, 6.0, 10.0),  # same side, not in the party
+            "foe1": c(1, 1.5, Target="hero", Rank=2, Armor=4, Class=1),
+            "foe2": c(1, 9.0, Target="eleanor", Attack=tactics.RANGED, Rank=3, Armor=1, Status={tactics.STUN}),
+            "foe3": c(1, 30.0, Dead=True)},
+            "Hero": "hero", "Controlled": "hero", "Followers": {7: "eleanor"}}
+        row = lambda t, b, p, cmd=tactics.USE_ABILITY, sub=1: {"Target": t, "Base": b, "Param": p, "Command": cmd,
+                                                              "Sub": sub, "Chance": 100.0}
+        pick = lambda r, me="eleanor": tactics.pick_target(r, me, world)
+        # Ally: the nearest below half health; Heal leaves out the unwounded
+        self.assertEqual(pick(row(tactics.ALLY, tactics.HP, -50)), "dog")
+        self.assertEqual(pick(row(tactics.ALLY, tactics.HP, -25)), "guard")
+        self.assertIsNone(pick(dict(row(tactics.ALLY, tactics.HP, 90), Sub=tactics.HEAL)))
+        self.assertEqual(pick(row(tactics.ALLY, tactics.LOWEST_HP, 0)), "guard")
+        self.assertEqual(pick(row(tactics.ALLY, tactics.LOWEST_HP, 1)), "hero")
+        # a party member's Enemy: Any is its own target; the hero, the one in control, a follower by name
+        self.assertEqual(pick(row(tactics.ENEMY, tactics.ANY, 0)), "foe2")
+        self.assertEqual(pick(row(tactics.HERO, tactics.HP, -90)), "hero")
+        self.assertEqual(pick(row(tactics.FOLLOWER_BASE + 7, tactics.HP, -50), me="dog"), "eleanor")
+        self.assertEqual(pick(row(tactics.ENEMY, tactics.ATTACKING_MEMBER, tactics.HERO)), "foe1")
+        self.assertEqual(pick(row(tactics.ENEMY, tactics.MEMBERS_TARGET, tactics.CONTROLLED)), "foe1")
+        # statuses, ranks (the furthest that fits), armour, classes
+        self.assertEqual(pick(row(tactics.ENEMY, tactics.STATUS, tactics.CANT_ATTACK)), "foe2")
+        self.assertIsNone(pick(row(tactics.ENEMY, tactics.STATUS, tactics.KNOCKDOWN)))
+        self.assertEqual(pick(row(tactics.ENEMY, tactics.RANK, 3)), "foe2")
+        self.assertEqual(pick(row(tactics.ENEMY, tactics.ARMOR_TYPE, 6)), "foe1")
+        self.assertEqual(pick(row(tactics.ENEMY, tactics.NEAREST_CLASS, 1), me="guard"), "foe1")
+        # being attacked: herself at range, the hero in melee (within 3.5 m)
+        self.assertEqual(pick(row(tactics.SELF, tactics.ATTACKED_BY, tactics.RANGED)), "eleanor")
+        self.assertIsNone(pick(row(tactics.SELF, tactics.ATTACKED_BY, tactics.MELEE)))
+        self.assertEqual(pick(row(tactics.ALLY, tactics.ATTACKED_BY, tactics.MELEE)), "hero")
+        self.assertEqual(pick(row(tactics.ENEMY, tactics.ATTACKED_BY, tactics.RANGED), me="dog"), "foe2")
+        # range bands from herself; surrounded; her own health whatever the target
+        self.assertEqual(pick(row(tactics.ENEMY, tactics.FOLLOWER_RANGE, 1), me="guard"), "foe2")  # 3 m
+        self.assertEqual(pick(row(tactics.ENEMY, tactics.FOLLOWER_RANGE, 2), me="guard"), "foe1")  # 4.5 m
+        self.assertEqual(pick(row(tactics.SELF, tactics.SURROUNDED, 1), me="hero"), "hero")
+        self.assertEqual(pick(row(tactics.SELF, tactics.SURROUNDED, 0), me="guard"), "guard")
+        self.assertEqual(pick(row(tactics.ALLY, tactics.SELF_HP, -50)), "dog")
+        self.assertIsNone(pick(row(tactics.ENEMY, tactics.SELF_HP, 50)))
+        # counts: enemies alive, most enemies using a ranged attack
+        self.assertEqual(pick(row(tactics.SELF, tactics.ENEMIES_ALIVE, 2)), "eleanor")
+        self.assertIsNone(pick(row(tactics.SELF, tactics.ENEMIES_ALIVE, 3)))
+        self.assertIsNone(pick(row(tactics.SELF, tactics.MOST_USING, tactics.RANGED)))
+        self.assertEqual(pick(row(tactics.SELF, tactics.ALL_USING, 3)), "eleanor")
+        # a cluster: two enemies within 5 m of each other
+        world["Creatures"]["foe2"]["Pos"] = (5.0, 0.0)
+        self.assertEqual(pick(row(tactics.ENEMY, tactics.CLUSTERED, 2), me="guard"), "foe2")
+        self.assertIsNone(pick(row(tactics.ENEMY, tactics.CLUSTERED, 3)))
 
     def test_allies(self):
         # an ally fights on the party's side; an immortal one never falls; the fight is lost with the party down
